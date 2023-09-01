@@ -29,3 +29,5 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
+URL: https://github.com/KCEvers/bifurcationEWS
+BugReports: https://github.com/KCEvers/bifurcationEWS/issues
