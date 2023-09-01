@@ -1,0 +1,78 @@
+---
+title: "Demo of bifurcationEWS package"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Demo of bifurcationEWS package}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  # fig.width=10, fig.height=2, 
+  fig.fullwidth=TRUE,
+  comment = "#>"
+)
+rgl::setupKnitr(autoprint = TRUE) # suppress opening new window
+```
+
+```{r setup}
+# devtools::install_github("KCEvers/bifurcationEWS")
+
+library(bifurcationEWS)
+library(dplyr)
+library(ggplot2)
+# install.packages("EWSmethods")
+
+```
+
+```{r demo Lorenz, eval=FALSE, include=FALSE}
+parameters <- c(a = -8/3, b = -10, c = 28)
+state      <- c(X = 1, Y = 1, Z = 1)
+times      <- seq(0, 100, by = 0.01)
+
+out <- deSolve::ode(y = state, times = times, func = Lorenz_model, parms = parameters)
+
+# plot(out)
+# scatterplot3d::scatterplot3d(out[,-1], type = "l")
+
+```
+
+### Generating timeseries
+
+```{r demo GLV}
+p <- 4
+mu <- rep(0, p)
+r0 = c(1, .72, 1.53, 1.27)
+C0 = matrix(
+   c(
+     1,
+     1.09,
+     1.52,
+     0,
+     0,
+     1,
+     0.44,
+     1.36,
+     2.33,
+     0,
+     1,
+     0.47,
+     1.21,
+     0.51,
+     0.35,
+     1
+   ),
+   p,
+   p,
+   byrow = TRUE
+ )
+ X_names = paste0("X", 1:p)
+X0      <- runif(p) %>% setNames(paste0("X", 1:p))
+times      <- seq(0, 1000, by = 0.01)
+model_pars <- list(r = r0, s = .86, C0 = C0, mu = mu)
+df <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars, method = 'lsoda')
+plot(df[,c("X1")], cex  = .1, xlab = "Time", ylab = "X1")
+```

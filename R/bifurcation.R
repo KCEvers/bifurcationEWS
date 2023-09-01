@@ -1,0 +1,419 @@
+#' Generate timeseries with changing bifurcation parameter
+#'
+#' @param model ODE in the style of deSolve
+#' @param model_pars Fixed model parameters
+#' @param bifpar_list List with changing bifurcation parameter values
+#' @param X0 Initial state
+#' @param X_names Names of variables in model
+#' @param seed_nr Seed number
+#' @param times Vector of timepoints
+#' @param method Method of generating ODE passed to deSolve::ode
+#' @param stopifregime End generating timeseries if this function is satisfied
+#'
+#' @return Matrix with timeseries
+#' @export
+#'
+#' @examples
+bifurcation_ts <- function(model, model_pars, bifpar_list,
+                           # p,
+                           X0 = c(),
+                           X_names = names(X0),
+                           seed_nr = 123,
+                           times = seq(0, 100, by = 0.01),
+                           method = c("lsoda", "euler", "rk4")[1],
+                           stopifregime = function(out){FALSE},
+                           do_downsample = TRUE,
+                           downsample_pars = list(type = c("average", "one_sample")[1],
+                                                  win_size = 10,
+                                                  which_X = c(10, "first", "middle", "last", "random")[1],
+                                                  seed = 123),
+                           silent = FALSE){
+  if (rlang::is_empty(X0) & rlang::is_empty(X_names)){
+    message("Specify either a named initial condition X0 (e.g. X0 = (X1 = .1, X2 = .3)) or the names of your variables to set a random initial condition using X_names (e.g. X_names = c('X1', 'X2')).")
+    return()
+  }
+  # Initialize
+  if (rlang::is_empty(X0)){
+    set.seed(seed_nr)
+    X0      <- runif(length(X_names)) %>% setNames(X_names)
+  }
+  min_t = 0
+  bifpar_idxs = seq.int(length(bifpar_list))
+  tmps <- list()
+
+  # Generate data for each bifurcation parameter
+  for (bifpar_idx in bifpar_idxs){
+    if (!silent){
+      print(sprintf("%s Generating data for bifurcation index %d/%d", Sys.time(), bifpar_idx, length(bifpar_idxs)))
+    }
+    # Adjust bifurcation parameter
+    bifpar = bifpar_list[[bifpar_idx]]
+    model_pars = utils::modifyList(model_pars, bifpar)
+
+    # Generate data
+    out <- deSolve::ode(y = X0, times = times + min_t, func = model,
+                        parms = model_pars,
+                        method = method)
+    # head(out)
+    # tail(out)
+    # nrow(out)
+
+    # Overwrite initial state
+    X0 <- out[nrow(out),names(X0)]
+    min_t = out[nrow(out),c("time")]
+
+    # Remove last time point
+    out <- out[-nrow(out),]
+    # print(X0)
+
+    # Stop if condition is met
+    if (stopifregime(out)){
+      message("Hit undesirable regime! Deleting generated timeseries")
+      break
+    }
+
+    if (do_downsample){
+      out = downsample(out, X_names, type = downsample_pars$type,
+                       win_size = downsample_pars$win_size,
+                       which_X = downsample_pars$which_X,
+                       seed_nr = downsample_pars$seed_nr)
+    }
+    # Save intermediate result for efficiency
+    tmp <- tempfile(fileext = ".RDS")
+    saveRDS(out, tmp)
+    tmps[bifpar_idx] <- tmp
+    rm(out)
+  }
+
+  # Collect all generate data and remove temporary files
+  OUT = do.call(rbind, lapply(bifpar_idxs,
+                              function(bifpar_idx){
+                                tmp <- tmps[[bifpar_idx]]
+                                out <- readRDS(tmp)
+                                unlink(tmp)
+                                return(cbind(out, bifpar_idx))
+                              }))
+  # OUT$time_idx = 1:nrow(OUT)
+  OUT %>% head
+
+  return(cbind(OUT, time_idx=1:nrow(OUT)))
+}
+
+
+#' Find both local peaks and troughs of timeseries
+#'
+#' @param df Dataframe
+#' @param X_names Column names of df to find peaks and troughs for
+#'
+#' @return Dataframe with peaks and troughs per variable, including index of the beginning, height, and end of each peak
+#' @export
+#'
+#' @examples
+peaks_bifdiag <- function(df, X_names){
+
+  peaks = do.call(rbind, lapply(X_names, function(i){
+    # Find maximum and minimum peaks
+    maxpeaks = pracma::findpeaks(df[,i])
+    # Negative to find minimum peaks
+    minpeaks = pracma::findpeaks(-df[,i])
+
+    if (!rlang::is_empty(maxpeaks)){
+      maxpeaks_df = cbind(df[maxpeaks[,2], c(i, setdiff(colnames(df), X_names))],
+                          peak_idx = maxpeaks[,2],
+                          begin_peak_idx = maxpeaks[,3], end_peak_idx = maxpeaks[,4]
+      ) %>% as.data.frame() %>% dplyr::mutate(minmax = "maxpeak")
+      # } else {
+      #   # In case there are no peaks, we are most likely dealing with a constant.
+      #   maxpeaks_df = cbind(df[, c(i, setdiff(colnames(df), X_names))],
+      #                       peak_idx = 1:nrow(df),
+      #                       begin_peak_idx =  1:nrow(df), end_peak_idx = 1:nrow(df),
+      #                       minmax = 1)
+    }
+    if (!rlang::is_empty(minpeaks)){
+      minpeaks_df = cbind(df[minpeaks[,2], c(i, setdiff(colnames(df), X_names))],
+                          peak_idx = minpeaks[,2],
+                          begin_peak_idx = minpeaks[,3], end_peak_idx = minpeaks[,4]
+                          # minmax = rep(0, nrow(maxpeaks))
+      ) %>% as.data.frame() %>% dplyr::mutate(minmax = "minpeak")
+
+      # } else {
+      #   minpeaks_df = cbind(df[, c(i, setdiff(colnames(df), X_names))],
+      #                       peak_idx = 1:nrow(df),
+      #                       begin_peak_idx =  1:nrow(df), end_peak_idx = 1:nrow(df),
+      #                       minmax = 0
+      # )
+    }
+    # Make sure each bifurcation parameter has an entry
+    peaks_df = rbind(maxpeaks_df, minpeaks_df)
+    missing_bifpar_idx = setdiff(unique(df[,c("bifpar_idx")]), peaks_df$bifpar_idx)
+    node_df = df[,c(i, setdiff(colnames(df), X_names))] %>% as.data.frame() %>%
+      # dplyr::group_by(bifpar_idx) %>%
+      dplyr::slice(1, .by = bifpar_idx) %>% ungroup() %>%
+      dplyr::filter(bifpar_idx %in% missing_bifpar_idx) %>%
+      dplyr::mutate(minmax="node",
+                    peak_idx = time_idx,
+                    begin_peak_idx = time_idx, end_peak_idx = time_idx)
+    peaks_df_complete = rbind(peaks_df, node_df) %>% dplyr::mutate(variable = i) %>% dplyr::rename("X" = all_of(i))
+
+    return(peaks_df_complete)
+  }))
+
+  return(peaks)
+}
+
+
+#' Compute within cluster sum of squares (WCSS)
+#'
+#' @param vec Vector to partition into temporal clusters
+#' @param cluster_idx Vector with cluster assignment of each point in vec, such as c(1,2,3,1,2,3) for k = 3 clusters
+#'
+#' @return Within cluster sum of squares
+#' @export
+#'
+#' @examples
+WCSS <- function(vec, cluster_idx){
+  # From the package sarafrr/basicClEval
+  vec = as.matrix(vec)
+  sizeCl <- summary(as.factor(cluster_idx))
+  WCSSByClByVar <- tapply(vec, list(rep(cluster_idx,ncol(vec)),col(vec)),
+                          function(x) var(x, na.rm=TRUE)*(length(x)-1))
+  # WCSSByClByVar <- as.data.frame(WCSSByClByVar)
+  # WCSSByClByVar <- setNames(WCSSByClByVar, names(df))
+  WCSSByCl <- rowSums(as.data.frame(WCSSByClByVar))
+  WCSS <- sum(WCSSByCl)
+  return(WCSS)
+}
+
+
+#' Find best matching period by partitioning the timeseries into temporal clusters and minimizing within-cluster sum of squares for peak coordinates and peak indices
+#'
+#' @param ks Sequence of clusters, starting at 2
+#' @param coord Peak and trough coordinates
+#' @param peak_idx Peak and trough indices
+#'
+#' @return Within cluster sum of squares per cluster size k
+#' @export
+#'
+#' @examples
+find_WCSS_per_k <- function(ks, coord, peak_idx){
+  # Compute within-cluster sum of squares for peak coordinates and peak indices
+  coord_WCSS = unlist(lapply(ks, function(k){WCSS(vec = coord,
+                                                  cluster_idx = rep(1:k, length(coord))[1:length(coord)])}))
+  peak_idx_WCSS = unlist(lapply(ks, function(k){WCSS(vec = diff(peak_idx),
+                                                     cluster_idx = rep(1:k, length(coord))[2:length(coord)])}))
+  WCSS_df = cbind(k = ks, scale(cbind(coord_WCSS, peak_idx_WCSS), center = FALSE))
+
+  # plot(cluster_idx, coord)
+  # plot(cluster_idx, peak_idx)
+  return(as.data.frame(WCSS_df))
+}
+
+
+#' Find best fitting period length k as determined by the minimum within cluster sum of squares
+#'
+#' @param ks Vector of cluster sizes
+#' @param coord Peak and trough coordinates
+#' @param peak_idx Peak and trough indices
+#'
+#' @return Dataframe with best fitting period length k and the corresponding WCSS  for peak and trough coordinates and indices
+#'
+#' @examples
+find_best_k <- function(ks, coord, peak_idx){
+  # Finding the best period is tricky: The global minimum might be a subharmonic, but the first local minimum might not be optimal for a more complex oscillation. If the timeseries is truly periodic, local minima in WCSS will occur for every subharmonic (e.g. period = 4, minima at period = c(4,8,12,...)).
+  WCSS_df = find_WCSS_per_k(ks, coord, peak_idx)
+
+  # Apply same method to find minimal period.
+  coord_WCSS_subh = unlist(lapply(ks, function(k){WCSS(vec = WCSS_df[,2],
+                                                       cluster_idx = rep(1:k, length(WCSS_df[,2]))[1:length(WCSS_df[,2])])}))
+  peak_idx_WCSS_subh = unlist(lapply(ks, function(k){WCSS(vec = WCSS_df[,3],
+                                                          cluster_idx = rep(1:k, length(WCSS_df[,3]))[1:length(WCSS_df[,3])])}))
+  WCSS_subh_df = cbind(period = ks - 1, scale(cbind(coord_WCSS_subh, peak_idx_WCSS_subh), center = FALSE))
+  idx_min = which.min(apply(WCSS_subh_df[,2:3], 1, mean))
+  WCSS_min = data.frame(t(c(WCSS_df[idx_min,], WCSS_subh_df[idx_min,2:3])))
+  # print(WCSS_min)
+  return(WCSS_min)
+
+}
+
+
+
+get_bifurcation_range <- function(bifpar_start, bifpar_end, baseline_steps, transition_steps, post_steps){
+
+  if (is.na(bifpar_end)){
+    # Null model
+    s_seq = rep(bifpar_start, baseline_steps + transition_steps + post_steps)
+  } else {
+    s_seq = c(rep(bifpar_start, baseline_steps),
+              seq(bifpar_start, bifpar_end, length.out = transition_steps),
+              rep(bifpar_end, post_steps))
+  }
+  return(s_seq)
+}
+
+
+#' Find consecutive values in sequence
+#'
+#' @param bifpar_idx_ Sequence of indices
+#'
+#' @return Start and end of each consecutive value sequence
+#'
+#' @examples
+find_conseq_seq = function(bifpar_idx_) {
+  bifpar_idx = sort(unique(bifpar_idx_))
+  list_conseq_seq = split(bifpar_idx, cumsum(c(1, diff(bifpar_idx) != 1)))
+  df_conseq_seq = rbind(
+    purrr::map(list_conseq_seq, min) %>% as.data.frame(),
+    purrr::map(list_conseq_seq, max) %>% as.data.frame(),
+    purrr::map(list_conseq_seq, length) %>% as.data.frame()
+  ) %>% t() %>%
+    magrittr::set_colnames(c("start_bifpar_idx", "end_bifpar_idx", "length_region")) %>% as.data.frame() %>%
+    dplyr::mutate(region_nr = 1:nrow(.), nr_regions = nrow(.)) %>%  rowwise()
+
+  return(df_conseq_seq %>% arrange(start_bifpar_idx))
+}
+
+
+
+#' Find whether and when basin boundaries are hit
+#'
+#' @param peaks_df Dataframe with peaks
+#' @param variable_name Column name in dataframe to assess
+#' @param min_edge Minimum value reached
+#' @param max_edge Maximum value reached
+#'
+#' @return Dataframe with bifurcation parameter value for which the system touches the basin boundaries as defined by min_edge and max_edge, if it hits these. Otherwise, dataframe filled with NA.
+#'
+#' @examples
+find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1){
+
+  minmax_peaks_df = peaks_df %>% select(bifpar_idx, variable, minmax, time_idx, X) %>%
+    filter(variable == variable_name) %>%
+    group_by(bifpar_idx, variable, minmax) %>%
+    dplyr::summarise(max = round(max(X), 2), min = round(min(X), 2), .groups='drop') %>%
+    tidyr::pivot_wider(names_from = "minmax", values_from = c("max", "min")) %>%
+    select(bifpar_idx, variable, max_maxpeak, min_minpeak) %>% ungroup %>%
+    dplyr::filter(max_maxpeak == max_edge & min_minpeak == min_edge) %>% arrange(bifpar_idx) %>%
+    filter(row_number()==1 | row_number()==n())
+  # If the edges were not touched
+  if (nrow(minmax_peaks_df) == 0){
+    minmax_peaks_df = data.frame(bifpar_idx = NA)
+  }
+
+  basin_bound = data.frame(start_bifpar_idx = minmax_peaks_df %>% slice(1) %>% pull(bifpar_idx),
+                           end_bifpar_idx = minmax_peaks_df %>% slice(nrow(.)) %>% pull(bifpar_idx),
+                           regime = "Basin-Boundary"
+  ) %>%
+    dplyr::mutate(length_region = end_bifpar_idx- start_bifpar_idx + 1, region_nr = ifelse(is.na(start_bifpar_idx), NA, 1), nr_regions = ifelse(is.na(start_bifpar_idx), NA, 1))
+
+  return(basin_bound)
+}
+
+
+#' Find regime boundaries
+#'
+#' @param regimes Dataframe with periodicity per value of the bifurcation parameter
+#' @param min_length_regime Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime
+#'
+#' @return Dataframe with regime boundaries
+#'
+#' @examples
+find_regime_bounds <- function(regimes, min_length_regime = 10){
+  # Find regimes that satisfy a certain size
+  regimes = regimes %>% ungroup() %>% arrange(start_bifpar_idx)
+  regime_idx = which(regimes$length_region >= min_length_regime)
+
+  regime_bounds_df = lapply(1:(length(regime_idx)-1), function(i){
+    from_regime = regimes[regime_idx[i],]
+    to_regime = regimes[regime_idx[i+1],]
+    return(data.frame(regime1 = from_regime$regime,
+                      regime2 = to_regime$regime,
+                      regime1_start_idx = from_regime$start_bifpar_idx,
+                      regime1_halfway_idx = from_regime$start_bifpar_idx + ceiling((from_regime$end_bifpar_idx - from_regime$start_bifpar_idx) / 2),
+                      regime1_end_idx = from_regime$end_bifpar_idx,
+                      regime1_length = from_regime$length_region,
+                      regime2_start_idx = to_regime$start_bifpar_idx,
+                      regime2_end_idx = to_regime$end_bifpar_idx,
+                      regime2_length = to_regime$length_region
+    ))
+  }) %>% do.call(rbind, .) %>% as.data.frame()
+
+  return(regime_bounds_df)
+}
+
+
+#' Find regimes of dynamical system
+#'
+#' @param df Dataframe
+#' @param X_names Names of variables in model
+#' @param ks Sequence of cluster sizes, starts at 2
+#' @param thresh_coord_WCSS Threshold for within cluster sum of squares in peak and trough coordinates that determines a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning
+#' @param thresh_peak_idx_WCSS Same as thresh_coord_WCSS but for peak and trough indices
+#' @param min_length_regime Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime
+#'
+#' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
+#' @export
+#'
+#' @examples
+find_regimes <- function(df,
+                         X_names,
+                         ks = 2:100,
+                         thresh_coord_WCSS = .2,
+                         thresh_peak_idx_WCSS=.2,
+                         min_length_regime = 10){
+
+  # Get dataframe with peaks
+  peaks_df = peaks_bifdiag(df, X_names)
+  head(peaks_df)
+
+  # For each value of the bifurcation parameter, find the period length k which has a minimum WCSS.
+  print("Finding best fitting period length for all timeseries")
+  period_per_var = peaks_df %>% group_by(variable, bifpar_idx) %>%
+    dplyr::arrange(time_idx, .by_group=TRUE) %>%
+    dplyr::group_modify(~ find_best_k(ks = ks, coord = .x$X, peak_idx = .x$peak_idx)) %>%
+    ungroup() %>% tidyr::unnest(names(.)) %>%
+    # Our algorithm will *always* find a period length k with a minimum WCSS, also for chaotic data. Set a threshold that decides which WCSS is too large to be classified as a neat periodic sequence.
+    dplyr::mutate(period = ifelse(coord_WCSS > thresh_coord_WCSS & peak_idx_WCSS > thresh_peak_idx_WCSS,
+                                  "Chaotic or Transitioning", paste0("Period-", k) ))
+  head(period_per_var)
+
+  periods = period_per_var %>% select(bifpar_idx, period, variable) %>%
+    group_by(bifpar_idx, period) %>%
+    dplyr::mutate(period_group = paste0(
+      unique(period),
+      " (",
+      paste0(sort(unique(variable)), collapse = ","),
+      ")"
+    )
+    ) %>% group_by(bifpar_idx) %>%
+    dplyr::mutate(period_bifpar = paste0(sort(unique(period_group)), collapse = ' AND ')
+    ) %>% select(-period_group) %>% ungroup() %>%
+    tidyr::pivot_wider(names_from = variable, values_from = period) %>%
+    arrange(bifpar_idx)
+
+  periods%>%as.data.frame%>%head(n=50)
+
+  # Get basin boundaries (when system hits edges of basin)
+  basin_bound = find_basin_boundary(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1)
+
+  # Compile regimes
+  regimes = periods %>%
+    group_by(period_bifpar) %>%
+    group_modify( ~ find_conseq_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
+    ungroup() %>% dplyr::rename(regime = period_bifpar) %>%
+    rbind(basin_bound)
+
+  regimes %>% head(n=100)
+
+  # Find regime boundaries
+  regime_bounds = find_regime_bounds(regimes, min_length_regime = min_length_regime) %>%
+    # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
+    merge(df %>%
+            dplyr::filter(bifpar_idx %in% c(regime_bounds$regime1_start_idx - 1)) %>% slice_tail(n=1, by = bifpar_idx) %>%
+            dplyr::mutate(regime1_start_idx= bifpar_idx + 1) %>%
+            select(regime1_start_idx, all_of(X_names)))
+
+  return(list(period_per_var = period_per_var,
+              periods = periods,
+              regimes = regimes,
+              regime_bounds = regime_bounds))
+}
