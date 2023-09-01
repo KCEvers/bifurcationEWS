@@ -4,7 +4,7 @@
 # usethis::use_r("example")
 #
 # Clear workspace
-# devtools::load_all()
+# devtools::load_all(".")
 #
 # devtools::build_vignettes()
 # devtools::check()
@@ -16,7 +16,7 @@
 # browseURL("doc/demo.html")
 
 # Add dependencies
-# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl")
+# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x")
 # for (p in pkgs){
 # usethis::use_package(p)
 # }

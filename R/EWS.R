@@ -1,5 +1,14 @@
-
-
+#' Compute early warning signals (EWS)
+#'
+#' @param df Dataframe
+#' @param uni_metrics List of univariate EWS
+#' @param multi_metrics List of multivariate EWS
+#' @param pars List of parameters to pass to EWS functions, empty list if no parameters need to be passed
+#'
+#' @return Dataframe with early warning signals
+#' @export
+#'
+#' @examples
 run_EWS <- function(df, uni_metrics, multi_metrics, pars = list()){
 
   # print(names(list(...)))
@@ -26,6 +35,17 @@ run_EWS <- function(df, uni_metrics, multi_metrics, pars = list()){
   return(rbind(uni_EWS, multi_EWS))
 }
 
+#' Run EWS for all bifurcation parameter values
+#'
+#' @param df Dataframe
+#' @param uni_metrics List of univariate EWS
+#' @param multi_metrics List of multivariate EWS
+#' @param pars List of parameters to pass to EWS functions, empty list if no parameters need to be passed
+#'
+#' @return Dataframe with EWS
+#' @export
+#'
+#' @examples
 run_bifEWS <- function(df, uni_metrics, multi_metrics, pars = list()){
 
   pars=list("RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05))
@@ -40,8 +60,19 @@ run_bifEWS <- function(df, uni_metrics, multi_metrics, pars = list()){
 }
 
 
+#' Get warnings per critical value of sigma
+#'
+#' @param y Vector with EWS
+#' @param bifpar_idx Bifurcation parameter index
+#' @param z_score Z-score
+#' @param crit_values Sequence of critical values of sigma
+#' @param nr_consecutive_warnings Number of consecutive warnings to look for
+#'
+#' @return Dataframe with warnings
+#' @export
+#'
+#' @examples
 get_warnings_per_sigma <- function(y, bifpar_idx, z_score, crit_values, nr_consecutive_warnings = 1){
-
   lapply(crit_values, function(crit_value){
     idx_warnings = which(abs(z_score) >= crit_value)
 
@@ -64,6 +95,18 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, crit_values, nr_conse
 }
 
 
+#' Get warnings per EWS metric
+#'
+#' @param split_df_EWS Dataframe of EWS split into lists, with one entry per value of the bifurcation parameter
+#' @param baseline_steps Number of baseline steps in bifurcation parameter
+#' @param transition_steps Number of transition steps in bifurcation parameter
+#' @param sigmas_crit Sequence of critical values of sigma
+#' @param nr_consecutive_warnings Number of consecutive warnings to look for
+#'
+#' @return Dataframe with warnings per EWS metric
+#' @export
+#'
+#' @examples
 get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
   EWS_df_CI = split_df_EWS %>% dplyr::arrange(bifpar_idx) %>% dplyr::group_by(metric) %>%
@@ -100,26 +143,53 @@ get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_
 
 
 ## Multivariate EWS Metrics
+#' Eigenvalue
+#'
+#' @param x Matrix
+#'
+#' @return Eigenvalue
+#' @export
+#'
+#' @examples
 eigenvalue <- function(x) {
   eigen(cov(x))$values[1]
 }
 
+#' Mean absolute cross-correlation
+#'
+#' @param x Matrix
+#'
+#' @return Mean absolute cross-correlation
+#' @export
+#'
+#' @examples
 get_conn <- function(x) {
   mean(abs(cor(x)[upper.tri(cor(x))]))
-  #  mean(abs(cor(x)))
 }
 
 
+#' Spatial variance
+#'
+#' @param x Dataframe or matrix
+#'
+#' @return Spatial variance
+#' @export
+#'
+#' @examples
 spatial_variance <- function(x) {
   x <- as.matrix(x)
   return(1/(ncol(x)*nrow(x)) * sum((x - mean(x))**2))
-  # mean((x - apply(x, 2, mean)) ^ 2)
-  # KCE: Above is incorrect! Subtracting the mean like this does not subtract the mean from each column. Use scale():
-  # return((1/(nrow(x) - 1)) * mean(apply(scale(x, center=TRUE, scale = FALSE)**2, 2, sum)))
-
 }
 
 
+#' Spatial skewness
+#'
+#' @param x Dataframe or matrix
+#'
+#' @return Spatial skewness
+#' @export
+#'
+#' @examples
 spatial_skewness <- function(x) {
   x <- as.matrix(x)
   sigma3 = spatial_variance(x)**(1.5)
@@ -127,6 +197,14 @@ spatial_skewness <- function(x) {
 }
 
 
+#' Spatial kurtosis
+#'
+#' @param x Dataframe or matrix
+#'
+#' @return Spatial kurtosis
+#' @export
+#'
+#' @examples
 spatial_kurtosis <- function(x) {
   x <- as.matrix(x)
   sigma4 = spatial_variance(x)**(2)
@@ -134,6 +212,19 @@ spatial_kurtosis <- function(x) {
 }
 
 
+#' Recurrence Quantification Analysis
+#'
+#' @param x
+#' @param emDim
+#' @param emLag
+#' @param theiler
+#' @param distNorm
+#' @param targetValue
+#'
+#' @return
+#' @export
+#'
+#' @examples
 runRQA <- function(x, emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05){
   RM <- casnet::rp(
     x,
@@ -150,8 +241,34 @@ runRQA <- function(x, emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targe
 
 ## Univariate EWS Metrics
 
+#' Skewness
+#'
+#' @param x Vector
+#'
+#' @return Skewness
+#' @export
+#'
+#' @examples
 skewness <- function(x){moments::skewness(x)}
+
+#' Kurtosis
+#'
+#' @param x Vector
+#'
+#' @return Kurtosis
+#' @export
+#'
+#' @examples
 kurtosis <- function(x){moments::kurtosis(x)}
+
+#' Lag-1 Autocorrelation
+#'
+#' @param x Vector
+#'
+#' @return Lag-1 Autocorrelation
+#' @export
+#'
+#' @examples
 get_autocorr <- function(x) {
   acf(x, plot = FALSE, lag = 1)$acf[[2]]
 }

@@ -17,6 +17,7 @@ Imports:
     casnet,
     deSolve,
     dplyr,
+    ggh4x,
     ggplot2,
     moments,
     pracma,
@@ -29,5 +30,5 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
-URL: https://github.com/KCEvers/bifurcationEWS
+URL: https://github.com/KCEvers/bifurcationEWS, https://kcevers.github.io/bifurcationEWS/
 BugReports: https://github.com/KCEvers/bifurcationEWS/issues
