@@ -24,6 +24,7 @@ The goal of bifurcationEWS is to ...
 
 You can install bifurcationEWS from [GitHub](https://github.com) with:
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 devtools::install_github("KCEvers/bifurcationEWS")
+
 ```
