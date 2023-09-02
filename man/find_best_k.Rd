@@ -2,7 +2,7 @@
 % Please edit documentation in R/bifurcation.R
 \name{find_best_k}
 \alias{find_best_k}
-\title{Find best fitting period length k as determined by the minimum within cluster sum of squares}
+\title{Find best fitting period length k}
 \usage{
 find_best_k(ks, coord, peak_idx)
 }
@@ -14,8 +14,8 @@ find_best_k(ks, coord, peak_idx)
 \item{peak_idx}{Peak and trough indices}
 }
 \value{
-Dataframe with best fitting period length k and the corresponding WCSS  for peak and trough coordinates and indices
+#' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
 }
 \description{
-Find best fitting period length k as determined by the minimum within cluster sum of squares
+Find best fitting period length k
 }

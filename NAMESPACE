@@ -2,12 +2,11 @@
 
 export(GLV_model)
 export(Lorenz_model)
-export(WCSS)
 export(add_obs_noise)
 export(bifurcation_ts)
 export(downsample)
 export(eigenvalue)
-export(find_WCSS_per_k)
+export(find_best_k)
 export(find_regimes)
 export(get_autocorr)
 export(get_conn)

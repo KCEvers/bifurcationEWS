@@ -7,10 +7,10 @@
 #' @param X_names Names of variables in model
 #' @param seed_nr Seed number
 #' @param times Vector of timepoints
-#' @param method Method of generating ODE passed to deSolve::ode
+#' @param deSolve_method Method of generating ODE passed to deSolve::ode
 #' @param stopifregime End generating timeseries if this function is satisfied
 #'
-#' @return Matrix with timeseries
+#' @return List with timeseries matrix and parameters used to generate the timeseries
 #' @export
 #'
 #' @examples
@@ -20,7 +20,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
                            X_names = names(X0),
                            seed_nr = 123,
                            times = seq(0, 100, by = 0.01),
-                           method = c("lsoda", "euler", "rk4")[1],
+                           deSolve_method = c("lsoda", "euler", "rk4")[1],
                            stopifregime = function(out){FALSE},
                            do_downsample = TRUE,
                            downsample_pars = list(type = c("average", "one_sample")[1],
@@ -53,7 +53,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
     # Generate data
     out <- deSolve::ode(y = X0, times = times + min_t, func = model,
                         parms = model_pars,
-                        method = method)
+                        method = deSolve_method)
     # head(out)
     # tail(out)
     # nrow(out)
@@ -96,7 +96,13 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
   # OUT$time_idx = 1:nrow(OUT)
   OUT %>% head
 
-  return(cbind(OUT, time_idx=1:nrow(OUT)))
+  return(list(df = as.data.frame(cbind(OUT, time_idx=1:nrow(OUT))),
+              model_pars = model_pars,
+              seed_nr = seed_nr,
+              deSolve_method = deSolve_method,
+              bifpar_list = bifpar_list,
+              do_downsample = do_downsample,
+              downsample_pars = downsample_pars))
 }
 
 
@@ -159,80 +165,6 @@ peaks_bifdiag <- function(df, X_names){
   }))
 
   return(peaks)
-}
-
-
-#' Compute within cluster sum of squares (WCSS)
-#'
-#' @param vec Vector to partition into temporal clusters
-#' @param cluster_idx Vector with cluster assignment of each point in vec, such as c(1,2,3,1,2,3) for k = 3 clusters
-#'
-#' @return Within cluster sum of squares
-#' @export
-#'
-#' @examples
-WCSS <- function(vec, cluster_idx){
-  # From the package sarafrr/basicClEval
-  vec = as.matrix(vec)
-  sizeCl <- summary(as.factor(cluster_idx))
-  WCSSByClByVar <- tapply(vec, list(rep(cluster_idx,ncol(vec)),col(vec)),
-                          function(x) var(x, na.rm=TRUE)*(length(x)-1))
-  # WCSSByClByVar <- as.data.frame(WCSSByClByVar)
-  # WCSSByClByVar <- setNames(WCSSByClByVar, names(df))
-  WCSSByCl <- rowSums(as.data.frame(WCSSByClByVar))
-  WCSS <- sum(WCSSByCl)
-  return(WCSS)
-}
-
-
-#' Find best matching period by partitioning the timeseries into temporal clusters and minimizing within-cluster sum of squares for peak coordinates and peak indices
-#'
-#' @param ks Sequence of clusters, starting at 2
-#' @param coord Peak and trough coordinates
-#' @param peak_idx Peak and trough indices
-#'
-#' @return Within cluster sum of squares per cluster size k
-#' @export
-#'
-#' @examples
-find_WCSS_per_k <- function(ks, coord, peak_idx){
-  # Compute within-cluster sum of squares for peak coordinates and peak indices
-  coord_WCSS = unlist(lapply(ks, function(k){WCSS(vec = coord,
-                                                  cluster_idx = rep(1:k, length(coord))[1:length(coord)])}))
-  peak_idx_WCSS = unlist(lapply(ks, function(k){WCSS(vec = diff(peak_idx),
-                                                     cluster_idx = rep(1:k, length(coord))[2:length(coord)])}))
-  WCSS_df = cbind(k = ks, scale(cbind(coord_WCSS, peak_idx_WCSS), center = FALSE))
-
-  # plot(cluster_idx, coord)
-  # plot(cluster_idx, peak_idx)
-  return(as.data.frame(WCSS_df))
-}
-
-
-#' Find best fitting period length k as determined by the minimum within cluster sum of squares
-#'
-#' @param ks Vector of cluster sizes
-#' @param coord Peak and trough coordinates
-#' @param peak_idx Peak and trough indices
-#'
-#' @return Dataframe with best fitting period length k and the corresponding WCSS  for peak and trough coordinates and indices
-#'
-#' @examples
-find_best_k <- function(ks, coord, peak_idx){
-  # Finding the best period is tricky: The global minimum might be a subharmonic, but the first local minimum might not be optimal for a more complex oscillation. If the timeseries is truly periodic, local minima in WCSS will occur for every subharmonic (e.g. period = 4, minima at period = c(4,8,12,...)).
-  WCSS_df = find_WCSS_per_k(ks, coord, peak_idx)
-
-  # Apply same method to find minimal period.
-  coord_WCSS_subh = unlist(lapply(ks, function(k){WCSS(vec = WCSS_df[,2],
-                                                       cluster_idx = rep(1:k, length(WCSS_df[,2]))[1:length(WCSS_df[,2])])}))
-  peak_idx_WCSS_subh = unlist(lapply(ks, function(k){WCSS(vec = WCSS_df[,3],
-                                                          cluster_idx = rep(1:k, length(WCSS_df[,3]))[1:length(WCSS_df[,3])])}))
-  WCSS_subh_df = cbind(period = ks - 1, scale(cbind(coord_WCSS_subh, peak_idx_WCSS_subh), center = FALSE))
-  idx_min = which.min(apply(WCSS_subh_df[,2:3], 1, mean))
-  WCSS_min = data.frame(t(c(WCSS_df[idx_min,], WCSS_subh_df[idx_min,2:3])))
-  # print(WCSS_min)
-  return(WCSS_min)
-
 }
 
 
@@ -322,6 +254,18 @@ find_regime_bounds <- function(regimes, min_length_regime = 10){
   regimes = regimes %>% ungroup() %>% arrange(start_bifpar_idx)
   regime_idx = which(regimes$length_region >= min_length_regime)
 
+  if (rlang::is_empty(regime_idx)){
+    return(data.frame(regime1 = NA,
+                      regime2 = NA,
+                      regime1_start_idx = NA,
+                      regime1_halfway_idx = NA,
+                      regime1_end_idx = NA,
+                      regime1_length = NA,
+                      regime2_start_idx = NA,
+                      regime2_end_idx = NA,
+                      regime2_length = NA
+    ))
+  } else {
   regime_bounds_df = lapply(1:(length(regime_idx)-1), function(i){
     from_regime = regimes[regime_idx[i],]
     to_regime = regimes[regime_idx[i+1],]
@@ -338,6 +282,7 @@ find_regime_bounds <- function(regimes, min_length_regime = 10){
   }) %>% do.call(rbind, .) %>% as.data.frame()
 
   return(regime_bounds_df)
+  }
 }
 
 
@@ -346,8 +291,8 @@ find_regime_bounds <- function(regimes, min_length_regime = 10){
 #' @param df Dataframe
 #' @param X_names Names of variables in model
 #' @param ks Sequence of cluster sizes, starts at 2
-#' @param thresh_coord_WCSS Threshold for within cluster sum of squares in peak and trough coordinates that determines a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning
-#' @param thresh_peak_idx_WCSS Same as thresh_coord_WCSS but for peak and trough indices
+#' @param thresh_coord_spread Threshold for within cluster sum of squares in peak and trough coordinates that determines a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning
+#' @param thresh_peak_idx_spread Same as thresh_coord_WCSS but for peak and trough indices
 #' @param min_length_regime Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime
 #'
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
@@ -357,9 +302,14 @@ find_regime_bounds <- function(regimes, min_length_regime = 10){
 find_regimes <- function(df,
                          X_names,
                          ks = 2:100,
-                         thresh_coord_WCSS = .2,
-                         thresh_peak_idx_WCSS=.2,
+                         thresh_coord_spread = .025,
+                         thresh_peak_idx_spread=2,
                          min_length_regime = 10){
+
+  # ks = 2:100
+  # thresh_coord_spread = .025
+  # thresh_peak_idx_spread=2
+  # min_length_regime = 10
 
   # Get dataframe with peaks
   peaks_df = peaks_bifdiag(df, X_names)
@@ -367,12 +317,17 @@ find_regimes <- function(df,
 
   # For each value of the bifurcation parameter, find the period length k which has a minimum WCSS.
   print("Finding best fitting period length for all timeseries")
-  period_per_var = peaks_df %>% group_by(variable, bifpar_idx) %>%
+  period_per_var_ = peaks_df %>% group_by(variable, bifpar_idx) %>%
     dplyr::arrange(time_idx, .by_group=TRUE) %>%
     dplyr::group_modify(~ find_best_k(ks = ks, coord = .x$X, peak_idx = .x$peak_idx)) %>%
-    ungroup() %>% tidyr::unnest(names(.)) %>%
+    ungroup()
+
+  period_per_var = period_per_var_ %>%
+    # tidyr::unnest(names(.)) %>%
     # Our algorithm will *always* find a period length k with a minimum WCSS, also for chaotic data. Set a threshold that decides which WCSS is too large to be classified as a neat periodic sequence.
-    dplyr::mutate(period = ifelse(coord_WCSS > thresh_coord_WCSS & peak_idx_WCSS > thresh_peak_idx_WCSS,
+    # dplyr::mutate(period = ifelse(coord_WCSS > thresh_coord_WCSS & peak_idx_WCSS > thresh_peak_idx_WCSS,
+    #                               "Chaotic or Transitioning", paste0("Period-", k) ))
+    dplyr::mutate(period = ifelse(max_spread_coord > thresh_coord_spread & max_spread_peak_idx > thresh_peak_idx_spread,
                                   "Chaotic or Transitioning", paste0("Period-", k) ))
   head(period_per_var)
 
@@ -405,10 +360,10 @@ find_regimes <- function(df,
   regimes %>% head(n=100)
 
   # Find regime boundaries
-  regime_bounds = find_regime_bounds(regimes, min_length_regime = min_length_regime) %>%
+  regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime)
     # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
-    merge(df %>%
-            dplyr::filter(bifpar_idx %in% c(regime_bounds$regime1_start_idx - 1)) %>% slice_tail(n=1, by = bifpar_idx) %>%
+  regime_bounds =  merge(regime_bounds_, df %>%
+            dplyr::filter(bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>% slice_tail(n=1, by = bifpar_idx) %>%
             dplyr::mutate(regime1_start_idx= bifpar_idx + 1) %>%
             select(regime1_start_idx, all_of(X_names)))
 
@@ -416,4 +371,90 @@ find_regimes <- function(df,
               periods = periods,
               regimes = regimes,
               regime_bounds = regime_bounds))
+}
+
+
+
+
+max_dist <- function(vec, cluster_idx){
+  # From the package sarafrr/basicClEval
+  vec = as.matrix(vec)
+  sizeCl <- summary(as.factor(cluster_idx))
+  # Compute maximal distance within each cluster
+  max_dist_per_k = unlist(lapply(split(vec, cluster_idx), function(x){max(dist(x))}))
+
+  # return(mean(max_dist_per_k))
+  return(c(
+    mean_spread = mean(max_dist_per_k),
+    min_spread = min(max_dist_per_k),
+    max_spread = max(max_dist_per_k)
+  ))
+}
+
+
+find_dist_per_k <- function(ks, coord, peak_idx){
+  # Compute mean maximum distance per cluster - essentially the spread of each cluster averaged per partitioning; for peak coordinates and peak indices
+  coord_spread = lapply(ks, function(k){max_dist(vec = coord,
+                                                 cluster_idx = rep(1:k, length(coord))[1:length(coord)])}) %>%
+    do.call(rbind, .) %>%
+    magrittr::set_colnames(paste0(colnames(.), "_coord")) %>%
+    as.data.frame()
+
+
+  peak_idx_spread = lapply(ks, function(k){max_dist(vec = diff(peak_idx),
+                                                    cluster_idx = rep(1:k, length(coord))[2:length(coord)])}) %>%
+    do.call(rbind, .) %>%
+    magrittr::set_colnames(paste0(colnames(.), "_peak_idx")) %>%
+    as.data.frame()
+  spread_df = cbind(k = ks, cbind(coord_spread, peak_idx_spread))
+
+  # plot(cluster_idx, coord)
+  # plot(cluster_idx, peak_idx)
+  return(as.data.frame(spread_df))
+}
+
+
+#' Find best fitting period length k
+#'
+#' @param ks Vector of cluster sizes
+#' @param coord Peak and trough coordinates
+#' @param peak_idx Peak and trough indices
+#'
+#' @return #' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
+#' @export
+#'
+#' @examples
+find_best_k <- function(ks, coord, peak_idx){
+  # Finding the best period is tricky: The global minimum might be a subharmonic, but the first local minimum might not be optimal for a more complex oscillation. If the timeseries is truly periodic, local minima in WCSS will occur for every subharmonic (e.g. period = 4, minima at period = c(4,8,12,...)).
+  ks_ = ks[1:(floor(length(coord)/2)-1)] # Only consider partitionings with at least two repetitions
+  spread_df = find_dist_per_k(ks_, coord, peak_idx)
+
+  # plot(log(spread_df[,c("mean_spread_coord")] * spread_df[,c("k")]) )
+  # plot(log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")]) )
+  #
+  # plot(log(spread_df[,c("mean_spread_coord")] ) )
+  # plot(log(spread_df[,c("max_spread_coord")] ) )
+  #
+  # plot(log(spread_df[,c("mean_spread_peak_idx")] * spread_df[,c("k")]) )
+  # plot(log(spread_df[,c("max_spread_peak_idx")] * spread_df[,c("k")]) )
+  #
+  # plot(log(spread_df[,c("mean_spread_peak_idx")] ) )
+  # plot(log(spread_df[,c("min_spread_peak_idx")] ) )
+  # plot(log(spread_df[,c("max_spread_peak_idx")] ) )
+
+  # Find best fitting period length k. First apply a transformation where the spread is multiplied by k in order to compensate for better fits simply due to more splitting. Apply a log-transformation to better see small differences, and choose the minimum value across the mean and maximum spread in peak coordinates and peak indices
+  idx_min = log(spread_df[,c("mean_spread_coord", "max_spread_coord",
+                             "mean_spread_peak_idx", "max_spread_peak_idx")] * spread_df[,c("k")]) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
+
+  idx_min = log(spread_df[,c("max_spread_coord", "max_spread_peak_idx")] * spread_df[,c("k")]) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
+
+  idx_min = log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")]) %>%
+    # scale(center = F) %>% apply(1, mean)  %>%
+     which.min()
+
+  # # Verifying the best period length k
+  # cluster_idx = rep(1:(spread_df[idx_min,]$k), length(coord))[1:length(coord)]
+  # plot(cluster_idx, coord, cex = .5, pch = 16, type = 'p')
+
+  return(as.data.frame(spread_df[idx_min,]))
 }

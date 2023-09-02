@@ -12,7 +12,7 @@ bifurcation_ts(
   X_names = names(X0),
   seed_nr = 123,
   times = seq(0, 100, by = 0.01),
-  method = c("lsoda", "euler", "rk4")[1],
+  deSolve_method = c("lsoda", "euler", "rk4")[1],
   stopifregime = function(out) {
      FALSE
  },
@@ -37,12 +37,12 @@ bifurcation_ts(
 
 \item{times}{Vector of timepoints}
 
-\item{method}{Method of generating ODE passed to deSolve::ode}
+\item{deSolve_method}{Method of generating ODE passed to deSolve::ode}
 
 \item{stopifregime}{End generating timeseries if this function is satisfied}
 }
 \value{
-Matrix with timeseries
+List with timeseries matrix and parameters used to generate the timeseries
 }
 \description{
 Generate timeseries with changing bifurcation parameter

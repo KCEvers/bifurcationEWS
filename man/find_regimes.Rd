@@ -8,8 +8,8 @@ find_regimes(
   df,
   X_names,
   ks = 2:100,
-  thresh_coord_WCSS = 0.2,
-  thresh_peak_idx_WCSS = 0.2,
+  thresh_coord_spread = 0.025,
+  thresh_peak_idx_spread = 2,
   min_length_regime = 10
 )
 }
@@ -20,9 +20,9 @@ find_regimes(
 
 \item{ks}{Sequence of cluster sizes, starts at 2}
 
-\item{thresh_coord_WCSS}{Threshold for within cluster sum of squares in peak and trough coordinates that determines a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning}
+\item{thresh_coord_spread}{Threshold for within cluster sum of squares in peak and trough coordinates that determines a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning}
 
-\item{thresh_peak_idx_WCSS}{Same as thresh_coord_WCSS but for peak and trough indices}
+\item{thresh_peak_idx_spread}{Same as thresh_coord_WCSS but for peak and trough indices}
 
 \item{min_length_regime}{Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime}
 }

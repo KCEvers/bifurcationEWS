@@ -10,7 +10,7 @@ vignette: >
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
-  collapse = TRUE,
+  collapse = TRUE, echo=FALSE,
   # fig.width=10, fig.height=2, 
   fig.fullwidth=TRUE,
   comment = "#>"
@@ -20,7 +20,6 @@ rgl::setupKnitr(autoprint = TRUE) # suppress opening new window
 
 ```{r setup}
 # devtools::install_github("KCEvers/bifurcationEWS")
-
 library(bifurcationEWS)
 library(ggh4x)
 library(dplyr)
@@ -71,7 +70,8 @@ X0      <- runif(p) %>% setNames(paste0("X", 1:p))
 times      <- seq(0, 1000, by = 0.01)
 model_pars <- list(r = r0, s = .86, C0 = C0, mu = mu)
 df <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars, method = 'lsoda')
-plot(df[,c("X1")], cex  = .1, xlab = "Time", ylab = "X1")
+pl_ts = df %>% as.data.frame() %>% ggplot() + geom_point(aes(x = time, y = X1), size = .05)
+print(style_plot(pl_ts))
 ```
 
 
@@ -80,7 +80,7 @@ What are some more complicated regimes that we can find in the model?
 There is no "one" type of chaos - chaotic dynamics can look radically different. 
 
 ```{r chaos, echo=FALSE}
-times      <- seq(0, 10000, by = 0.01)
+times      <- seq(0, 100, by = 0.01)
 sel_idxs = round(.25*length(times)):length(times)
 # Chaos 1
 model_pars["s"] = .97
@@ -103,20 +103,24 @@ print(pl3)
 
 ### Bifurcation diagram
 
-```{r bifucation diagram, include=FALSE}
+```{r bifurcation diagram, include=FALSE}
 # Generate data with changing bifurcation parameter
 downsample_pars = list(type = c("average", "one_sample")[1],
-                                                  win_size = 25,
-                                                  which_X = c(25, "first", "middle", "last", "random")[1],
+                                                  win_size = 50,
+                                                  which_X = c(50, "first", "middle", "last", "random")[1],
                                                   seed = 123)
-times = seq(0,1000,by=.01)
-bifpar_list = purrr::transpose(expand.grid(s = seq(.955, .97, by = .0001)))
+times = seq(0,2000,by=.01)
+bifpar_list = purrr::transpose(expand.grid(s = seq(.96, 
+                                                   .97,
+                                                   # .9605,
+                                                   by = .001)))
 
-df = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
+GLV = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
                bifpar_list = bifpar_list,
                times = times,
                downsample_pars = downsample_pars,
                X_names = X_names)
+df = GLV$df
 head(df)
 
 # Get dataframe with peaks
@@ -124,23 +128,35 @@ peaks_df = peaks_bifdiag(df, X_names)
 head(peaks_df)
 ```
 
+
+```{r plot timeseries, echo=FALSE}
+pl_ts = df %>% 
+  dplyr::filter(bifpar_idx > 1, bifpar_idx < 3) %>%
+  ggplot() + 
+  geom_line(aes(x = time_idx, y = X1), linewidth = .1) +
+  geom_point(aes(x = time_idx, y = X1), size = .1)
+print(style_plot(pl_ts))
+```
+
 ```{r plot bifurcation diagram, echo=FALSE}
 peaks_df_ = peaks_df %>% dplyr::filter(variable == "X1", bifpar_idx > 1)
-peaks_df_ %>% ggplot() + geom_point(aes(x = bifpar_idx, y = X), size = .1)+
-  labs(x = 'Bifurcation parameter', y = "X1", title =  "Transient bifurcation diagram")
+pl_peaks = peaks_df_ %>% ggplot() + geom_point(aes(x = bifpar_idx, y = X), size = .1) +
+  labs(x = 'Bifurcation parameter', y = "X1", title = "Transient bifurcation diagram")
+
+print(style_plot(pl_peaks))
 ```
 
 
 
 ```{r intermittency}
 times = seq(0,100,by=.01)
-bifpar_list = purrr::transpose(expand.grid(s = seq(.965, .985, by = .0001)))
+bifpar_list = purrr::transpose(expand.grid(s = seq(.965, .985, by = .01)))
 
 df_interm = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
                bifpar_list = bifpar_list,
                times = times,
                downsample_pars = downsample_pars,
-               X_names = X_names)
+               X_names = X_names)$df
 head(df_interm)
 
 # Get dataframe with peaks
@@ -175,17 +191,19 @@ Note that although there are much more sophisticated temporal clustering algorit
 regime_list = find_regimes(df,
                          X_names,
                          ks = 2:100, # Periodicity length to look for
-                         thresh_coord_WCSS = .2,
-                         thresh_peak_idx_WCSS=.2,
+                         thresh_coord_spread = .025,
+                         thresh_peak_idx_spread=2,
                          min_length_regime = 10)
 
 print(head(regime_list$period_per_var))
 print(regime_list$periods)
 print(regime_list$regimes)
 print(regime_list$regime_bounds)
+```
  
+```{r Plot periods, eval=FALSE, include=FALSE}
 # Plot bifurcation diagram coloured according to periodicity
-pl_periods = ggplot(regime_list$periods %>%
+pl_periods = ggplot(regime_list$period_per_var %>%
                         merge(peaks_df) %>%
            dplyr::filter(variable == "X1")
            # dplyr::filter(min_from == c("coord", "peak_idx")[2])
@@ -193,14 +211,18 @@ pl_periods = ggplot(regime_list$periods %>%
     geom_point(aes(x = bifpar_idx, y = X, col = factor(period),
                    # col = coord_WCSS
                    ),
-               size = 1.05) +
+               # size = .25
+               size = 1.05
+               ) +
      ggh4x::facet_grid2(variable ~ .) +
     theme_bw() + viridis::scale_color_viridis(
       discrete=TRUE,
       option = 'turbo',
-      begin = 0, end = .8)
+      begin = 0, end = .8) +
+  labs(x = 'Bifurcation parameter', y = "X1", title =  "Transient bifurcation diagram")
 print(style_plot(pl_periods))
 ```
+
 
 
 ### Generating null and transition models
@@ -227,7 +249,7 @@ df_trans = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, 
                times = times,
                 downsample_pars = downsample_pars,
                X_names = X_names
-               )
+               )$df
 head(df_trans)
 
 pl_df_trans = df_trans %>%
@@ -260,7 +282,7 @@ df_null = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, m
                times = times,
                 downsample_pars = downsample_pars,
                X_names = X_names
-               )
+               )$df
 head(df_null)
 
 pl_df_null = df_null %>%
