@@ -300,10 +300,10 @@ find_regime_bounds <- function(regimes, min_length_regime){
 #'
 #' @param df Dataframe
 #' @param X_names Names of variables in model
-#' @param ks Sequence of cluster sizes, starts at 2
 #' @param thresh_coord_spread Threshold for within cluster sum of squares in peak and trough coordinates that determines a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning
 #' @param thresh_peak_idx_spread Same as thresh_coord_WCSS but for peak and trough indices
 #' @param min_length_regime Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime
+#' @param max_k Maximum cluster size to look for
 #'
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
 #' @export
@@ -311,10 +311,9 @@ find_regime_bounds <- function(regimes, min_length_regime){
 #' @examples
 find_regimes <- function(df,
                          X_names,
-                         ks = 2:100,
                          thresh_coord_spread = .025,
                          thresh_peak_idx_spread=2,
-                         min_length_regime = 5){
+                         min_length_regime = 5, max_k = NULL){
 
   # ks = 2:100
   # thresh_coord_spread = .025
@@ -329,7 +328,7 @@ find_regimes <- function(df,
   print("Finding best fitting period length for all timeseries")
   period_per_var_ = peaks_df %>% group_by(variable, bifpar_idx) %>%
     dplyr::arrange(time_idx, .by_group=TRUE) %>%
-    dplyr::group_modify(~ find_best_k(ks = ks, coord = .x$X, peak_idx = .x$peak_idx)) %>%
+    dplyr::group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, max_k = max_k)) %>%
     ungroup()
 
   period_per_var = period_per_var_ %>%
@@ -398,6 +397,14 @@ find_regimes <- function(df,
 
 
 
+#' Find distance between points in chosen temporal sequence
+#'
+#' @param vec Vector
+#' @param ks Vector of cluster sizes
+#'
+#' @return Mean, minimum and maximum distance between vector points when partitioned using the indices in ks
+#'
+#' @examples
 max_dist <- function(vec, cluster_idx){
   # From the package sarafrr/basicClEval
   vec = as.matrix(vec)
@@ -414,6 +421,15 @@ max_dist <- function(vec, cluster_idx){
 }
 
 
+#' Compute mean maximum distance per cluster
+#'
+#' @param ks Vector of cluster sizes
+#' @param coord Peak and trough coordinates
+#' @param peak_idx Peak and trough indices
+#'
+#' @return Distance in peak and trough coordinates and indices per cluster partitioning
+#'
+#' @examples
 find_dist_per_k <- function(ks, coord, peak_idx){
   # Compute mean maximum distance per cluster - essentially the spread of each cluster averaged per partitioning; for peak coordinates and peak indices
   coord_spread = lapply(ks, function(k){max_dist(vec = coord,
@@ -438,18 +454,27 @@ find_dist_per_k <- function(ks, coord, peak_idx){
 
 #' Find best fitting period length k
 #'
-#' @param ks Vector of cluster sizes
 #' @param coord Peak and trough coordinates
 #' @param peak_idx Peak and trough indices
+#' @param max_k Maximum cluster size to look for
 #'
-#' @return #' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
+#' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
 #' @export
 #'
 #' @examples
-find_best_k <- function(ks, coord, peak_idx){
+find_best_k <- function(coord, peak_idx, max_k = NULL){
   # Finding the best period is tricky: The global minimum might be a subharmonic, but the first local minimum might not be optimal for a more complex oscillation. If the timeseries is truly periodic, local minima in WCSS will occur for every subharmonic (e.g. period = 4, minima at period = c(4,8,12,...)).
-  ks_ = ks[1:(floor(length(coord)/2)-1)] # Only consider partitionings with at least two repetitions
-  spread_df = find_dist_per_k(ks_, coord, peak_idx)
+  if (is.null(max_k)){
+    max_k = (floor(length(coord)/2)-1)
+  } else {
+    # Check whether max_k is possible to look for
+    if (max_k > (floor(length(coord)/2)-1)){
+      max_k = (floor(length(coord)/2)-1)
+    }
+  }
+  ks = seq(2, max_k) # Only consider partitionings with at least two repetitions
+
+  spread_df = find_dist_per_k(ks, coord, peak_idx)
 
   # plot(log(spread_df[,c("mean_spread_coord")] * spread_df[,c("k")]) )
   # plot(log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")]) )

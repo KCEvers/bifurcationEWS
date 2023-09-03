@@ -114,7 +114,7 @@ downsample_pars = list(type = c("average", "one_sample")[1],
 bifpar_list = purrr::transpose(expand.grid(s = seq(.96, 
                                                    .97,
                                                    # .9605,
-                                                   by = .0001)))
+                                                   by = .001)))
 
 GLV = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
                bifpar_list = bifpar_list,
@@ -192,7 +192,6 @@ Note that although there are much more sophisticated temporal clustering algorit
 ```{r periodicity, eval=FALSE, include=FALSE}
 regime_list = find_regimes(df,
                          X_names,
-                         ks = 2:100, # Periodicity length to look for
                          thresh_coord_spread = .025,
                          thresh_peak_idx_spread=2,
                          min_length_regime = 5)

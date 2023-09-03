@@ -25,6 +25,7 @@ Imports:
     rgl,
     rlang,
     stats,
+    stringr,
     tidyr,
     utils
 Suggests: 

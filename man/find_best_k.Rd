@@ -4,17 +4,17 @@
 \alias{find_best_k}
 \title{Find best fitting period length k}
 \usage{
-find_best_k(ks, coord, peak_idx)
+find_best_k(coord, peak_idx, max_k = NULL)
 }
 \arguments{
-\item{ks}{Vector of cluster sizes}
-
 \item{coord}{Peak and trough coordinates}
 
 \item{peak_idx}{Peak and trough indices}
+
+\item{max_k}{Maximum cluster size to look for}
 }
 \value{
-#' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
+Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
 }
 \description{
 Find best fitting period length k
