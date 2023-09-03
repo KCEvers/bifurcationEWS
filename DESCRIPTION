@@ -24,6 +24,7 @@ Imports:
     purrr,
     rgl,
     rlang,
+    stats,
     tidyr,
     utils
 Suggests: 

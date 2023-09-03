@@ -8,6 +8,7 @@
 #
 # devtools::build_vignettes()
 # devtools::check()
+# devtools::check(vignettes=FALSE)
 # devtools::document()
 # devtools::install()
 # or:
@@ -16,7 +17,7 @@
 # browseURL("doc/demo.html")
 
 # Add dependencies
-# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x")
+# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats")
 # for (p in pkgs){
 # usethis::use_package(p)
 # }
@@ -172,6 +173,71 @@ style_plot <- function(pl,
 
 
 
+#' Set up parameters
+#'
+#' @param model_name Chosen dynamical systems model
+#'
+#' @return List of parameters
+#' @export
+#'
+#' @examples
+setup_pars <- function(model_name, pars_add = list()){
+
+  if (model_name == "detGLV"){
+
+    p = 4
+
+    pars_default = list(
+      mainDir = getwd(),
+      model_name = model_name,
+      p = p,
+      X_names = paste0("X", 1:p),
+      timestep = .01,
+      nr_timesteps = 1000,
+      model_pars = list(s = .85,
+                        mu = rep(0, p),
+                        r = c(1, .72, 1.53, 1.27),
+                        C0 = matrix(c(1,
+                                      1.09,
+                                      1.52,
+                                      0,
+                                      0,
+                                      1,
+                                      0.44,
+                                      1.36,
+                                      2.33,
+                                      0,
+                                      1,
+                                      0.47,
+                                      1.21,
+                                      0.51,
+                                      0.35,
+                                      1),
+                                    p,
+                                    p,
+                                    byrow = TRUE)
+      ),
+      seed = 123,
+      downsample_pars = list(type = c("average", "one_sample")[1],
+                             win_size = 50,
+                             which_X = c(50, "first", "middle", "last", "random")[1],
+                             seed = 123),
+      times = seq(0,2000,by=.01),
+      bifpar_list = purrr::transpose(expand.grid(s = seq(.96,
+                                                         .97,
+                                                         by = .0001))),
+      X_sigma = 0
+
+    )
+    pars = utils::modifyList(pars_default, pars_add)
+    return(pars)
+
+  } else {
+    return("Model not implemented yet!")
+  }
+}
+
+
 #' Format and recursively create file path
 #'
 #' @param pars_file List of names of directories and filename components needed to create a directory
@@ -211,7 +277,6 @@ format_path <- function(pars_file) {
       pars_file$file_ext # Make sure file extension leads with a period
   }
 
-  pars_file$filename = sprintf("%s%s", paste(file_ID, filename, sep = "_"), file_ext)
 
   # Define file paths with information from pars_file
   with(pars_file,
@@ -220,13 +285,21 @@ format_path <- function(pars_file) {
          filepath_dir <-
            filepath_base %>% file.path(type_output, analysis_type,
                                        subfolder1, subfolder2, subfolder3, subfolder4, subfolder5
-                                       ) %>%
+           ) %>%
            normalizePath(mustWork = FALSE)
 
          # Create directory
          dir.create(filepath_dir,
                     showWarnings = FALSE,
                     recursive = TRUE)
+
+         # Update filename
+         filename_ = paste0(file_ID, filename, sep = "_")
+
+         # Remove leading and trailing separators
+         filename = paste0(filename_ %>% stringr::str_replace("^_", "") %>%
+                             stringr::str_replace("_$", "") %>%
+                             stringr::str_replace("__", ""), file_ext) # Add file extension
 
          filepath_final <-
            filepath_dir %>% file.path(filename) %>% normalizePath(mustWork = FALSE)
@@ -235,41 +308,93 @@ format_path <- function(pars_file) {
 }
 
 
-get_filepath_GLV <-
-  function(pars) {
 
-    filepath <-
-      utils::modifyList(pars,
-                        list(
-                          # mainDir, model_name,
-                          type_output,
-                          analysis_type,
-                          analysis_subtype,
-                          file_ID =  sprintf("GLV-full_s%.4f-s%.4f-by%.4f",
-                                             pars$ss_[1], dplyr::last(pars$ss_), pars$s_step),
-                          # sprintf("GLV-null_%s", pars$regime_switch),
-                          pars_ID =  sprintf("_%dtransSteps", pars$nr_trans_s_steps),
-                          filename = ,
-                          file_ext = ".RDS"
-                        )) %>% format_path()
+#' Format parameters
+#'
+#' @param pars List of parameters
+#'
+#' @return Updated list of parameters
+#' @export
+#'
+#' @examples
+format_pars <- function(pars){
 
-    file_ID = sprintf("nr%d_Xsigma%.5f_%ddays_ts%.3f",
-                             pars$data_idx,
-                             pars$X_sigma,
-                             pars$nr_days_per_s, pars$timestep)
-      pars_ID = sprintf("alphaObs%d_sigmaObs%.2f_%s%.3f_%s-%s-%s",
-                              pars_a$alpha_obs_noise,
-                              pars_a$sigma_obs_noise,
-                              pars$fix_emRad_or_RR,
-                              pars$targetValue,
-                              pars$RQA_type, pars$distNorm, pars$rescaleDist
-      )
-      sprintf("data-%s", pars$daily_or_raw)
-      analysis_subtype = pars$separate_or_continued_ts
+  pars_add = with(pars, {
+
+    file_ID = sprintf("nr%d_T%d_ts%.3f_Xsigma%.5f",
+                      data_idx, nr_timesteps, timestep, X_sigma)
+
+    # pars_ID
+
+    return(list(analysis_type = analysis_type,
+                file_ID = file_ID))
+  })
+
+  return(utils::modifyList(pars, pars_add))
+}
 
 
-    return(filepath)
 
-  }
+#' Utility function for foreach loop to save memory
+#'
+#' @param ...
+#'
+#' @return NULL
+#' @export
+#'
+#' @examples
+cfun <- function(...){NULL}
 
+#' Generate forloop for foreach loop
+#'
+#' @param ...
+#'
+#' @return List of forloop parameters
+#' @export
+#'
+#' @examples
+get_forloop <- function(...){
+  return(tidyr::expand_grid(
+    ...
+  ) %>% purrr::transpose() %>% unique())
+}
+
+
+# get_filepath_GLV <-
+#   function(pars) {
+#
+#     filepath <-
+#       utils::modifyList(pars,
+#                         list(
+#                           # mainDir, model_name,
+#                           type_output,
+#                           analysis_type,
+#                           analysis_subtype,
+#                           file_ID =  sprintf("GLV-full_s%.4f-s%.4f-by%.4f",
+#                                              pars$ss_[1], dplyr::last(pars$ss_), pars$s_step),
+#                           # sprintf("GLV-null_%s", pars$regime_switch),
+#                           pars_ID =  sprintf("_%dtransSteps", pars$nr_trans_s_steps),
+#                           filename = ,
+#                           file_ext = ".RDS"
+#                         )) %>% format_path()
+#
+#     file_ID = sprintf("nr%d_Xsigma%.5f_%ddays_ts%.3f",
+#                              pars$data_idx,
+#                              pars$X_sigma,
+#                              pars$nr_days_per_s, pars$timestep)
+#       pars_ID = sprintf("alphaObs%d_sigmaObs%.2f_%s%.3f_%s-%s-%s",
+#                               pars_a$alpha_obs_noise,
+#                               pars_a$sigma_obs_noise,
+#                               pars$fix_emRad_or_RR,
+#                               pars$targetValue,
+#                               pars$RQA_type, pars$distNorm, pars$rescaleDist
+#       )
+#       sprintf("data-%s", pars$daily_or_raw)
+#       analysis_subtype = pars$separate_or_continued_ts
+#
+#
+#     return(filepath)
+#
+#   }
+#
 

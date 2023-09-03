@@ -16,6 +16,9 @@ runRQA(
 \arguments{
 \item{targetValue}{}
 }
+\value{
+RQA measures
+}
 \description{
 Recurrence Quantification Analysis
 }
