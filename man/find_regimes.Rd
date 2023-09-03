@@ -10,7 +10,7 @@ find_regimes(
   ks = 2:100,
   thresh_coord_spread = 0.025,
   thresh_peak_idx_spread = 2,
-  min_length_regime = 10
+  min_length_regime = 5
 )
 }
 \arguments{

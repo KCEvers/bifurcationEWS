@@ -109,19 +109,21 @@ downsample_pars = list(type = c("average", "one_sample")[1],
                                                   win_size = 50,
                                                   which_X = c(50, "first", "middle", "last", "random")[1],
                                                   seed = 123)
-times = seq(0,2000,by=.01)
+                           timestep = .01
+                           nr_timesteps = 2000
 bifpar_list = purrr::transpose(expand.grid(s = seq(.96, 
                                                    .97,
                                                    # .9605,
-                                                   by = .001)))
+                                                   by = .0001)))
 
 GLV = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
                bifpar_list = bifpar_list,
-               times = times,
+               timestep = timestep, nr_timesteps = nr_timesteps,
                downsample_pars = downsample_pars,
                X_names = X_names)
 df = GLV$df
 head(df)
+# saveRDS(GLV, file.path(dirname(getwd(), "test2.RDS")))
 
 # Get dataframe with peaks
 peaks_df = peaks_bifdiag(df, X_names)
@@ -149,12 +151,12 @@ print(style_plot(pl_peaks))
 
 
 ```{r intermittency}
-times = seq(0,100,by=.01)
+nr_timesteps = 100
 bifpar_list = purrr::transpose(expand.grid(s = seq(.965, .985, by = .01)))
 
 df_interm = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
                bifpar_list = bifpar_list,
-               times = times,
+               timestep = timestep, nr_timesteps = nr_timesteps,
                downsample_pars = downsample_pars,
                X_names = X_names)$df
 head(df_interm)
@@ -193,7 +195,7 @@ regime_list = find_regimes(df,
                          ks = 2:100, # Periodicity length to look for
                          thresh_coord_spread = .025,
                          thresh_peak_idx_spread=2,
-                         min_length_regime = 10)
+                         min_length_regime = 5)
 
 print(head(regime_list$period_per_var))
 print(regime_list$periods)
@@ -238,15 +240,16 @@ post_steps = 25
 ```
 
 ```{r transition model, eval=FALSE, include=FALSE}
-desired_switch = regime_list$regime_bounds[regime_list$regime_bounds$regime1 == "Period-4 (X1,X2,X3,X4)",]
+# desired_switch = regime_list$regime_bounds[regime_list$regime_bounds$regime1 == "Period-4 (X1,X2,X3,X4)",]
+desired_switch = regime_list$regime_bounds[regime_list$regime_bounds$regime1 == "Period-16 (X2,X3,X4) AND Period-20 (X1)" & regime_list$regime_bounds$regime2 == "Chaotic or Transitioning",]
 s_seq = get_bifurcation_range(bifpar_start = bifpar_list[[desired_switch$regime1_halfway_idx]]$s, bifpar_end = bifpar_list[[desired_switch$regime2_start_idx]]$s, 
                               baseline_steps = baseline_steps, transition_steps = transition_steps, post_steps = post_steps)
-
+               
 # Generate data with changing bifurcation parameter
 df_trans = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
                bifpar_list = purrr::transpose(expand.grid(s = s_seq)),
                X0 = unlist(desired_switch[,X_names]),
-               times = times,
+               timestep = timestep, nr_timesteps = nr_timesteps,
                 downsample_pars = downsample_pars,
                X_names = X_names
                )$df
@@ -279,7 +282,7 @@ s_seq = get_bifurcation_range(bifpar_start = bifpar_list[[desired_switch$regime1
 df_null = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
                bifpar_list = purrr::transpose(expand.grid(s = s_seq)),
                X0 = unlist(desired_switch[,X_names]),
-               times = times,
+               timestep = timestep, nr_timesteps = nr_timesteps,
                 downsample_pars = downsample_pars,
                X_names = X_names
                )$df

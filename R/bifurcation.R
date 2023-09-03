@@ -6,7 +6,8 @@
 #' @param X0 Initial state
 #' @param X_names Names of variables in model
 #' @param seed_nr Seed number
-#' @param times Vector of timepoints
+#' @param timestep Step size in time
+#' @param nr_timesteps Number of time steps
 #' @param deSolve_method Method of generating ODE passed to deSolve::ode
 #' @param stopifregime End generating timeseries if this function is satisfied
 #'
@@ -15,11 +16,10 @@
 #'
 #' @examples
 bifurcation_ts <- function(model, model_pars, bifpar_list,
-                           # p,
                            X0 = c(),
                            X_names = names(X0),
                            seed_nr = 123,
-                           times = seq(0, 100, by = 0.01),
+                           timestep = .01, nr_timesteps = 100,
                            deSolve_method = c("lsoda", "euler", "rk4")[1],
                            stopifregime = function(out){FALSE},
                            do_downsample = TRUE,
@@ -37,8 +37,10 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
     set.seed(seed_nr)
     X0      <- runif(length(X_names)) %>% setNames(X_names)
   }
-  min_t = 0
+  times = seq(0, nr_timesteps, by = timestep)
+  min_t = times[1]
   bifpar_idxs = seq.int(length(bifpar_list))
+  X0s <- matrix(nrow = length(bifpar_list), ncol = length(X_names)+1)
   tmps <- list()
 
   # Generate data for each bifurcation parameter
@@ -49,6 +51,9 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
     # Adjust bifurcation parameter
     bifpar = bifpar_list[[bifpar_idx]]
     model_pars = utils::modifyList(model_pars, bifpar)
+
+    # Save initial condition
+    X0s[bifpar_idx,] <- c(bifpar_idx, X0)
 
     # Generate data
     out <- deSolve::ode(y = X0, times = times + min_t, func = model,
@@ -97,8 +102,12 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
   OUT %>% head
 
   return(list(df = as.data.frame(cbind(OUT, time_idx=1:nrow(OUT))),
+              X_names = X_names,
+              X0s = X0s,
+              times = times,
               model_pars = model_pars,
               seed_nr = seed_nr,
+              stopifregime = stopifregime,
               deSolve_method = deSolve_method,
               bifpar_list = bifpar_list,
               do_downsample = do_downsample,
@@ -241,6 +250,7 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
 }
 
 
+
 #' Find regime boundaries
 #'
 #' @param regimes Dataframe with periodicity per value of the bifurcation parameter
@@ -249,7 +259,7 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
 #' @return Dataframe with regime boundaries
 #'
 #' @examples
-find_regime_bounds <- function(regimes, min_length_regime = 10){
+find_regime_bounds <- function(regimes, min_length_regime){
   # Find regimes that satisfy a certain size
   regimes = regimes %>% ungroup() %>% arrange(start_bifpar_idx)
   regime_idx = which(regimes$length_region >= min_length_regime)
@@ -266,7 +276,7 @@ find_regime_bounds <- function(regimes, min_length_regime = 10){
                       regime2_length = NA
     ))
   } else {
-  regime_bounds_df = lapply(1:(length(regime_idx)-1), function(i){
+  regime_bounds_df = lapply(1:(length(regime_idx)), function(i){
     from_regime = regimes[regime_idx[i],]
     to_regime = regimes[regime_idx[i+1],]
     return(data.frame(regime1 = from_regime$regime,
@@ -304,12 +314,12 @@ find_regimes <- function(df,
                          ks = 2:100,
                          thresh_coord_spread = .025,
                          thresh_peak_idx_spread=2,
-                         min_length_regime = 10){
+                         min_length_regime = 5){
 
   # ks = 2:100
   # thresh_coord_spread = .025
   # thresh_peak_idx_spread=2
-  # min_length_regime = 10
+  # min_length_regime = 5
 
   # Get dataframe with peaks
   peaks_df = peaks_bifdiag(df, X_names)
@@ -350,14 +360,25 @@ find_regimes <- function(df,
   # Get basin boundaries (when system hits edges of basin)
   basin_bound = find_basin_boundary(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1)
 
-  # Compile regimes
+  # Find regimes with any chaotic behaviour and regimes with periodic behaviour
+  broad_regimes = periods %>%
+    dplyr::mutate(period_bifpar2 = ifelse(grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE),
+                                          "Chaotic or Transitioning", "Periodic")) %>%
+    group_by(period_bifpar2) %>%
+    group_modify( ~ find_conseq_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
+    ungroup() %>%
+    dplyr::rename(regime = period_bifpar2)
+
+   # Compile regimes
   regimes = periods %>%
+    dplyr::filter(!grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE)) %>%
     group_by(period_bifpar) %>%
     group_modify( ~ find_conseq_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
     ungroup() %>% dplyr::rename(regime = period_bifpar) %>%
-    rbind(basin_bound)
+    rbind(basin_bound) %>%
+    rbind(broad_regimes %>% dplyr::filter(regime != "Periodic")) %>% arrange(start_bifpar_idx)
 
-  regimes %>% head(n=100)
+  regimes %>% head(n=100) %>% as.data.frame()
 
   # Find regime boundaries
   regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime)
@@ -370,6 +391,7 @@ find_regimes <- function(df,
   return(list(period_per_var = period_per_var,
               periods = periods,
               regimes = regimes,
+              broad_regimes = broad_regimes,
               regime_bounds = regime_bounds))
 }
 
@@ -448,9 +470,9 @@ find_best_k <- function(ks, coord, peak_idx){
 
   idx_min = log(spread_df[,c("max_spread_coord", "max_spread_peak_idx")] * spread_df[,c("k")]) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
 
-  idx_min = log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")]) %>%
-    # scale(center = F) %>% apply(1, mean)  %>%
-     which.min()
+  # idx_min = log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")]) %>%
+  #   # scale(center = F) %>% apply(1, mean)  %>%
+  #    which.min()
 
   # # Verifying the best period length k
   # cluster_idx = rep(1:(spread_df[idx_min,]$k), length(coord))[1:length(coord)]

@@ -11,7 +11,8 @@ bifurcation_ts(
   X0 = c(),
   X_names = names(X0),
   seed_nr = 123,
-  times = seq(0, 100, by = 0.01),
+  timestep = 0.01,
+  nr_timesteps = 100,
   deSolve_method = c("lsoda", "euler", "rk4")[1],
   stopifregime = function(out) {
      FALSE
@@ -35,7 +36,9 @@ bifurcation_ts(
 
 \item{seed_nr}{Seed number}
 
-\item{times}{Vector of timepoints}
+\item{timestep}{Step size in time}
+
+\item{nr_timesteps}{Number of time steps}
 
 \item{deSolve_method}{Method of generating ODE passed to deSolve::ode}
 

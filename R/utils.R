@@ -168,3 +168,108 @@ style_plot <- function(pl,
 
   return(pl)
 }
+
+
+
+
+#' Format and recursively create file path
+#'
+#' @param pars_file List of names of directories and filename components needed to create a directory
+#'
+#' @return File path
+#' @export
+#'
+#' @examples
+format_path <- function(pars_file) {
+
+  pars_file_default = list(
+    mainDir = getwd(),
+    model_name = "model",
+    type_output = "",
+    analysis_type = "",
+    subfolder1 = "",
+    subfolder2 = "",
+    subfolder3 = "",
+    subfolder4 = "",
+    subfolder5 = "",
+    filename = "",
+    file_ID = "",
+    pars_ID = "",
+    file_ext = ".RDS"
+  )
+
+  pars_file = utils::modifyList(pars_file_default, pars_file)
+
+  # Format parameters correctly
+  if (!is.null(pars_file$file_ext)) {
+    file_ext <- pars_file$file_ext
+    # Add a leading period to file extension
+    pars_file$file_ext <-
+      if (stringr::str_sub(file_ext, 1, 1) != ".")
+        sprintf(".%s", file_ext)
+    else
+      pars_file$file_ext # Make sure file extension leads with a period
+  }
+
+  pars_file$filename = sprintf("%s%s", paste(file_ID, filename, sep = "_"), file_ext)
+
+  # Define file paths with information from pars_file
+  with(pars_file,
+       {
+         filepath_base <- file.path(mainDir, model_name, pars_ID)
+         filepath_dir <-
+           filepath_base %>% file.path(type_output, analysis_type,
+                                       subfolder1, subfolder2, subfolder3, subfolder4, subfolder5
+                                       ) %>%
+           normalizePath(mustWork = FALSE)
+
+         # Create directory
+         dir.create(filepath_dir,
+                    showWarnings = FALSE,
+                    recursive = TRUE)
+
+         filepath_final <-
+           filepath_dir %>% file.path(filename) %>% normalizePath(mustWork = FALSE)
+         return(filepath_final)
+       })
+}
+
+
+get_filepath_GLV <-
+  function(pars) {
+
+    filepath <-
+      utils::modifyList(pars,
+                        list(
+                          # mainDir, model_name,
+                          type_output,
+                          analysis_type,
+                          analysis_subtype,
+                          file_ID =  sprintf("GLV-full_s%.4f-s%.4f-by%.4f",
+                                             pars$ss_[1], dplyr::last(pars$ss_), pars$s_step),
+                          # sprintf("GLV-null_%s", pars$regime_switch),
+                          pars_ID =  sprintf("_%dtransSteps", pars$nr_trans_s_steps),
+                          filename = ,
+                          file_ext = ".RDS"
+                        )) %>% format_path()
+
+    file_ID = sprintf("nr%d_Xsigma%.5f_%ddays_ts%.3f",
+                             pars$data_idx,
+                             pars$X_sigma,
+                             pars$nr_days_per_s, pars$timestep)
+      pars_ID = sprintf("alphaObs%d_sigmaObs%.2f_%s%.3f_%s-%s-%s",
+                              pars_a$alpha_obs_noise,
+                              pars_a$sigma_obs_noise,
+                              pars$fix_emRad_or_RR,
+                              pars$targetValue,
+                              pars$RQA_type, pars$distNorm, pars$rescaleDist
+      )
+      sprintf("data-%s", pars$daily_or_raw)
+      analysis_subtype = pars$separate_or_continued_ts
+
+
+    return(filepath)
+
+  }
+
+

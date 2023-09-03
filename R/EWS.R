@@ -221,7 +221,7 @@ spatial_kurtosis <- function(x) {
 #' @param distNorm
 #' @param targetValue
 #'
-#' @return
+#' @return RQA measures
 #' @export
 #'
 #' @examples

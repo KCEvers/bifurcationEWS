@@ -4,7 +4,7 @@
 \alias{find_regime_bounds}
 \title{Find regime boundaries}
 \usage{
-find_regime_bounds(regimes, min_length_regime = 10)
+find_regime_bounds(regimes, min_length_regime)
 }
 \arguments{
 \item{regimes}{Dataframe with periodicity per value of the bifurcation parameter}
