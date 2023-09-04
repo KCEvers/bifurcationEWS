@@ -294,12 +294,12 @@ format_path <- function(pars_file) {
                     recursive = TRUE)
 
          # Update filename
-         filename_ = paste0(file_ID, filename, sep = "_")
+         filename_ = stringr::str_c(file_ID, filename, sep = "_")
 
          # Remove leading and trailing separators
-         filename = paste0(filename_ %>% stringr::str_replace("^_", "") %>%
+         filename = stringr::str_c(filename_ %>% stringr::str_replace("^_", "") %>%
                              stringr::str_replace("_$", "") %>%
-                             stringr::str_replace("__", ""), file_ext) # Add file extension
+                             stringr::str_replace("__", "_"), file_ext) # Add file extension
 
          filepath_final <-
            filepath_dir %>% file.path(filename) %>% normalizePath(mustWork = FALSE)
@@ -321,13 +321,17 @@ format_pars <- function(pars){
 
   pars_add = with(pars, {
 
-    file_ID = sprintf("nr%d_T%d_ts%.3f_Xsigma%.5f",
+    if (!is.null(pars$data_idx)){
+      file_ID = sprintf("nr%d_T%d_ts%.3f_Xsigma%.5f",
                       data_idx, nr_timesteps, timestep, X_sigma)
+    } else {
+      file_ID = sprintf("T%d_ts%.3f_Xsigma%.5f",
+                        nr_timesteps, timestep, X_sigma)
 
+    }
     # pars_ID
 
-    return(list(analysis_type = analysis_type,
-                file_ID = file_ID))
+    return(list(file_ID = file_ID))
   })
 
   return(utils::modifyList(pars, pars_add))

@@ -273,7 +273,7 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
 #' @return Regime switch type
 #'
 #' @examples
-regime_switch_type <- function(from_regime, to_regime, X_names){
+get_regime_switch_type <- function(from_regime, to_regime, X_names){
 
   # Regime switches involving only periodic regimes
   if (!grepl("Chaotic", from_regime$regime, fixed = TRUE) & !grepl("Chaotic", to_regime$regime, fixed = TRUE)){
@@ -340,9 +340,9 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
   regime_bounds_df = lapply(1:(length(regime_idx)), function(i){
     from_regime = regimes[regime_idx[i],] %>% dplyr::mutate(regime = ifelse(is.na(regime), "None", regime))
     to_regime = regimes[regime_idx[i+1],] %>% dplyr::mutate(regime = ifelse(is.na(regime), "None", regime))
-    regime_switch = regime_switch_type(from_regime, to_regime, X_names)
+    regime_switch_type = get_regime_switch_type(from_regime, to_regime, X_names)
 
-    return(data.frame(regime_switch = regime_switch,
+    return(data.frame(regime_switch_type = regime_switch_type,
                       regime1 = from_regime$regime,
                       regime2 = to_regime$regime,
                       regime1_start_idx = from_regime$start_bifpar_idx,
