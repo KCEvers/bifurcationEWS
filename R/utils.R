@@ -7,9 +7,9 @@
 # devtools::load_all(".")
 #
 # devtools::build_vignettes()
+# devtools::document()
 # devtools::check()
 # devtools::check(vignettes=FALSE)
-# devtools::document()
 # devtools::install()
 # or:
 # devtools::install(build_vignettes = TRUE)

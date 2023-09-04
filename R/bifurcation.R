@@ -178,17 +178,31 @@ peaks_bifdiag <- function(df, X_names){
 
 
 
-get_bifurcation_range <- function(bifpar_start, bifpar_end, baseline_steps, transition_steps, post_steps){
+#' Generate bifurcation parameter sequence
+#'
+#' @param bifpar_start Bifurcation parameter value at start
+#' @param bifpar_end Bifurcation parameter value at end; NA for null models
+#' @param pre_steps Number of pre-steps, useful if transition did not start when planned
+#' @param baseline_steps Number of baseline steps where the control parameter doesn't change
+#' @param transition_steps Number of transition steps where the control parameter changes for every index in a step-wise manner
+#' @param post_steps Number of post-transition steps
+#'
+#' @return List of bifurcation parameter values
+#' @export
+#'
+#' @examples
+get_bifurcation_range <- function(bifpar_start, bifpar_end, pre_steps = 0,
+                                  baseline_steps = 50, transition_steps = 50, post_steps = 0){
 
   if (is.na(bifpar_end)){
     # Null model
-    s_seq = rep(bifpar_start, baseline_steps + transition_steps + post_steps)
+    s_seq = rep(bifpar_start, pre_steps + baseline_steps + transition_steps + post_steps)
   } else {
-    s_seq = c(rep(bifpar_start, baseline_steps),
+    s_seq = c(rep(bifpar_start, pre_steps + baseline_steps),
               seq(bifpar_start, bifpar_end, length.out = transition_steps),
               rep(bifpar_end, post_steps))
   }
-  return(s_seq)
+  return(purrr::transpose(expand.grid(s = s_seq)))
 }
 
 
@@ -250,16 +264,63 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
 }
 
 
+#' Find type of regime switch
+#'
+#' @param from_regime The regime from which the transition occurs
+#' @param to_regime The regime which is transitioned to
+#' @param X_names Names of variables
+#'
+#' @return Regime switch type
+#'
+#' @examples
+regime_switch_type <- function(from_regime, to_regime, X_names){
+
+  # Regime switches involving only periodic regimes
+  if (!grepl("Chaotic", from_regime$regime, fixed = TRUE) & !grepl("Chaotic", to_regime$regime, fixed = TRUE)){
+  period_switch = dplyr::bind_rows(from_regime, to_regime) %>%
+    dplyr::mutate_at(X_names, ~ as.numeric(stringr::str_replace(., "Period-", ""))) %>%
+    select(all_of(X_names)) %>% as.matrix()
+
+  period_switch_factor = period_switch[2,] / period_switch[1,]
+
+  if (all(period_switch_factor == 2)){
+   return("Period-Doubling")
+  } else if (all(period_switch_factor == 0.5)){
+    return("Period-Halving")
+  } else if (all(period_switch_factor > 1)){
+    return("Period-Increasing")
+  } else if (all(period_switch_factor < 1)){
+    return("Period-Decreasing")
+  } else if (all(period_switch_factor == 1)){
+    return("Same-Period")
+  }
+
+  } else {
+    # Regime switches involving chaotic behaviour
+    broad_period_switch = dplyr::bind_rows(from_regime, to_regime) %>% ungroup() %>%
+      tidyr::gather(X, value, -setdiff(colnames(.), X_names)) %>%
+      group_by(regime) %>%
+      dplyr::summarise(nr_periods = length(unique(value)), period = paste0(unique(value), collapse = ",")) %>%
+      dplyr::mutate(broad_regime = ifelse(grepl("Chaotic or Transitioning", regime), "Chaotic or Transitioning",
+                                          ifelse(grepl("None", regime), "None",
+                           ifelse(nr_periods == 1, period, "Mixed-Periodic"))))
+    return(sprintf("%s to %s",
+            broad_period_switch[from_regime$regime == broad_period_switch$regime, ] %>% pull(broad_regime),
+                broad_period_switch[to_regime$regime == broad_period_switch$regime,] %>% pull(broad_regime)))
+  }
+}
+
 
 #' Find regime boundaries
 #'
 #' @param regimes Dataframe with periodicity per value of the bifurcation parameter
 #' @param min_length_regime Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime
+#' @param X_names Names of variables in model
 #'
 #' @return Dataframe with regime boundaries
 #'
 #' @examples
-find_regime_bounds <- function(regimes, min_length_regime){
+find_regime_bounds <- function(regimes, min_length_regime, X_names){
   # Find regimes that satisfy a certain size
   regimes = regimes %>% ungroup() %>% arrange(start_bifpar_idx)
   regime_idx = which(regimes$length_region >= min_length_regime)
@@ -277,9 +338,12 @@ find_regime_bounds <- function(regimes, min_length_regime){
     ))
   } else {
   regime_bounds_df = lapply(1:(length(regime_idx)), function(i){
-    from_regime = regimes[regime_idx[i],]
-    to_regime = regimes[regime_idx[i+1],]
-    return(data.frame(regime1 = from_regime$regime,
+    from_regime = regimes[regime_idx[i],] %>% dplyr::mutate(regime = ifelse(is.na(regime), "None", regime))
+    to_regime = regimes[regime_idx[i+1],] %>% dplyr::mutate(regime = ifelse(is.na(regime), "None", regime))
+    regime_switch = regime_switch_type(from_regime, to_regime, X_names)
+
+    return(data.frame(regime_switch = regime_switch,
+                      regime1 = from_regime$regime,
                       regime2 = to_regime$regime,
                       regime1_start_idx = from_regime$start_bifpar_idx,
                       regime1_halfway_idx = from_regime$start_bifpar_idx + ceiling((from_regime$end_bifpar_idx - from_regime$start_bifpar_idx) / 2),
@@ -315,7 +379,7 @@ find_regimes <- function(df,
                          thresh_peak_idx_spread=2,
                          min_length_regime = 5, max_k = NULL){
 
-  # ks = 2:100
+  # max_k = NULL
   # thresh_coord_spread = .025
   # thresh_peak_idx_spread=2
   # min_length_regime = 5
@@ -371,27 +435,31 @@ find_regimes <- function(df,
    # Compile regimes
   regimes = periods %>%
     dplyr::filter(!grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE)) %>%
-    group_by(period_bifpar) %>%
+    group_by(period_bifpar, X1, X2, X3, X4) %>%
     group_modify( ~ find_conseq_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
     ungroup() %>% dplyr::rename(regime = period_bifpar) %>%
-    rbind(basin_bound) %>%
-    rbind(broad_regimes %>% dplyr::filter(regime != "Periodic")) %>% arrange(start_bifpar_idx)
+    dplyr::bind_rows(basin_bound) %>%
+    dplyr::bind_rows(broad_regimes %>% dplyr::filter(regime != "Periodic")) %>% arrange(start_bifpar_idx)
 
   regimes %>% head(n=100) %>% as.data.frame()
 
   # Find regime boundaries
-  regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime)
+  regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime, X_names = X_names)
     # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
-  regime_bounds =  merge(regime_bounds_, df %>%
+  regime_bounds =  merge(regime_bounds_,
+                         df %>%
             dplyr::filter(bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>% slice_tail(n=1, by = bifpar_idx) %>%
             dplyr::mutate(regime1_start_idx= bifpar_idx + 1) %>%
-            select(regime1_start_idx, all_of(X_names)))
+            select(regime1_start_idx, all_of(X_names)), all.x = TRUE)
 
   return(list(period_per_var = period_per_var,
               periods = periods,
               regimes = regimes,
               broad_regimes = broad_regimes,
-              regime_bounds = regime_bounds))
+              regime_bounds = regime_bounds,
+              thresh_coord_spread = thresh_coord_spread,
+              thresh_peak_idx_spread=thresh_peak_idx_spread,
+              min_length_regime = min_length_regime, max_k = max_k))
 }
 
 
@@ -478,7 +546,13 @@ find_best_k <- function(coord, peak_idx, max_k = NULL){
 
   # plot(log(spread_df[,c("mean_spread_coord")] * spread_df[,c("k")]) )
   # plot(log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")]) )
+  # spread_df[,c("max_spread_coord")][c(9,19)]
+  # log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")] )[c(9,19)]
+  # log(spread_df[,c("max_spread_coord")] * log(spread_df[,c("k")]) )[c(9,19)]
+  # log(spread_df[,c("max_spread_coord")] * cumsum(spread_df[,c("k")]) )[c(9,19)]
+  # (spread_df[,c("max_spread_coord")] )[c(3,7)]
   #
+  # dev.new()
   # plot(log(spread_df[,c("mean_spread_coord")] ) )
   # plot(log(spread_df[,c("max_spread_coord")] ) )
   #
@@ -490,10 +564,14 @@ find_best_k <- function(coord, peak_idx, max_k = NULL){
   # plot(log(spread_df[,c("max_spread_peak_idx")] ) )
 
   # Find best fitting period length k. First apply a transformation where the spread is multiplied by k in order to compensate for better fits simply due to more splitting. Apply a log-transformation to better see small differences, and choose the minimum value across the mean and maximum spread in peak coordinates and peak indices
-  idx_min = log(spread_df[,c("mean_spread_coord", "max_spread_coord",
-                             "mean_spread_peak_idx", "max_spread_peak_idx")] * spread_df[,c("k")]) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
+  # idx_min = log(spread_df[,c("mean_spread_coord", "max_spread_coord",
+                             # "mean_spread_peak_idx", "max_spread_peak_idx")] * spread_df[,c("k")]) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
 
-  idx_min = log(spread_df[,c("max_spread_coord", "max_spread_peak_idx")] * spread_df[,c("k")]) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
+
+  # idx_min = log(spread_df[,c("max_spread_coord", "max_spread_peak_idx")] * spread_df[,c("k")]) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
+  # idx_min = spread_df %>% mutate_at(c("mean_spread_coord", "max_spread_coord",
+                                      # "mean_spread_peak_idx", "max_spread_peak_idx"), ~ ifelse(. == 0, 0, log(. * k))) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
+  idx_min = spread_df %>% mutate_at(c("max_spread_coord", "max_spread_peak_idx"), ~ ifelse(. == 0, 0, log(. * k))) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
 
   # idx_min = log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")]) %>%
   #   # scale(center = F) %>% apply(1, mean)  %>%

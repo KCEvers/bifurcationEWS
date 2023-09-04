@@ -4,12 +4,14 @@
 \alias{find_regime_bounds}
 \title{Find regime boundaries}
 \usage{
-find_regime_bounds(regimes, min_length_regime)
+find_regime_bounds(regimes, min_length_regime, X_names)
 }
 \arguments{
 \item{regimes}{Dataframe with periodicity per value of the bifurcation parameter}
 
 \item{min_length_regime}{Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime}
+
+\item{X_names}{Names of variables in model}
 }
 \value{
 Dataframe with regime boundaries
