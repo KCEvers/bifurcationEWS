@@ -17,7 +17,7 @@
 # browseURL("doc/demo.html")
 
 # Add dependencies
-# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo")
+# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot)
 # for (p in pkgs){
 # usethis::use_package(p)
 # }
@@ -173,6 +173,84 @@ style_plot <- function(pl,
 
 
 
+#' Utility function to save plots
+#'
+#' @param pl ggplot object
+#' @param filepath_image Filepath image needs to be saved to
+#' @param w Width
+#' @param h Height
+#' @param resolution Resolution
+#' @param formats File formats
+#'
+#' @return Success of saving file
+#' @export
+#'
+#' @examples
+save_plot <-
+  function(pl,
+           filepath_image,
+           w = 10,
+           h = 10,
+           resolution = 200,
+           formats = c("tiff", "png", "pdf")[1]) {
+    if (rlang::is_empty(filepath_image)) {
+      print(sprintf("Filepath to image is NULL!"))
+      return()
+    }
+    graphics.off()
+
+    # Make sure there are no leading periods in the file formats
+    for (f_idx in 1:length(formats)) {
+      f = formats[f_idx]
+      f_ = if (stringr::str_sub(f, 1, 1) == ".")
+        sprintf("%s", stringr::str_sub(f, 2,-1))
+      else
+        f # Make sure file extension leads with a period
+      formats[f_idx] = f_
+    }
+
+    # Save plot in different formats
+    if ("tiff" %in% formats) {
+      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".tiff") %>%
+        tiff(
+          width = w,
+          height = h,
+          bg = "white",
+          # pointsize = 1 / 300,
+          units = 'cm',
+          res = resolution
+        )
+      grid::grid.draw(pl) # Make plot
+      dev.off()
+    }
+    if ("png" %in% formats) {
+      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".png") %>% png(
+        width = w,
+        height = h,
+        bg = "transparent",
+        units = 'cm',
+        res = resolution
+      )
+      grid::grid.draw(pl) # Make plot
+      dev.off()
+    }
+
+    if ("pdf" %in% formats) {
+      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".pdf") %>%
+        pdf(width = w,
+            height = h,
+            bg = "white")
+      grid::grid.draw(pl) # Make plot
+      dev.off()
+    }
+    graphics.off()
+
+    return(file.exists(filepath_image))
+  }
+
+
+
+
 #' Set up parameters
 #'
 #' @param model_name Chosen dynamical systems model
@@ -321,7 +399,7 @@ format_pars <- function(pars){
 
   pars_add = with(pars, {
 
-    if (!is.null(pars$data_idx)){
+    if (!is.null(pars[["data_idx"]])){
       file_ID = sprintf("nr%d_T%d_ts%.3f_Xsigma%.5f",
                       data_idx, nr_timesteps, timestep, X_sigma)
     } else {

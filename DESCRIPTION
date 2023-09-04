@@ -15,6 +15,7 @@ Depends:
 LazyData: true
 Imports: 
     casnet,
+    cowplot,
     deSolve,
     dplyr,
     ggh4x,
