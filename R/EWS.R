@@ -3,19 +3,19 @@
 #' @param df Dataframe
 #' @param uni_metrics List of univariate EWS
 #' @param multi_metrics List of multivariate EWS
-#' @param pars List of parameters to pass to EWS functions, empty list if no parameters need to be passed
+#' @param EWS_args List of parameters to pass to EWS functions, empty list if no parameters need to be passed
 #'
 #' @return Dataframe with early warning signals
 #' @export
 #'
 #' @examples
-run_EWS <- function(df, uni_metrics, multi_metrics, pars = list()){
+run_EWS <- function(df, uni_metrics, multi_metrics, EWS_args = list()){
 
   # print(names(list(...)))
 
   uni_EWS = lapply(names(uni_metrics), function(j){
     unlist(lapply(1:ncol(df), function(i){
-      do.call(uni_metrics[[j]], utils::modifyList(list(x = df[,i]), pars[j]))
+      do.call(uni_metrics[[j]], utils::modifyList(list(x = df[,i]), EWS_args[j]))
     }))
     # apply(df, 2, uni_metric)
   }) %>%
@@ -25,7 +25,7 @@ run_EWS <- function(df, uni_metrics, multi_metrics, pars = list()){
     dplyr::mutate(metric = paste0(metric, "_", name)) %>% select(-name)
 
   multi_EWS = lapply(names(multi_metrics), function(j){
-    do.call(multi_metrics[[j]], utils::modifyList(list(x = df), pars[j]))
+    do.call(multi_metrics[[j]], utils::modifyList(list(x = df), EWS_args[j]))
     # multi_metric(df)
   }) %>%
     do.call(rbind, .) %>% magrittr::set_rownames(NULL) %>%
@@ -38,21 +38,22 @@ run_EWS <- function(df, uni_metrics, multi_metrics, pars = list()){
 #' Run EWS for all bifurcation parameter values
 #'
 #' @param df Dataframe
+#' @param X_names Names of variables in model
 #' @param uni_metrics List of univariate EWS
 #' @param multi_metrics List of multivariate EWS
-#' @param pars List of parameters to pass to EWS functions, empty list if no parameters need to be passed
+#' @param EWS_args List of parameters to pass to EWS functions, empty list if no parameters need to be passed
 #'
 #' @return Dataframe with EWS
 #' @export
 #'
 #' @examples
-run_bifEWS <- function(df, uni_metrics, multi_metrics, pars = list()){
+run_bifEWS <- function(df, X_names, uni_metrics, multi_metrics,
+                       EWS_args = list("RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05))){
 
-  pars=list("RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05))
   # Split dataframe per bifurcation parameter
   split_df = df %>% as.data.frame() %>% dplyr::group_by(bifpar_idx) %>% dplyr::group_split()
   split_df_EWS = split_df %>%
-    lapply(function(df_){run_EWS(df_ %>% dplyr::arrange(time_idx) %>% select(all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, pars = pars)} %>% dplyr::mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
+    lapply(function(df_){run_EWS(df_ %>% dplyr::arrange(time_idx) %>% select(all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, EWS_args = EWS_args)} %>% dplyr::mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
     do.call(rbind, .) %>% as.data.frame()
   head(split_df_EWS)
 
@@ -140,6 +141,39 @@ get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_
               warning_df = warning_df))
 }
 
+
+
+#' Get Area Under the Curve (AUC)
+#'
+#' @param fpr False Positive Rate
+#' @param tpr True Positive Rate
+#'
+#' @return AUC
+#' @export
+#'
+#' @examples
+get_AUC <- function(fpr, tpr){
+
+  xy = cbind(fpr = fpr, tpr = tpr) %>%
+    as.data.frame() %>%
+    distinct() %>% arrange(fpr, tpr)
+  x <- xy$fpr
+  y <- xy$tpr
+
+  # Only true positives
+  if (all(x == 0) & all(y == 1)){
+    return(1)
+    # Only false negatives
+  } else if (all(y == 0) & all(x == 1)){
+    return(0)
+  } else if (all(x == 0) & all(y == 0)){
+    return(0)
+  } else if (all(x == 1) & all(y == 1)){
+    return(0.5)
+  } else {
+    return(pracma::trapz(x,y))
+  }
+}
 
 
 ## Multivariate EWS Metrics

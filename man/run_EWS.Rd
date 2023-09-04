@@ -4,7 +4,7 @@
 \alias{run_EWS}
 \title{Compute early warning signals (EWS)}
 \usage{
-run_EWS(df, uni_metrics, multi_metrics, pars = list())
+run_EWS(df, uni_metrics, multi_metrics, EWS_args = list())
 }
 \arguments{
 \item{df}{Dataframe}
@@ -13,7 +13,7 @@ run_EWS(df, uni_metrics, multi_metrics, pars = list())
 
 \item{multi_metrics}{List of multivariate EWS}
 
-\item{pars}{List of parameters to pass to EWS functions, empty list if no parameters need to be passed}
+\item{EWS_args}{List of parameters to pass to EWS functions, empty list if no parameters need to be passed}
 }
 \value{
 Dataframe with early warning signals

@@ -4,16 +4,25 @@
 \alias{run_bifEWS}
 \title{Run EWS for all bifurcation parameter values}
 \usage{
-run_bifEWS(df, uni_metrics, multi_metrics, pars = list())
+run_bifEWS(
+  df,
+  X_names,
+  uni_metrics,
+  multi_metrics,
+  EWS_args = list(RQA = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max",
+    targetValue = 0.05))
+)
 }
 \arguments{
 \item{df}{Dataframe}
+
+\item{X_names}{Names of variables in model}
 
 \item{uni_metrics}{List of univariate EWS}
 
 \item{multi_metrics}{List of multivariate EWS}
 
-\item{pars}{List of parameters to pass to EWS functions, empty list if no parameters need to be passed}
+\item{EWS_args}{List of parameters to pass to EWS functions, empty list if no parameters need to be passed}
 }
 \value{
 Dataframe with EWS

@@ -417,7 +417,7 @@ find_regimes <- function(df,
   head(peaks_df)
 
   # For each value of the bifurcation parameter, find the period length k which has a minimum WCSS.
-  print("Finding best fitting period length for all timeseries")
+  print("Finding best fitting period length for all bifurcation parameter values")
   period_per_var_ = peaks_df %>% group_by(variable, bifpar_idx) %>%
     dplyr::arrange(time_idx, .by_group=TRUE) %>%
     dplyr::group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, max_k = max_k)) %>%
@@ -481,7 +481,8 @@ find_regimes <- function(df,
             dplyr::mutate(regime1_start_idx= bifpar_idx + 1) %>%
             select(regime1_start_idx, all_of(X_names)), all.x = TRUE)
 
-  return(list(period_per_var = period_per_var,
+  return(list(peaks_df = peaks_df,
+    period_per_var = period_per_var,
               periods = periods,
               regimes = regimes,
               broad_regimes = broad_regimes,
