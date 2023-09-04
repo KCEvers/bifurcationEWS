@@ -275,9 +275,11 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
 #' @examples
 get_regime_switch_type <- function(from_regime, to_regime, X_names){
 
+  regime_df = dplyr::bind_rows(from_regime, to_regime)
   # Regime switches involving only periodic regimes
-  if (!grepl("Chaotic", from_regime$regime, fixed = TRUE) & !grepl("Chaotic", to_regime$regime, fixed = TRUE)){
-  period_switch = dplyr::bind_rows(from_regime, to_regime) %>%
+  # if (!grepl("Chaotic", from_regime$regime, fixed = TRUE) & !grepl("Chaotic", to_regime$regime, fixed = TRUE)){
+  if (all(!grepl("Chaotic", regime_df$regime)) & all(!grepl("None", regime_df$regime))){
+  period_switch = regime_df %>%
     dplyr::mutate_at(X_names, ~ as.numeric(stringr::str_replace(., "Period-", ""))) %>%
     select(all_of(X_names)) %>% as.matrix()
 
@@ -297,7 +299,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
 
   } else {
     # Regime switches involving chaotic behaviour
-    broad_period_switch = dplyr::bind_rows(from_regime, to_regime) %>% ungroup() %>%
+    broad_period_switch = regime_df %>%
       tidyr::gather(X, value, -setdiff(colnames(.), X_names)) %>%
       group_by(regime) %>%
       dplyr::summarise(nr_periods = length(unique(value)), period = paste0(unique(value), collapse = ",")) %>%

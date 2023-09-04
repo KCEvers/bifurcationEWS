@@ -442,41 +442,20 @@ get_forloop <- function(...){
 }
 
 
-# get_filepath_GLV <-
-#   function(pars) {
-#
-#     filepath <-
-#       utils::modifyList(pars,
-#                         list(
-#                           # mainDir, model_name,
-#                           type_output,
-#                           analysis_type,
-#                           analysis_subtype,
-#                           file_ID =  sprintf("GLV-full_s%.4f-s%.4f-by%.4f",
-#                                              pars$ss_[1], dplyr::last(pars$ss_), pars$s_step),
-#                           # sprintf("GLV-null_%s", pars$regime_switch),
-#                           pars_ID =  sprintf("_%dtransSteps", pars$nr_trans_s_steps),
-#                           filename = ,
-#                           file_ext = ".RDS"
-#                         )) %>% format_path()
-#
-#     file_ID = sprintf("nr%d_Xsigma%.5f_%ddays_ts%.3f",
-#                              pars$data_idx,
-#                              pars$X_sigma,
-#                              pars$nr_days_per_s, pars$timestep)
-#       pars_ID = sprintf("alphaObs%d_sigmaObs%.2f_%s%.3f_%s-%s-%s",
-#                               pars_a$alpha_obs_noise,
-#                               pars_a$sigma_obs_noise,
-#                               pars$fix_emRad_or_RR,
-#                               pars$targetValue,
-#                               pars$RQA_type, pars$distNorm, pars$rescaleDist
-#       )
-#       sprintf("data-%s", pars$daily_or_raw)
-#       analysis_subtype = pars$separate_or_continued_ts
-#
-#
-#     return(filepath)
-#
-#   }
-#
-
+#' Add parameters in list as columns in dataframe
+#'
+#' @param df Dataframe
+#' @param for_par List of parameters
+#'
+#' @return Updated dataframe
+#' @export
+#'
+#' @examples
+add_par_as_cols = function(df, for_par){
+  df2 = cbind(
+    df,
+    as.data.frame(t(for_par))[rep(1, nrow(df)), ] %>%
+      magrittr::set_rownames(NULL))
+  df2 <- df2[, !duplicated(colnames(df2))]
+  return(df2)
+}
