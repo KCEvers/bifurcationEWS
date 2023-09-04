@@ -25,19 +25,6 @@ library(ggh4x)
 library(dplyr)
 library(ggplot2)
 # install.packages("EWSmethods")
-
-```
-
-```{r demo Lorenz, eval=FALSE, include=FALSE}
-parameters <- c(a = -8/3, b = -10, c = 28)
-state      <- c(X = 1, Y = 1, Z = 1)
-times      <- seq(0, 100, by = 0.01)
-
-out <- deSolve::ode(y = state, times = times, func = Lorenz_model, parms = parameters)
-
-# plot(out)
-# scatterplot3d::scatterplot3d(out[,-1], type = "l")
-
 ```
 
 ### Generating timeseries
@@ -109,8 +96,8 @@ downsample_pars = list(type = c("average", "one_sample")[1],
                                                   win_size = 25,
                                                   which_X = c(25, "first", "middle", "last", "random")[1],
                                                   seed = 123)
-                           timestep = .01
-                           nr_timesteps = 2000
+timestep = .01
+nr_timesteps = 2000
 bifpar_list = get_bifurcation_range(bifpar_start = .96, bifpar_end = .97, pre_steps = 0,
                                   baseline_steps = 0, transition_steps = 100, post_steps = 0)
 

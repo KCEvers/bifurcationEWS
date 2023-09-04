@@ -213,7 +213,7 @@ get_bifurcation_range <- function(bifpar_start, bifpar_end, pre_steps = 0,
 #' @return Start and end of each consecutive value sequence
 #'
 #' @examples
-find_conseq_seq = function(bifpar_idx_) {
+find_consec_seq = function(bifpar_idx_) {
   bifpar_idx = sort(unique(bifpar_idx_))
   list_conseq_seq = split(bifpar_idx, cumsum(c(1, diff(bifpar_idx) != 1)))
   df_conseq_seq = rbind(
@@ -222,7 +222,7 @@ find_conseq_seq = function(bifpar_idx_) {
     purrr::map(list_conseq_seq, length) %>% as.data.frame()
   ) %>% t() %>%
     magrittr::set_colnames(c("start_bifpar_idx", "end_bifpar_idx", "length_region")) %>% as.data.frame() %>%
-    dplyr::mutate(region_nr = 1:nrow(.), nr_regions = nrow(.)) %>%  rowwise()
+    dplyr::mutate(region_nr = 1:nrow(.), nr_regions = nrow(.)) %>%  dplyr::rowwise()
 
   return(df_conseq_seq %>% arrange(start_bifpar_idx))
 }
@@ -360,6 +360,32 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
 }
 
 
+#' Smooth over exceptions in otherwise stable regime
+#'
+#' @param periods Dataframe with periodicity per bifurcation parameter
+#' @param min_length_regime Minimum length of regime
+#'
+#' @return Dataframe with smoothed periodicity
+#'
+#' @examples
+smooth_periods <- function(periods, min_length_regime){
+  # If a consistent regime shows one exception, smooth over.
+  smooth_idxs = periods %>% dplyr::arrange(bifpar_idx) %>%
+    dplyr::mutate(lag_p = dplyr::lag(period_bifpar),
+                  # Apply rolling function to check for each row whether the previous min_length_regime values were the same and the future min_length_regime values were the same. If they were, fill in leading value.
+  embedded_in_same_regime = zoo::rollapply(period_bifpar, min_length_regime*2 + 1, function(x){length(unique(x[-(min_length_regime + 1)]))}, by = 1, fill=NA, align = 'center') ) %>% dplyr::rowwise() %>%
+    dplyr::mutate(period_bifpar_smooth = ifelse(embedded_in_same_regime == 1 & period_bifpar != lag_p, 1, 0)) %>% pull(period_bifpar_smooth) %>% as.logical() %>% which()
+  if (!rlang::is_empty(smooth_idxs)){
+  periods[smooth_idxs, setdiff(colnames(periods), "bifpar_idx")] = periods[smooth_idxs - 1, setdiff(colnames(periods), "bifpar_idx")]
+  }
+  # select(-c(lag_p, embedded_in_same_regime))
+    # dplyr::mutate(same = period_bifpar == period_bifpar_smooth) %>%
+    # select(bifpar_idx, period_bifpar, period_bifpar_smooth, same, embedded_in_same_regime) %>%
+    # as.data.frame()
+
+  return(periods)
+}
+
 #' Find regimes of dynamical system
 #'
 #' @param df Dataframe
@@ -404,7 +430,7 @@ find_regimes <- function(df,
                                   "Chaotic or Transitioning", paste0("Period-", k) ))
   head(period_per_var)
 
-  periods = period_per_var %>% select(bifpar_idx, period, variable) %>%
+  periods_ = period_per_var %>% select(bifpar_idx, period, variable) %>%
     group_by(bifpar_idx, period) %>%
     dplyr::mutate(period_group = paste0(
       unique(period),
@@ -417,6 +443,7 @@ find_regimes <- function(df,
     ) %>% select(-period_group) %>% ungroup() %>%
     tidyr::pivot_wider(names_from = variable, values_from = period) %>%
     arrange(bifpar_idx)
+  periods = smooth_periods(periods_, min_length_regime)
 
   periods%>%as.data.frame%>%head(n=50)
 
@@ -428,7 +455,7 @@ find_regimes <- function(df,
     dplyr::mutate(period_bifpar2 = ifelse(grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE),
                                           "Chaotic or Transitioning", "Periodic")) %>%
     group_by(period_bifpar2) %>%
-    group_modify( ~ find_conseq_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
+    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
     ungroup() %>%
     dplyr::rename(regime = period_bifpar2)
 
@@ -436,7 +463,7 @@ find_regimes <- function(df,
   regimes = periods %>%
     dplyr::filter(!grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE)) %>%
     group_by(period_bifpar, X1, X2, X3, X4) %>%
-    group_modify( ~ find_conseq_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
+    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
     ungroup() %>% dplyr::rename(regime = period_bifpar) %>%
     dplyr::bind_rows(basin_bound) %>%
     dplyr::bind_rows(broad_regimes %>% dplyr::filter(regime != "Periodic")) %>% arrange(start_bifpar_idx)
