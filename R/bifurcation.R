@@ -199,6 +199,7 @@ get_bifurcation_range <- function(bifpar_start, bifpar_end, pre_steps = 0,
 #'
 #' @param bifpar_idx_ Sequence of indices
 #'
+#' @importFrom dplyr .data
 #' @return Start and end of each consecutive value sequence
 #'
 #' @examples
@@ -213,7 +214,7 @@ find_consec_seq = function(bifpar_idx_) {
     magrittr::set_colnames(c("start_bifpar_idx", "end_bifpar_idx", "length_region")) %>% as.data.frame() %>%
     dplyr::mutate(region_nr = 1:nrow(.), nr_regions = nrow(.)) %>%  dplyr::rowwise()
 
-  return(df_conseq_seq %>% dplyr::arrange(dplyr::.data$start_bifpar_idx))
+  return(df_conseq_seq %>% dplyr::arrange(.data$start_bifpar_idx))
 }
 
 
@@ -309,12 +310,13 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
 #' @param regimes Dataframe with periodicity per value of the bifurcation parameter
 #' @inheritParams find_regimes
 #'
+#' @importFrom dplyr arrange ungroup mutate .data
 #' @return Dataframe with regime boundaries
 #'
 #' @examples
 find_regime_bounds <- function(regimes, min_length_regime, X_names){
   # Find regimes that satisfy a certain size
-  regimes = regimes %>% dplyr::ungroup() %>% dplyr::arrange(dplyr::.data$start_bifpar_idx)
+  regimes = regimes %>% ungroup() %>% arrange(.data$start_bifpar_idx)
   regime_idx = which(regimes$length_region >= min_length_regime)
 
   if (rlang::is_empty(regime_idx)){
@@ -330,8 +332,8 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
     ))
   } else {
   regime_bounds_df = lapply(1:(length(regime_idx)), function(i){
-    from_regime = regimes[regime_idx[i],] %>% dplyr::mutate(regime = ifelse(is.na(.data$regime), "None", .data$regime))
-    to_regime = regimes[regime_idx[i+1],] %>% dplyr::mutate(regime = ifelse(is.na(.data$regime), "None", .data$regime))
+    from_regime = regimes[regime_idx[i],] %>% mutate(regime = ifelse(is.na(.data$regime), "None", .data$regime))
+    to_regime = regimes[regime_idx[i+1],] %>% mutate(regime = ifelse(is.na(.data$regime), "None", .data$regime))
     regime_switch_type = get_regime_switch_type(from_regime, to_regime, X_names)
 
     return(data.frame(regime_switch_type = regime_switch_type,
