@@ -504,6 +504,8 @@ max_dist <- function(vec, cluster_idx){
 
 #' Compute mean maximum distance per cluster
 #'
+#'
+#' @param ks Vector of possible period lengths
 #' @inheritParams find_best_k
 #'
 #' @return Distance in peak and trough coordinates and indices per cluster partitioning
