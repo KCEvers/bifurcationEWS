@@ -2,7 +2,7 @@
 #'
 #' @param t Time
 #' @param state Named vector of variable state
-#' @param parameters List of model parameters
+#' @param parms List of model parameters
 #'
 #' @return Updated state
 #' @export
@@ -21,7 +21,7 @@ Lorenz_model <- function(t, state, parms) {
 #'
 #' @param t Time
 #' @param state Named vector of variable state
-#' @param parameters List of model parameters
+#' @param parms List of model parameters
 #'
 #' @return Updated state
 #' @export

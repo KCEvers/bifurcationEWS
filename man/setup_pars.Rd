@@ -8,6 +8,8 @@ setup_pars(model_name, pars_add = list())
 }
 \arguments{
 \item{model_name}{Chosen dynamical systems model}
+
+\item{pars_add}{List of parameters to overwrite or add to default parameters}
 }
 \value{
 List of parameters

@@ -7,7 +7,7 @@
 get_forloop(...)
 }
 \arguments{
-\item{...}{}
+\item{...}{Named forloop parameters}
 }
 \value{
 List of forloop parameters

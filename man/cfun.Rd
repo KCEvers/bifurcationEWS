@@ -7,7 +7,7 @@
 cfun(...)
 }
 \arguments{
-\item{...}{}
+\item{...}{All outputs from foreach loop}
 }
 \description{
 Utility function for foreach loop to save memory

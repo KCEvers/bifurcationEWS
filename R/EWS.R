@@ -6,6 +6,7 @@
 #' @param EWS_args List of parameters to pass to EWS functions, empty list if no parameters need to be passed
 #'
 #' @return Dataframe with early warning signals
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -22,7 +23,7 @@ run_EWS <- function(df, uni_metrics, multi_metrics, EWS_args = list()){
     do.call(rbind, .) %>%
     magrittr::set_rownames(NULL) %>%
     as.data.frame() %>% cbind(metric = names(uni_metrics))  %>% tidyr::pivot_longer(!metric) %>%
-    dplyr::mutate(metric = paste0(metric, "_", name)) %>% select(-name)
+    dplyr::mutate(metric = paste0(metric, "_", name)) %>% dplyr::select(-name)
 
   multi_EWS = lapply(names(multi_metrics), function(j){
     do.call(multi_metrics[[j]], utils::modifyList(list(x = df), EWS_args[j]))
@@ -44,6 +45,7 @@ run_EWS <- function(df, uni_metrics, multi_metrics, EWS_args = list()){
 #' @param EWS_args List of parameters to pass to EWS functions, empty list if no parameters need to be passed
 #'
 #' @return Dataframe with EWS
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -53,9 +55,8 @@ run_bifEWS <- function(df, X_names, uni_metrics, multi_metrics,
   # Split dataframe per bifurcation parameter
   split_df = df %>% as.data.frame() %>% dplyr::group_by(bifpar_idx) %>% dplyr::group_split()
   split_df_EWS = split_df %>%
-    lapply(function(df_){run_EWS(df_ %>% dplyr::arrange(time_idx) %>% select(all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, EWS_args = EWS_args)} %>% dplyr::mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
+    lapply(function(df_){run_EWS(df_ %>% dplyr::arrange(time_idx) %>% dplyr::select(dplyr::all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, EWS_args = EWS_args)} %>% dplyr::mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
     do.call(rbind, .) %>% as.data.frame()
-  head(split_df_EWS)
 
   return(split_df_EWS)
 }
@@ -70,6 +71,7 @@ run_bifEWS <- function(df, X_names, uni_metrics, multi_metrics,
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
 #' @return Dataframe with warnings
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -105,6 +107,7 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, crit_values, nr_conse
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
 #' @return Dataframe with warnings per EWS metric
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -112,9 +115,9 @@ get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_
   # Compute baseline mean and standard deviation
   EWS_df_CI = split_df_EWS %>% dplyr::arrange(bifpar_idx) %>% dplyr::group_by(metric) %>%
     dplyr::filter(bifpar_idx <= baseline_steps) %>%
-    dplyr::summarise(mean_w0 = mean(value), sd_w0 = sd(value),
-                     quantile_000 = as.numeric(quantile(value, 0, na.rm=TRUE)),
-                     quantile_100 = as.numeric(quantile(value, 1, na.rm=TRUE)),
+    dplyr::summarise(mean_w0 = mean(value), sd_w0 = stats::sd(value),
+                     quantile_000 = as.numeric(stats::quantile(value, 0, na.rm=TRUE)),
+                     quantile_100 = as.numeric(stats::quantile(value, 1, na.rm=TRUE)),
                      .groups = 'drop')
 
   # Compute z-scores - we're interested in absolute deviations, so either below or above mu + alpha_crit*sd
@@ -125,17 +128,18 @@ get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_
     # (current - mu_baseline) > (sigma_baseline * sigma_crit)
     # ((current - mu_baseline) / sigma_baseline) > (sigma_crit)
     # z = (current - mu_baseline) / sigma_baseline
-    dplyr::mutate(z_score_sd = ((value - mean_w0) / sd_w0)) %>% ungroup() %>% apply(2, unlist) %>% as.data.frame %>%
+    dplyr::mutate(z_score_sd = ((value - mean_w0) / sd_w0)) %>% dplyr::ungroup() %>%
+    apply(2, unlist) %>% as.data.frame %>%
     dplyr::mutate_at(c("bifpar_idx", "value", "z_score_sd", "mean_w0", "sd_w0", "quantile_000", "quantile_100"), ~ as.numeric(as.character(.x))) %>%
     dplyr::group_by(metric) %>%
     dplyr::mutate(bifpar_idx = round(as.numeric(as.character(bifpar_idx)))) %>%
-    ungroup()
+    dplyr::ungroup()
 
   # Get warnings per critical sigma
   warning_df = winEWS_df %>%
     dplyr::filter(bifpar_idx > baseline_steps, bifpar_idx <= (baseline_steps + transition_steps)) %>%
     dplyr::group_by(metric) %>%
-    group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score_sd, crit_values= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup
+    dplyr::group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score_sd, crit_values= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% dplyr::ungroup()
 
   return(list(winEWS_df = winEWS_df,
               warning_df = warning_df))
@@ -149,6 +153,7 @@ get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_
 #' @param tpr True Positive Rate
 #'
 #' @return AUC
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -156,7 +161,7 @@ get_AUC <- function(fpr, tpr){
 
   xy = cbind(fpr = fpr, tpr = tpr) %>%
     as.data.frame() %>%
-    distinct() %>% arrange(fpr, tpr)
+    dplyr::distinct() %>% dplyr::arrange(fpr, tpr)
   x <- xy$fpr
   y <- xy$tpr
 
@@ -186,7 +191,7 @@ get_AUC <- function(fpr, tpr){
 #'
 #' @examples
 eigenvalue <- function(x) {
-  eigen(cov(x))$values[1]
+  eigen(stats::cov(x))$values[1]
 }
 
 #' Mean absolute cross-correlation
@@ -198,7 +203,7 @@ eigenvalue <- function(x) {
 #'
 #' @examples
 get_conn <- function(x) {
-  mean(abs(cor(x)[upper.tri(cor(x))]))
+  mean(abs(stats::cor(x)[upper.tri(stats::cor(x))]))
 }
 
 
@@ -248,12 +253,12 @@ spatial_kurtosis <- function(x) {
 
 #' Recurrence Quantification Analysis
 #'
-#' @param x
-#' @param emDim
-#' @param emLag
-#' @param theiler
-#' @param distNorm
-#' @param targetValue
+#' @param x Data, can be a vector or matrix or dataframe
+#' @param emDim Embedding dimension
+#' @param emLag Embedding lag
+#' @param theiler Size of Theiler window
+#' @param distNorm Distance norm used for constructing recurrence matrix
+#' @param targetValue Target value for thresholding recurrence matrix
 #'
 #' @return RQA measures
 #' @export
@@ -304,6 +309,6 @@ kurtosis <- function(x){moments::kurtosis(x)}
 #'
 #' @examples
 get_autocorr <- function(x) {
-  acf(x, plot = FALSE, lag = 1)$acf[[2]]
+  stats::acf(x, plot = FALSE, lag = 1)$acf[[2]]
 }
 

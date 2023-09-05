@@ -11,7 +11,7 @@ GLV_model(t, state, parms)
 
 \item{state}{Named vector of variable state}
 
-\item{parameters}{List of model parameters}
+\item{parms}{List of model parameters}
 }
 \value{
 Updated state

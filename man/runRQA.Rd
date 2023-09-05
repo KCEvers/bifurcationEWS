@@ -14,7 +14,17 @@ runRQA(
 )
 }
 \arguments{
-\item{targetValue}{}
+\item{x}{Data, can be a vector or matrix or dataframe}
+
+\item{emDim}{Embedding dimension}
+
+\item{emLag}{Embedding lag}
+
+\item{theiler}{Size of Theiler window}
+
+\item{distNorm}{Distance norm used for constructing recurrence matrix}
+
+\item{targetValue}{Target value for thresholding recurrence matrix}
 }
 \value{
 RQA measures

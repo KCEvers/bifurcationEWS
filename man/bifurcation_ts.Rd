@@ -43,6 +43,12 @@ bifurcation_ts(
 \item{deSolve_method}{Method of generating ODE passed to deSolve::ode}
 
 \item{stopifregime}{End generating timeseries if this function is satisfied}
+
+\item{do_downsample}{Reduce dataframe size by downsampling?}
+
+\item{downsample_pars}{List of parameters for downsampling}
+
+\item{silent}{Don't output progress if TRUE}
 }
 \value{
 List with timeseries matrix and parameters used to generate the timeseries

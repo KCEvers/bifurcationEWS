@@ -8,8 +8,8 @@
 #
 # devtools::build_vignettes()
 # devtools::document()
-# devtools::check()
-# devtools::check(vignettes=FALSE)
+# ch = devtools::check()
+# ch = devtools::check(vignettes=FALSE)
 # devtools::install()
 # or:
 # devtools::install(build_vignettes = TRUE)
@@ -17,7 +17,7 @@
 # browseURL("doc/demo.html")
 
 # Add dependencies
-# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot)
+# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid")
 # for (p in pkgs){
 # usethis::use_package(p)
 # }
@@ -30,9 +30,10 @@
 #' @param type Type of downsampling. "average" averages data points in each window; "one_sample" picks one sample in each window.
 #' @param win_size Number of data points to be averaged or sampled from in each step
 #' @param which_X Time point(s) in window to select
-#' @param seed Seed number for random sampling of data point per window
+#' @param seed_nr Seed number for random sampling of data point per window
 #'
 #' @return Downsampled dataframe.
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -46,7 +47,7 @@ downsample <- function(df, X_names, type = c("average", "one_sample")[1],
 
   if (type == "average"){
     # Compute average every X samples with possibility of random samples drawn in every X
-    slice_func = slice_sample
+    slice_func = dplyr::slice_sample
 
     which_X = as.numeric(which_X)
     if (!is.na(which_X)){
@@ -61,7 +62,7 @@ downsample <- function(df, X_names, type = c("average", "one_sample")[1],
     }
   } else if (type == "one_sample"){
     # Select one sample every win_size with the option of choosing which sample
-    slice_func = slice
+    slice_func = dplyr::slice
 
     if (which_X == "first"){
       n = 1
@@ -71,13 +72,13 @@ downsample <- function(df, X_names, type = c("average", "one_sample")[1],
       n = win_size
     } else if (which_X == "random"){
       n = 1
-      slice_func = slice_sample
+      slice_func = dplyr::slice_sample
     }
   }
 
   X_day_mu_ = df %>%
     dplyr::mutate(win_nr = rep(1:ceiling(nrow(df)/win_size), each = win_size)[1:nrow(df)]) %>%
-    group_by(win_nr) %>%
+    dplyr::group_by(win_nr) %>%
     slice_func(n = n)
   X_day_mu = merge(X_day_mu_ %>%
                      dplyr::summarise_at(setdiff(names(.), c("win_nr", X_names)), max),
@@ -103,7 +104,7 @@ downsample <- function(df, X_names, type = c("average", "one_sample")[1],
 add_obs_noise <- function(df, X_names, noise_mean = 0, noise_sigma = .01, noise_constant = 0){
 
   # Add white noise to each variable
-  df[,X_names] = df[,X_names] + pracma::Reshape(rnorm(n = length(X_names) * nrow(df), mean = noise_mean, sd = noise_sigma), n = nrow(df), m = length(X_names)) + noise_constant
+  df[,X_names] = df[,X_names] + pracma::Reshape(stats::rnorm(n = length(X_names) * nrow(df), mean = noise_mean, sd = noise_sigma), n = nrow(df), m = length(X_names)) + noise_constant
 
   return(df)
 }
@@ -135,35 +136,35 @@ style_plot <- function(pl,
                          "legend.title" = 14,
                          "legend.spacing.y" = .075
                        )) {
-  pl <- pl + theme_bw() +
-    theme(
-      text = element_text(family = fs["family"]),
+  pl <- pl + ggplot2::theme_bw() +
+    ggplot2::theme(
+      text = ggplot2::element_text(family = fs["family"]),
       # Change font
-      plot.title = element_text(size = fs["plot.title"]),
-      plot.subtitle = element_text(size = fs["plot.subtitle"]),
-      axis.text = element_text(size = fs["axis.text"]),
-      axis.title = element_text(size = fs["axis.title"]),
-      legend.text = element_text(size = fs["legend.text"]),
-      legend.title = element_text(size = fs["legend.title"]),
+      plot.title = ggplot2::element_text(size = fs["plot.title"]),
+      plot.subtitle = ggplot2::element_text(size = fs["plot.subtitle"]),
+      axis.text = ggplot2::element_text(size = fs["axis.text"]),
+      axis.title = ggplot2::element_text(size = fs["axis.title"]),
+      legend.text = ggplot2::element_text(size = fs["legend.text"]),
+      legend.title = ggplot2::element_text(size = fs["legend.title"]),
       # # Increase font size facet labels
-      strip.text.y = element_text(
+      strip.text.y = ggplot2::element_text(
         size = as.numeric(fs["strip.text.y"]) + 2,
-        margin = margin(0.1, 0.1, 0.1, 0.1, "cm")
+        margin = ggplot2::margin(0.1, 0.1, 0.1, 0.1, "cm")
       ),
-      strip.text.x = element_text(
+      strip.text.x = ggplot2::element_text(
         size = as.numeric(fs["strip.text.x"]) + 2,
-        margin = margin(0.1, 0.1, 0.1, 0.1, "cm")
+        margin = ggplot2::margin(0.1, 0.1, 0.1, 0.1, "cm")
       )
       # panel.spacing.x = unit(0.2, "cm"),
       # panel.spacing.y = unit(0.2, "cm") # Distance between facets
     ) +
-    theme(strip.background = element_rect(fill = col_pal["col_facet_labels"], color = col_pal["col_facet_labels"])) + # Change facet rectangle colour
-    theme(strip.text = element_text(colour = 'white')) +
+    ggplot2::theme(strip.background = ggplot2::element_rect(fill = col_pal["col_facet_labels"], color = col_pal["col_facet_labels"])) + # Change facet rectangle colour
+    ggplot2::theme(strip.text = ggplot2::element_text(colour = 'white')) +
     # theme(legend.position = "none") + # Remove group legend
-    theme(plot.title = element_text(hjust = 0.5),
-          plot.subtitle = element_text(hjust = 0.5)) +
-    theme(plot.margin = unit(c(0, 0, 0, 0), "pt")) +
-    theme(legend.title.align = 0.5,
+    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
+          plot.subtitle = ggplot2::element_text(hjust = 0.5)) +
+    ggplot2::theme(plot.margin = ggplot2::unit(c(0, 0, 0, 0), "pt")) +
+    ggplot2::theme(legend.title.align = 0.5,
           # Text label alignment. Number from 0 (left) to 1 (right)
           legend.text.align = 0.5)
 
@@ -183,6 +184,7 @@ style_plot <- function(pl,
 #' @param formats File formats
 #'
 #' @return Success of saving file
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -197,7 +199,7 @@ save_plot <-
       print(sprintf("Filepath to image is NULL!"))
       return()
     }
-    graphics.off()
+    grDevices::graphics.off()
 
     # Make sure there are no leading periods in the file formats
     for (f_idx in 1:length(formats)) {
@@ -212,7 +214,7 @@ save_plot <-
     # Save plot in different formats
     if ("tiff" %in% formats) {
       filepath_image %>% tools::file_path_sans_ext() %>% paste0(".tiff") %>%
-        tiff(
+        grDevices::tiff(
           width = w,
           height = h,
           bg = "white",
@@ -221,10 +223,11 @@ save_plot <-
           res = resolution
         )
       grid::grid.draw(pl) # Make plot
-      dev.off()
+      grDevices::dev.off()
     }
     if ("png" %in% formats) {
-      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".png") %>% png(
+      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".png") %>%
+        grDevices::png(
         width = w,
         height = h,
         bg = "transparent",
@@ -232,18 +235,18 @@ save_plot <-
         res = resolution
       )
       grid::grid.draw(pl) # Make plot
-      dev.off()
+      grDevices::dev.off()
     }
 
     if ("pdf" %in% formats) {
       filepath_image %>% tools::file_path_sans_ext() %>% paste0(".pdf") %>%
-        pdf(width = w,
+        grDevices::pdf(width = w,
             height = h,
             bg = "white")
       grid::grid.draw(pl) # Make plot
-      dev.off()
+      grDevices::dev.off()
     }
-    graphics.off()
+    grDevices::graphics.off()
 
     return(file.exists(filepath_image))
   }
@@ -254,6 +257,7 @@ save_plot <-
 #' Set up parameters
 #'
 #' @param model_name Chosen dynamical systems model
+#' @param pars_add List of parameters to overwrite or add to default parameters
 #'
 #' @return List of parameters
 #' @export
@@ -321,6 +325,7 @@ setup_pars <- function(model_name, pars_add = list()){
 #' @param pars_file List of names of directories and filename components needed to create a directory
 #'
 #' @return File path
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -419,7 +424,7 @@ format_pars <- function(pars){
 
 #' Utility function for foreach loop to save memory
 #'
-#' @param ...
+#' @param ... All outputs from foreach loop
 #'
 #' @return NULL
 #' @export
@@ -429,9 +434,10 @@ cfun <- function(...){NULL}
 
 #' Generate forloop for foreach loop
 #'
-#' @param ...
+#' @param ... Named forloop parameters
 #'
 #' @return List of forloop parameters
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples

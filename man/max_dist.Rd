@@ -9,7 +9,7 @@ max_dist(vec, cluster_idx)
 \arguments{
 \item{vec}{Vector}
 
-\item{ks}{Vector of cluster sizes}
+\item{cluster_idx}{Vector of cluster indices}
 }
 \value{
 Mean, minimum and maximum distance between vector points when partitioned using the indices in ks

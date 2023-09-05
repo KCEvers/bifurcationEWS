@@ -24,7 +24,7 @@ downsample(
 
 \item{which_X}{Time point(s) in window to select}
 
-\item{seed}{Seed number for random sampling of data point per window}
+\item{seed_nr}{Seed number for random sampling of data point per window}
 }
 \value{
 Downsampled dataframe.

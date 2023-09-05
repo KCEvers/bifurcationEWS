@@ -10,8 +10,12 @@
 #' @param nr_timesteps Number of time steps
 #' @param deSolve_method Method of generating ODE passed to deSolve::ode
 #' @param stopifregime End generating timeseries if this function is satisfied
+#' @param do_downsample Reduce dataframe size by downsampling?
+#' @param downsample_pars List of parameters for downsampling
+#' @param silent Don't output progress if TRUE
 #'
 #' @return List with timeseries matrix and parameters used to generate the timeseries
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -35,7 +39,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
   # Initialize
   if (rlang::is_empty(X0)){
     set.seed(seed_nr)
-    X0      <- runif(length(X_names)) %>% setNames(X_names)
+    X0      <- stats::runif(length(X_names)) %>% setNames(X_names)
   }
   times = seq(0, nr_timesteps, by = timestep)
   min_t = times[1]
@@ -99,7 +103,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
                                 return(cbind(out, bifpar_idx))
                               }))
   # OUT$time_idx = 1:nrow(OUT)
-  OUT %>% head
+  # OUT %>% head
 
   return(list(df = as.data.frame(cbind(OUT, time_idx=1:nrow(OUT))),
               X_names = X_names,
@@ -122,6 +126,8 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
 #'
 #' @return Dataframe with peaks and troughs per variable, including index of the beginning, height, and end of each peak
 #' @export
+#' @importFrom dplyr select mutate filter slice group_by
+#' @importFrom magrittr `%>%`
 #'
 #' @examples
 peaks_bifdiag <- function(df, X_names){
@@ -163,12 +169,12 @@ peaks_bifdiag <- function(df, X_names){
     missing_bifpar_idx = setdiff(unique(df[,c("bifpar_idx")]), peaks_df$bifpar_idx)
     node_df = df[,c(i, setdiff(colnames(df), X_names))] %>% as.data.frame() %>%
       # dplyr::group_by(bifpar_idx) %>%
-      dplyr::slice(1, .by = bifpar_idx) %>% ungroup() %>%
+      dplyr::slice(1, .by = bifpar_idx) %>% dplyr::ungroup() %>%
       dplyr::filter(bifpar_idx %in% missing_bifpar_idx) %>%
       dplyr::mutate(minmax="node",
                     peak_idx = time_idx,
                     begin_peak_idx = time_idx, end_peak_idx = time_idx)
-    peaks_df_complete = rbind(peaks_df, node_df) %>% dplyr::mutate(variable = i) %>% dplyr::rename("X" = all_of(i))
+    peaks_df_complete = rbind(peaks_df, node_df) %>% dplyr::mutate(variable = i) %>% dplyr::rename("X" = dplyr::all_of(i))
 
     return(peaks_df_complete)
   }))
@@ -188,6 +194,7 @@ peaks_bifdiag <- function(df, X_names){
 #' @param post_steps Number of post-transition steps
 #'
 #' @return List of bifurcation parameter values
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -211,6 +218,7 @@ get_bifurcation_range <- function(bifpar_start, bifpar_end, pre_steps = 0,
 #' @param bifpar_idx_ Sequence of indices
 #'
 #' @return Start and end of each consecutive value sequence
+#' @importFrom magrittr `%>%`
 #'
 #' @examples
 find_consec_seq = function(bifpar_idx_) {
@@ -224,7 +232,7 @@ find_consec_seq = function(bifpar_idx_) {
     magrittr::set_colnames(c("start_bifpar_idx", "end_bifpar_idx", "length_region")) %>% as.data.frame() %>%
     dplyr::mutate(region_nr = 1:nrow(.), nr_regions = nrow(.)) %>%  dplyr::rowwise()
 
-  return(df_conseq_seq %>% arrange(start_bifpar_idx))
+  return(df_conseq_seq %>% dplyr::arrange(start_bifpar_idx))
 }
 
 
@@ -237,25 +245,26 @@ find_consec_seq = function(bifpar_idx_) {
 #' @param max_edge Maximum value reached
 #'
 #' @return Dataframe with bifurcation parameter value for which the system touches the basin boundaries as defined by min_edge and max_edge, if it hits these. Otherwise, dataframe filled with NA.
+#' @importFrom magrittr `%>%`
 #'
 #' @examples
 find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1){
 
-  minmax_peaks_df = peaks_df %>% select(bifpar_idx, variable, minmax, time_idx, X) %>%
-    filter(variable == variable_name) %>%
-    group_by(bifpar_idx, variable, minmax) %>%
+  minmax_peaks_df = peaks_df %>% dplyr::select(bifpar_idx, variable, minmax, time_idx, X) %>%
+    dplyr::filter(variable == variable_name) %>%
+    dplyr::group_by(bifpar_idx, variable, minmax) %>%
     dplyr::summarise(max = round(max(X), 2), min = round(min(X), 2), .groups='drop') %>%
     tidyr::pivot_wider(names_from = "minmax", values_from = c("max", "min")) %>%
-    select(bifpar_idx, variable, max_maxpeak, min_minpeak) %>% ungroup %>%
-    dplyr::filter(max_maxpeak == max_edge & min_minpeak == min_edge) %>% arrange(bifpar_idx) %>%
-    filter(row_number()==1 | row_number()==n())
+    dplyr::select(bifpar_idx, variable, max_maxpeak, min_minpeak) %>% dplyr::ungroup %>%
+    dplyr::filter(max_maxpeak == max_edge & min_minpeak == min_edge) %>% dplyr::arrange(bifpar_idx) %>%
+    dplyr::filter(row_number()==1 | row_number()==n())
   # If the edges were not touched
   if (nrow(minmax_peaks_df) == 0){
     minmax_peaks_df = data.frame(bifpar_idx = NA)
   }
 
-  basin_bound = data.frame(start_bifpar_idx = minmax_peaks_df %>% slice(1) %>% pull(bifpar_idx),
-                           end_bifpar_idx = minmax_peaks_df %>% slice(nrow(.)) %>% pull(bifpar_idx),
+  basin_bound = data.frame(start_bifpar_idx = minmax_peaks_df %>% dplyr::slice(1) %>% dplyr::pull(bifpar_idx),
+                           end_bifpar_idx = minmax_peaks_df %>% dplyr::slice(nrow(.)) %>% dplyr::pull(bifpar_idx),
                            regime = "Basin-Boundary"
   ) %>%
     dplyr::mutate(length_region = end_bifpar_idx- start_bifpar_idx + 1, region_nr = ifelse(is.na(start_bifpar_idx), NA, 1), nr_regions = ifelse(is.na(start_bifpar_idx), NA, 1))
@@ -271,6 +280,7 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
 #' @param X_names Names of variables
 #'
 #' @return Regime switch type
+#' @importFrom magrittr `%>%`
 #'
 #' @examples
 get_regime_switch_type <- function(from_regime, to_regime, X_names){
@@ -281,7 +291,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
   if (all(!grepl("Chaotic", regime_df$regime)) & all(!grepl("None", regime_df$regime))){
   period_switch = regime_df %>%
     dplyr::mutate_at(X_names, ~ as.numeric(stringr::str_replace(., "Period-", ""))) %>%
-    select(all_of(X_names)) %>% as.matrix()
+    dplyr::select(dplyr::all_of(X_names)) %>% as.matrix()
 
   period_switch_factor = period_switch[2,] / period_switch[1,]
 
@@ -307,8 +317,8 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
                                           ifelse(grepl("None", regime), "None",
                            ifelse(nr_periods == 1, period, "Mixed-Periodic"))))
     return(sprintf("%s to %s",
-            broad_period_switch[from_regime$regime == broad_period_switch$regime, ] %>% pull(broad_regime),
-                broad_period_switch[to_regime$regime == broad_period_switch$regime,] %>% pull(broad_regime)))
+            broad_period_switch[from_regime$regime == broad_period_switch$regime, ] %>% dplyr::pull(broad_regime),
+                broad_period_switch[to_regime$regime == broad_period_switch$regime,] %>% dplyr::pull(broad_regime)))
   }
 }
 
@@ -320,11 +330,12 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
 #' @param X_names Names of variables in model
 #'
 #' @return Dataframe with regime boundaries
+#' @importFrom magrittr `%>%`
 #'
 #' @examples
 find_regime_bounds <- function(regimes, min_length_regime, X_names){
   # Find regimes that satisfy a certain size
-  regimes = regimes %>% ungroup() %>% arrange(start_bifpar_idx)
+  regimes = regimes %>% dplyr::ungroup() %>% dplyr::arrange(start_bifpar_idx)
   regime_idx = which(regimes$length_region >= min_length_regime)
 
   if (rlang::is_empty(regime_idx)){
@@ -368,6 +379,7 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
 #' @param min_length_regime Minimum length of regime
 #'
 #' @return Dataframe with smoothed periodicity
+#' @importFrom magrittr `%>%`
 #'
 #' @examples
 smooth_periods <- function(periods, min_length_regime){
@@ -376,7 +388,7 @@ smooth_periods <- function(periods, min_length_regime){
     dplyr::mutate(lag_p = dplyr::lag(period_bifpar),
                   # Apply rolling function to check for each row whether the previous min_length_regime values were the same and the future min_length_regime values were the same. If they were, fill in leading value.
   embedded_in_same_regime = zoo::rollapply(period_bifpar, min_length_regime*2 + 1, function(x){length(unique(x[-(min_length_regime + 1)]))}, by = 1, fill=NA, align = 'center') ) %>% dplyr::rowwise() %>%
-    dplyr::mutate(period_bifpar_smooth = ifelse(embedded_in_same_regime == 1 & period_bifpar != lag_p, 1, 0)) %>% pull(period_bifpar_smooth) %>% as.logical() %>% which()
+    dplyr::mutate(period_bifpar_smooth = ifelse(embedded_in_same_regime == 1 & period_bifpar != lag_p, 1, 0)) %>% dplyr::pull(period_bifpar_smooth) %>% as.logical() %>% which()
   if (!rlang::is_empty(smooth_idxs)){
   periods[smooth_idxs, setdiff(colnames(periods), "bifpar_idx")] = periods[smooth_idxs - 1, setdiff(colnames(periods), "bifpar_idx")]
   }
@@ -398,6 +410,7 @@ smooth_periods <- function(periods, min_length_regime){
 #' @param max_k Maximum cluster size to look for
 #'
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -414,14 +427,13 @@ find_regimes <- function(df,
 
   # Get dataframe with peaks
   peaks_df = peaks_bifdiag(df, X_names)
-  head(peaks_df)
 
   # For each value of the bifurcation parameter, find the period length k which has a minimum WCSS.
   print("Finding best fitting period length for all bifurcation parameter values")
-  period_per_var_ = peaks_df %>% group_by(variable, bifpar_idx) %>%
+  period_per_var_ = peaks_df %>% dplyr::group_by(variable, bifpar_idx) %>%
     dplyr::arrange(time_idx, .by_group=TRUE) %>%
     dplyr::group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, max_k = max_k)) %>%
-    ungroup()
+    dplyr::ungroup()
 
   period_per_var = period_per_var_ %>%
     # tidyr::unnest(names(.)) %>%
@@ -430,24 +442,21 @@ find_regimes <- function(df,
     #                               "Chaotic or Transitioning", paste0("Period-", k) ))
     dplyr::mutate(period = ifelse(max_spread_coord > thresh_coord_spread & max_spread_peak_idx > thresh_peak_idx_spread,
                                   "Chaotic or Transitioning", paste0("Period-", k) ))
-  head(period_per_var)
 
   periods_ = period_per_var %>% select(bifpar_idx, period, variable) %>%
-    group_by(bifpar_idx, period) %>%
+    dplyr::group_by(bifpar_idx, period) %>%
     dplyr::mutate(period_group = paste0(
       unique(period),
       " (",
       paste0(sort(unique(variable)), collapse = ","),
       ")"
     )
-    ) %>% group_by(bifpar_idx) %>%
+    ) %>% dplyr::group_by(bifpar_idx) %>%
     dplyr::mutate(period_bifpar = paste0(sort(unique(period_group)), collapse = ' AND ')
-    ) %>% select(-period_group) %>% ungroup() %>%
+    ) %>% dplyr::select(-period_group) %>% dplyr::ungroup() %>%
     tidyr::pivot_wider(names_from = variable, values_from = period) %>%
-    arrange(bifpar_idx)
+    dplyr::arrange(bifpar_idx)
   periods = smooth_periods(periods_, min_length_regime)
-
-  periods%>%as.data.frame%>%head(n=50)
 
   # Get basin boundaries (when system hits edges of basin)
   basin_bound = find_basin_boundary(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1)
@@ -456,30 +465,29 @@ find_regimes <- function(df,
   broad_regimes = periods %>%
     dplyr::mutate(period_bifpar2 = ifelse(grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE),
                                           "Chaotic or Transitioning", "Periodic")) %>%
-    group_by(period_bifpar2) %>%
-    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
-    ungroup() %>%
+    dplyr::group_by(period_bifpar2) %>%
+    dplyr::group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% dplyr::arrange(start_bifpar_idx) %>%
+    dplyr::ungroup() %>%
     dplyr::rename(regime = period_bifpar2)
 
    # Compile regimes
   regimes = periods %>%
     dplyr::filter(!grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE)) %>%
-    group_by(period_bifpar, X1, X2, X3, X4) %>%
-    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
-    ungroup() %>% dplyr::rename(regime = period_bifpar) %>%
+    dplyr::group_by(period_bifpar, X1, X2, X3, X4) %>%
+    dplyr::group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% dplyr::arrange(start_bifpar_idx) %>%
+    dplyr::ungroup() %>% dplyr::rename(regime = period_bifpar) %>%
     dplyr::bind_rows(basin_bound) %>%
-    dplyr::bind_rows(broad_regimes %>% dplyr::filter(regime != "Periodic")) %>% arrange(start_bifpar_idx)
-
-  regimes %>% head(n=100) %>% as.data.frame()
+    dplyr::bind_rows(broad_regimes %>% dplyr::filter(regime != "Periodic")) %>% dplyr::arrange(start_bifpar_idx)
 
   # Find regime boundaries
   regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime, X_names = X_names)
     # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
   regime_bounds =  merge(regime_bounds_,
                          df %>%
-            dplyr::filter(bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>% slice_tail(n=1, by = bifpar_idx) %>%
+            dplyr::filter(bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>%
+              dplyr::slice_tail(n=1, by = bifpar_idx) %>%
             dplyr::mutate(regime1_start_idx= bifpar_idx + 1) %>%
-            select(regime1_start_idx, all_of(X_names)), all.x = TRUE)
+            dplyr::select(regime1_start_idx, dplyr::all_of(X_names)), all.x = TRUE)
 
   return(list(peaks_df = peaks_df,
     period_per_var = period_per_var,
@@ -498,8 +506,9 @@ find_regimes <- function(df,
 #' Find distance between points in chosen temporal sequence
 #'
 #' @param vec Vector
-#' @param ks Vector of cluster sizes
+#' @param cluster_idx Vector of cluster indices
 #'
+#' @importFrom magrittr `%>%`
 #' @return Mean, minimum and maximum distance between vector points when partitioned using the indices in ks
 #'
 #' @examples
@@ -508,7 +517,7 @@ max_dist <- function(vec, cluster_idx){
   vec = as.matrix(vec)
   sizeCl <- summary(as.factor(cluster_idx))
   # Compute maximal distance within each cluster
-  max_dist_per_k = unlist(lapply(split(vec, cluster_idx), function(x){max(dist(x))}))
+  max_dist_per_k = unlist(lapply(split(vec, cluster_idx), function(x){max(stats::dist(x))}))
 
   # return(mean(max_dist_per_k))
   return(c(
@@ -525,6 +534,7 @@ max_dist <- function(vec, cluster_idx){
 #' @param coord Peak and trough coordinates
 #' @param peak_idx Peak and trough indices
 #'
+#' @importFrom magrittr `%>%`
 #' @return Distance in peak and trough coordinates and indices per cluster partitioning
 #'
 #' @examples
@@ -557,6 +567,7 @@ find_dist_per_k <- function(ks, coord, peak_idx){
 #' @param max_k Maximum cluster size to look for
 #'
 #' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
+#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -601,7 +612,7 @@ find_best_k <- function(coord, peak_idx, max_k = NULL){
   # idx_min = log(spread_df[,c("max_spread_coord", "max_spread_peak_idx")] * spread_df[,c("k")]) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
   # idx_min = spread_df %>% mutate_at(c("mean_spread_coord", "max_spread_coord",
                                       # "mean_spread_peak_idx", "max_spread_peak_idx"), ~ ifelse(. == 0, 0, log(. * k))) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
-  idx_min = spread_df %>% mutate_at(c("max_spread_coord", "max_spread_peak_idx"), ~ ifelse(. == 0, 0, log(. * k))) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
+  idx_min = spread_df %>% dplyr::mutate_at(c("max_spread_coord", "max_spread_peak_idx"), ~ ifelse(. == 0, 0, log(. * k))) %>% scale(center = F) %>% apply(1, mean) %>% which.min()
 
   # idx_min = log(spread_df[,c("max_spread_coord")] * spread_df[,c("k")]) %>%
   #   # scale(center = F) %>% apply(1, mean)  %>%

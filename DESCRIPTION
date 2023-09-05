@@ -3,9 +3,9 @@ Date: 2023-09-01
 Title: Early Warning Signal Analysis for Deterministic Bifurcations in Dynamical Systems
 Version: 0.0.0.9000
 Authors@R: 
-    person("Kyra", "Evers", "Caitlin", "kyra.c.evers@gmail.com", role = c("aut", "cre"),
+    person(given = "Kyra", family = "Evers", middle = "Caitlin", email = "kyra.c.evers@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-6890-3482"))
-Description: What the package does (one paragraph).
+Description: Compute Early Warning Signals (EWS) for anticipating bifurcations in a deterministic dynamical system. 
 License: CC BY 4.0
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -20,15 +20,21 @@ Imports:
     dplyr,
     ggh4x,
     ggplot2,
+    grDevices,
+    grid,
+    magrittr,
     moments,
     pracma,
     purrr,
     rgl,
     rlang,
+    scales,
     stats,
     stringr,
     tidyr,
+    tools,
     utils,
+    viridis,
     zoo
 Suggests: 
     knitr,
