@@ -21,6 +21,8 @@
 # for (p in pkgs){
 # usethis::use_package(p)
 # }
+# Allow for use of pipes :
+# usethis::use_pipe()
 
 
 #' Reduce size of dataframe by downsampling
@@ -33,7 +35,7 @@
 #' @param seed_nr Seed number for random sampling of data point per window
 #'
 #' @return Downsampled dataframe.
-#' @importFrom magrittr `%>%`
+#' @importFrom dplyr .data
 #' @export
 #'
 #' @examples
@@ -78,7 +80,7 @@ downsample <- function(df, X_names, type = c("average", "one_sample")[1],
 
   X_day_mu_ = df %>%
     dplyr::mutate(win_nr = rep(1:ceiling(nrow(df)/win_size), each = win_size)[1:nrow(df)]) %>%
-    dplyr::group_by(win_nr) %>%
+    dplyr::group_by(.data$win_nr) %>%
     slice_func(n = n)
   X_day_mu = merge(X_day_mu_ %>%
                      dplyr::summarise_at(setdiff(names(.), c("win_nr", X_names)), max),
@@ -185,7 +187,6 @@ style_plot <- function(pl,
 #' @param formats File formats
 #'
 #' @return Success of saving file
-#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -326,7 +327,6 @@ setup_pars <- function(model_name, pars_add = list()){
 #' @param pars_file List of names of directories and filename components needed to create a directory
 #'
 #' @return File path
-#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -438,7 +438,6 @@ cfun <- function(...){NULL}
 #' @param ... Named forloop parameters
 #'
 #' @return List of forloop parameters
-#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples

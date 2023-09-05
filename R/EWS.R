@@ -1,12 +1,10 @@
 #' Compute early warning signals (EWS)
 #'
 #' @param df Dataframe
-#' @param uni_metrics List of univariate EWS
-#' @param multi_metrics List of multivariate EWS
-#' @param EWS_args List of parameters to pass to EWS functions, empty list if no parameters need to be passed
+#' @inheritParams run_bifEWS
 #'
 #' @return Dataframe with early warning signals
-#' @importFrom magrittr `%>%`
+#' @importFrom dplyr .data
 #' @export
 #'
 #' @examples
@@ -22,8 +20,8 @@ run_EWS <- function(df, uni_metrics, multi_metrics, EWS_args = list()){
   }) %>%
     do.call(rbind, .) %>%
     magrittr::set_rownames(NULL) %>%
-    as.data.frame() %>% cbind(metric = names(uni_metrics))  %>% tidyr::pivot_longer(!metric) %>%
-    dplyr::mutate(metric = paste0(metric, "_", name)) %>% dplyr::select(-name)
+    as.data.frame() %>% cbind(metric = names(uni_metrics))  %>% tidyr::pivot_longer(!.data$metric) %>%
+    dplyr::mutate(metric = paste0(.data$metric, "_", .data$name)) %>% dplyr::select(-.data$name)
 
   multi_EWS = lapply(names(multi_metrics), function(j){
     do.call(multi_metrics[[j]], utils::modifyList(list(x = df), EWS_args[j]))
@@ -31,21 +29,21 @@ run_EWS <- function(df, uni_metrics, multi_metrics, EWS_args = list()){
   }) %>%
     do.call(rbind, .) %>% magrittr::set_rownames(NULL) %>%
     as.data.frame() %>% cbind(metric = names(multi_metrics)) %>%
-    dplyr::rename(value = V1)
+    dplyr::rename(value = .data$V1)
 
   return(rbind(uni_EWS, multi_EWS))
 }
 
 #' Run EWS for all bifurcation parameter values
 #'
-#' @param df Dataframe
+#' @param df Complete dataframe with timeseries for all bifurcation parameter values
 #' @param X_names Names of variables in model
 #' @param uni_metrics List of univariate EWS
 #' @param multi_metrics List of multivariate EWS
 #' @param EWS_args List of parameters to pass to EWS functions, empty list if no parameters need to be passed
 #'
 #' @return Dataframe with EWS
-#' @importFrom magrittr `%>%`
+#' @importFrom dplyr .data arrange group_by group_split all_of select mutate
 #' @export
 #'
 #' @examples
@@ -53,9 +51,9 @@ run_bifEWS <- function(df, X_names, uni_metrics, multi_metrics,
                        EWS_args = list("RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05))){
 
   # Split dataframe per bifurcation parameter
-  split_df = df %>% as.data.frame() %>% dplyr::group_by(bifpar_idx) %>% dplyr::group_split()
+  split_df = df %>% as.data.frame() %>% group_by(.data$bifpar_idx) %>% group_split()
   split_df_EWS = split_df %>%
-    lapply(function(df_){run_EWS(df_ %>% dplyr::arrange(time_idx) %>% dplyr::select(dplyr::all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, EWS_args = EWS_args)} %>% dplyr::mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
+    lapply(function(df_){run_EWS(df_ %>% arrange(.data$time_idx) %>% select(all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, EWS_args = EWS_args)} %>% mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
     do.call(rbind, .) %>% as.data.frame()
 
   return(split_df_EWS)
@@ -71,7 +69,6 @@ run_bifEWS <- function(df, X_names, uni_metrics, multi_metrics,
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
 #' @return Dataframe with warnings
-#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
@@ -107,39 +104,38 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, crit_values, nr_conse
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
 #' @return Dataframe with warnings per EWS metric
-#' @importFrom dplyr arrange ungroup filter group_by mutate mutate_at summarise group_modify
-#' @importFrom magrittr `%>%`
+#' @importFrom dplyr arrange ungroup filter group_by mutate mutate_at summarise group_modify .data
 #' @export
 #'
 #' @examples
 get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
-  EWS_df_CI = split_df_EWS %>% arrange(bifpar_idx) %>% group_by(metric) %>%
-    filter(bifpar_idx <= baseline_steps) %>%
-    summarise(mean_w0 = mean(value), sd_w0 = stats::sd(value),
-                     quantile_000 = as.numeric(stats::quantile(value, 0, na.rm=TRUE)),
-                     quantile_100 = as.numeric(stats::quantile(value, 1, na.rm=TRUE)),
+  EWS_df_CI = split_df_EWS %>% arrange(.data$bifpar_idx) %>% group_by(.data$metric) %>%
+    filter(.data$bifpar_idx <= baseline_steps) %>%
+    summarise(mean_w0 = mean(.data$value), sd_w0 = stats::sd(.data$value),
+                     quantile_000 = as.numeric(stats::quantile(.data$value, 0, na.rm=TRUE)),
+                     quantile_100 = as.numeric(stats::quantile(.data$value, 1, na.rm=TRUE)),
                      .groups = 'drop')
 
   # Compute z-scores - we're interested in absolute deviations, so either below or above mu + alpha_crit*sd
-  winEWS_df = merge(split_df_EWS, EWS_df_CI) %>% arrange(bifpar_idx) %>%
-    group_by(metric) %>%
+  winEWS_df = merge(split_df_EWS, EWS_df_CI) %>% arrange(.data$bifpar_idx) %>%
+    group_by(.data$metric) %>%
     # Compute z-scores (normalized): Convert z-score so that it can be compared to any sigma (i.e. you don't have to rerun the procedure for every sigma) using the following formula:
     # current > mu_baseline + (sigma_baseline * sigma_crit)
     # (current - mu_baseline) > (sigma_baseline * sigma_crit)
     # ((current - mu_baseline) / sigma_baseline) > (sigma_crit)
     # z = (current - mu_baseline) / sigma_baseline
-    mutate(z_score_sd = ((value - mean_w0) / sd_w0)) %>% ungroup() %>%
+    mutate(z_score_sd = ((.data$value - .data$mean_w0) / .data$sd_w0)) %>% ungroup() %>%
     apply(2, unlist) %>% as.data.frame %>%
     mutate_at(c("bifpar_idx", "value", "z_score_sd", "mean_w0", "sd_w0", "quantile_000", "quantile_100"), ~ as.numeric(as.character(.x))) %>%
-    group_by(metric) %>%
-    mutate(bifpar_idx = round(as.numeric(as.character(bifpar_idx)))) %>%
+    group_by(.data$metric) %>%
+    mutate(bifpar_idx = round(as.numeric(as.character(.data$bifpar_idx)))) %>%
     ungroup()
 
   # Get warnings per critical sigma
   warning_df = winEWS_df %>%
-    filter(bifpar_idx > baseline_steps, bifpar_idx <= (baseline_steps + transition_steps)) %>%
-    group_by(metric) %>%
+    filter(.data$bifpar_idx > baseline_steps, .data$bifpar_idx <= (baseline_steps + transition_steps)) %>%
+    group_by(.data$metric) %>%
     group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score_sd, crit_values= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup()
 
   return(list(winEWS_df = winEWS_df,
@@ -154,7 +150,6 @@ get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_
 #' @param tpr True Positive Rate
 #'
 #' @return AUC
-#' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples

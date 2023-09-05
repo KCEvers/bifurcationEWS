@@ -9,7 +9,7 @@ smooth_periods(periods, min_length_regime)
 \arguments{
 \item{periods}{Dataframe with periodicity per bifurcation parameter}
 
-\item{min_length_regime}{Minimum length of regime}
+\item{min_length_regime}{Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime}
 }
 \value{
 Dataframe with smoothed periodicity

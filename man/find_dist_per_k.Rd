@@ -7,8 +7,6 @@
 find_dist_per_k(ks, coord, peak_idx)
 }
 \arguments{
-\item{ks}{Vector of cluster sizes}
-
 \item{coord}{Peak and trough coordinates}
 
 \item{peak_idx}{Peak and trough indices}

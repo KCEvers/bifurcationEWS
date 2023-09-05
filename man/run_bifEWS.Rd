@@ -14,7 +14,7 @@ run_bifEWS(
 )
 }
 \arguments{
-\item{df}{Dataframe}
+\item{df}{Complete dataframe with timeseries for all bifurcation parameter values}
 
 \item{X_names}{Names of variables in model}
 
