@@ -4,12 +4,14 @@
 \alias{find_best_k}
 \title{Find best fitting period length k}
 \usage{
-find_best_k(coord, peak_idx, max_k = NULL)
+find_best_k(coord, peak_idx, thresh_node, max_k = NULL)
 }
 \arguments{
 \item{coord}{Peak and trough coordinates}
 
 \item{peak_idx}{Peak and trough indices}
+
+\item{thresh_node}{Threshold under which timeseries is classified as node}
 
 \item{max_k}{Maximum cluster size to look for}
 }

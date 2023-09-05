@@ -7,6 +7,7 @@
 find_regimes(
   df,
   X_names,
+  thresh_node = 0.1,
   thresh_coord_spread = 0.025,
   thresh_peak_idx_spread = 2,
   min_length_regime = 5,
@@ -18,9 +19,11 @@ find_regimes(
 
 \item{X_names}{Names of variables in model}
 
-\item{thresh_coord_spread}{Threshold for within cluster sum of squares in peak and trough coordinates that determines a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning}
+\item{thresh_node}{Threshold under which timeseries is classified as node}
 
-\item{thresh_peak_idx_spread}{Same as thresh_coord_WCSS but for peak and trough indices}
+\item{thresh_coord_spread}{Threshold for distance in peak and trough coordinates that determines whether a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning}
+
+\item{thresh_peak_idx_spread}{Same as thresh_coord_spread but for peak and trough indices}
 
 \item{min_length_regime}{Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime}
 

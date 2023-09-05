@@ -338,7 +338,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
 #' @param regimes Dataframe with periodicity per value of the bifurcation parameter
 #' @inheritParams find_regimes
 #'
-#' @importFrom dplyr arrange ungroup mutate .data
+#' @importFrom dplyr arrange ungroup mutate .data group_by_at
 #' @return Dataframe with regime boundaries
 #'
 #' @examples
@@ -409,8 +409,9 @@ smooth_periods <- function(periods, min_length_regime){
 #'
 #' @param df Dataframe
 #' @param X_names Names of variables in model
-#' @param thresh_coord_spread Threshold for within cluster sum of squares in peak and trough coordinates that determines a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning
-#' @param thresh_peak_idx_spread Same as thresh_coord_WCSS but for peak and trough indices
+#' @param thresh_node Threshold under which timeseries is classified as node
+#' @param thresh_coord_spread Threshold for distance in peak and trough coordinates that determines whether a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning
+#' @param thresh_peak_idx_spread Same as thresh_coord_spread but for peak and trough indices
 #' @param min_length_regime Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime
 #' @param max_k Maximum cluster size to look for
 #'
@@ -421,6 +422,7 @@ smooth_periods <- function(periods, min_length_regime){
 #' @examples
 find_regimes <- function(df,
                          X_names,
+                         thresh_node = .1,
                          thresh_coord_spread = .025,
                          thresh_peak_idx_spread=2,
                          min_length_regime = 5, max_k = NULL){
@@ -437,7 +439,7 @@ find_regimes <- function(df,
   print("Finding best fitting period length for all bifurcation parameter values")
   period_per_var_ = peaks_df %>% group_by(.data$variable, .data$bifpar_idx) %>%
     arrange(.data$time_idx, .by_group=TRUE) %>%
-    group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, max_k = max_k)) %>%
+    group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, thresh_node = thresh_node, max_k = max_k)) %>%
     ungroup()
 
   period_per_var = period_per_var_ %>%
@@ -572,13 +574,24 @@ find_dist_per_k <- function(ks, coord, peak_idx){
 #' @param coord Peak and trough coordinates
 #' @param peak_idx Peak and trough indices
 #' @param max_k Maximum cluster size to look for
+#' @inheritParams find_regimes
 #'
 #' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
 #' @export
 #'
 #' @examples
-find_best_k <- function(coord, peak_idx, max_k = NULL){
-  # Finding the best period is tricky: The global minimum might be a subharmonic, but the first local minimum might not be optimal for a more complex oscillation. If the timeseries is truly periodic, local minima in WCSS will occur for every subharmonic (e.g. period = 4, minima at period = c(4,8,12,...)).
+find_best_k <- function(coord, peak_idx, thresh_node, max_k = NULL){
+  # Finding the best period is tricky: The global minimum might be a subharmonic, but the first local minimum might not be optimal for a more complex oscillation. If the timeseries is truly periodic, local minima in distance will occur for every subharmonic (e.g. period = 4, minima at period = c(4,8,12,...)).
+  if (max(stats::dist(coord)) < thresh_node){
+     return(data.frame(k = 1,
+                       mean_spread_coord =  mean(stats::dist(coord)),
+                       min_spread_coord  = min(stats::dist(coord)),
+                       max_spread_coord = max(stats::dist(coord)),
+                       mean_spread_peak_idx = mean(stats::dist(peak_idx)),
+                       min_spread_peak_idx = min(stats::dist(peak_idx)),
+                       max_spread_peak_idx = max(stats::dist(peak_idx))))
+  }
+
   if (is.null(max_k)){
     max_k = (floor(length(coord)/2)-1)
   } else {
