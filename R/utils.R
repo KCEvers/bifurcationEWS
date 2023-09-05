@@ -117,6 +117,7 @@ add_obs_noise <- function(df, X_names, noise_mean = 0, noise_sigma = .01, noise_
 #' @param fs Font sizes
 #'
 #' @return Styled plot
+#' @importFrom ggplot2 theme_bw element_text element_rect unit margin theme
 #' @export
 #'
 #' @examples
@@ -136,35 +137,35 @@ style_plot <- function(pl,
                          "legend.title" = 14,
                          "legend.spacing.y" = .075
                        )) {
-  pl <- pl + ggplot2::theme_bw() +
-    ggplot2::theme(
-      text = ggplot2::element_text(family = fs["family"]),
+  pl <- pl + theme_bw() +
+    theme(
+      text = element_text(family = fs["family"]),
       # Change font
-      plot.title = ggplot2::element_text(size = fs["plot.title"]),
-      plot.subtitle = ggplot2::element_text(size = fs["plot.subtitle"]),
-      axis.text = ggplot2::element_text(size = fs["axis.text"]),
-      axis.title = ggplot2::element_text(size = fs["axis.title"]),
-      legend.text = ggplot2::element_text(size = fs["legend.text"]),
-      legend.title = ggplot2::element_text(size = fs["legend.title"]),
+      plot.title = element_text(size = fs["plot.title"]),
+      plot.subtitle = element_text(size = fs["plot.subtitle"]),
+      axis.text = element_text(size = fs["axis.text"]),
+      axis.title = element_text(size = fs["axis.title"]),
+      legend.text = element_text(size = fs["legend.text"]),
+      legend.title = element_text(size = fs["legend.title"]),
       # # Increase font size facet labels
-      strip.text.y = ggplot2::element_text(
+      strip.text.y = element_text(
         size = as.numeric(fs["strip.text.y"]) + 2,
-        margin = ggplot2::margin(0.1, 0.1, 0.1, 0.1, "cm")
+        margin = margin(0.1, 0.1, 0.1, 0.1, "cm")
       ),
-      strip.text.x = ggplot2::element_text(
+      strip.text.x = element_text(
         size = as.numeric(fs["strip.text.x"]) + 2,
-        margin = ggplot2::margin(0.1, 0.1, 0.1, 0.1, "cm")
+        margin = margin(0.1, 0.1, 0.1, 0.1, "cm")
       )
       # panel.spacing.x = unit(0.2, "cm"),
       # panel.spacing.y = unit(0.2, "cm") # Distance between facets
     ) +
-    ggplot2::theme(strip.background = ggplot2::element_rect(fill = col_pal["col_facet_labels"], color = col_pal["col_facet_labels"])) + # Change facet rectangle colour
-    ggplot2::theme(strip.text = ggplot2::element_text(colour = 'white')) +
+    theme(strip.background = element_rect(fill = col_pal["col_facet_labels"], color = col_pal["col_facet_labels"])) + # Change facet rectangle colour
+    theme(strip.text = element_text(colour = 'white')) +
     # theme(legend.position = "none") + # Remove group legend
-    ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5),
-          plot.subtitle = ggplot2::element_text(hjust = 0.5)) +
-    ggplot2::theme(plot.margin = ggplot2::unit(c(0, 0, 0, 0), "pt")) +
-    ggplot2::theme(legend.title.align = 0.5,
+    theme(plot.title = element_text(hjust = 0.5),
+          plot.subtitle = element_text(hjust = 0.5)) +
+    theme(plot.margin = unit(c(0, 0, 0, 0), "pt")) +
+    theme(legend.title.align = 0.5,
           # Text label alignment. Number from 0 (left) to 1 (right)
           legend.text.align = 0.5)
 

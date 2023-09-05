@@ -39,7 +39,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
   # Initialize
   if (rlang::is_empty(X0)){
     set.seed(seed_nr)
-    X0      <- stats::runif(length(X_names)) %>% setNames(X_names)
+    X0      <- stats::runif(length(X_names)) %>% stats::setNames(X_names)
   }
   times = seq(0, nr_timesteps, by = timestep)
   min_t = times[1]
@@ -126,7 +126,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
 #'
 #' @return Dataframe with peaks and troughs per variable, including index of the beginning, height, and end of each peak
 #' @export
-#' @importFrom dplyr select mutate filter slice group_by
+#' @importFrom dplyr select mutate filter slice group_by ungroup all_of rename
 #' @importFrom magrittr `%>%`
 #'
 #' @examples
@@ -142,39 +142,24 @@ peaks_bifdiag <- function(df, X_names){
       maxpeaks_df = cbind(df[maxpeaks[,2], c(i, setdiff(colnames(df), X_names))],
                           peak_idx = maxpeaks[,2],
                           begin_peak_idx = maxpeaks[,3], end_peak_idx = maxpeaks[,4]
-      ) %>% as.data.frame() %>% dplyr::mutate(minmax = "maxpeak")
-      # } else {
-      #   # In case there are no peaks, we are most likely dealing with a constant.
-      #   maxpeaks_df = cbind(df[, c(i, setdiff(colnames(df), X_names))],
-      #                       peak_idx = 1:nrow(df),
-      #                       begin_peak_idx =  1:nrow(df), end_peak_idx = 1:nrow(df),
-      #                       minmax = 1)
+      ) %>% as.data.frame() %>% mutate(minmax = "maxpeak")
     }
     if (!rlang::is_empty(minpeaks)){
       minpeaks_df = cbind(df[minpeaks[,2], c(i, setdiff(colnames(df), X_names))],
                           peak_idx = minpeaks[,2],
                           begin_peak_idx = minpeaks[,3], end_peak_idx = minpeaks[,4]
-                          # minmax = rep(0, nrow(maxpeaks))
-      ) %>% as.data.frame() %>% dplyr::mutate(minmax = "minpeak")
-
-      # } else {
-      #   minpeaks_df = cbind(df[, c(i, setdiff(colnames(df), X_names))],
-      #                       peak_idx = 1:nrow(df),
-      #                       begin_peak_idx =  1:nrow(df), end_peak_idx = 1:nrow(df),
-      #                       minmax = 0
-      # )
+      ) %>% as.data.frame() %>% mutate(minmax = "minpeak")
     }
     # Make sure each bifurcation parameter has an entry
     peaks_df = rbind(maxpeaks_df, minpeaks_df)
     missing_bifpar_idx = setdiff(unique(df[,c("bifpar_idx")]), peaks_df$bifpar_idx)
     node_df = df[,c(i, setdiff(colnames(df), X_names))] %>% as.data.frame() %>%
-      # dplyr::group_by(bifpar_idx) %>%
-      dplyr::slice(1, .by = bifpar_idx) %>% dplyr::ungroup() %>%
-      dplyr::filter(bifpar_idx %in% missing_bifpar_idx) %>%
-      dplyr::mutate(minmax="node",
+      slice(1, .by = bifpar_idx) %>% ungroup() %>%
+      filter(bifpar_idx %in% missing_bifpar_idx) %>%
+      mutate(minmax="node",
                     peak_idx = time_idx,
                     begin_peak_idx = time_idx, end_peak_idx = time_idx)
-    peaks_df_complete = rbind(peaks_df, node_df) %>% dplyr::mutate(variable = i) %>% dplyr::rename("X" = dplyr::all_of(i))
+    peaks_df_complete = rbind(peaks_df, node_df) %>% mutate(variable = i) %>% rename("X" = all_of(i))
 
     return(peaks_df_complete)
   }))
@@ -245,29 +230,30 @@ find_consec_seq = function(bifpar_idx_) {
 #' @param max_edge Maximum value reached
 #'
 #' @return Dataframe with bifurcation parameter value for which the system touches the basin boundaries as defined by min_edge and max_edge, if it hits these. Otherwise, dataframe filled with NA.
+#' @importFrom dplyr select mutate filter slice group_by ungroup all_of rename row_number summarise pull arrange n
 #' @importFrom magrittr `%>%`
 #'
 #' @examples
 find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1){
 
-  minmax_peaks_df = peaks_df %>% dplyr::select(bifpar_idx, variable, minmax, time_idx, X) %>%
-    dplyr::filter(variable == variable_name) %>%
-    dplyr::group_by(bifpar_idx, variable, minmax) %>%
-    dplyr::summarise(max = round(max(X), 2), min = round(min(X), 2), .groups='drop') %>%
+  minmax_peaks_df = peaks_df %>% select(bifpar_idx, variable, minmax, time_idx, X) %>%
+    filter(variable == variable_name) %>%
+    group_by(bifpar_idx, variable, minmax) %>%
+    summarise(max = round(max(X), 2), min = round(min(X), 2), .groups='drop') %>%
     tidyr::pivot_wider(names_from = "minmax", values_from = c("max", "min")) %>%
-    dplyr::select(bifpar_idx, variable, max_maxpeak, min_minpeak) %>% dplyr::ungroup %>%
-    dplyr::filter(max_maxpeak == max_edge & min_minpeak == min_edge) %>% dplyr::arrange(bifpar_idx) %>%
-    dplyr::filter(row_number()==1 | row_number()==n())
+    select(bifpar_idx, variable, max_maxpeak, min_minpeak) %>% ungroup %>%
+    filter(max_maxpeak == max_edge & min_minpeak == min_edge) %>% arrange(bifpar_idx) %>%
+    filter(row_number()==1 | row_number()==n())
   # If the edges were not touched
   if (nrow(minmax_peaks_df) == 0){
     minmax_peaks_df = data.frame(bifpar_idx = NA)
   }
 
-  basin_bound = data.frame(start_bifpar_idx = minmax_peaks_df %>% dplyr::slice(1) %>% dplyr::pull(bifpar_idx),
-                           end_bifpar_idx = minmax_peaks_df %>% dplyr::slice(nrow(.)) %>% dplyr::pull(bifpar_idx),
+  basin_bound = data.frame(start_bifpar_idx = minmax_peaks_df %>% slice(1) %>% pull(bifpar_idx),
+                           end_bifpar_idx = minmax_peaks_df %>% slice(nrow(.)) %>% pull(bifpar_idx),
                            regime = "Basin-Boundary"
   ) %>%
-    dplyr::mutate(length_region = end_bifpar_idx- start_bifpar_idx + 1, region_nr = ifelse(is.na(start_bifpar_idx), NA, 1), nr_regions = ifelse(is.na(start_bifpar_idx), NA, 1))
+    mutate(length_region = end_bifpar_idx- start_bifpar_idx + 1, region_nr = ifelse(is.na(start_bifpar_idx), NA, 1), nr_regions = ifelse(is.na(start_bifpar_idx), NA, 1))
 
   return(basin_bound)
 }
@@ -280,18 +266,19 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
 #' @param X_names Names of variables
 #'
 #' @return Regime switch type
+#' @importFrom dplyr select mutate mutate_at filter slice group_by ungroup all_of rename row_number summarise pull bind_rows
 #' @importFrom magrittr `%>%`
 #'
 #' @examples
 get_regime_switch_type <- function(from_regime, to_regime, X_names){
 
-  regime_df = dplyr::bind_rows(from_regime, to_regime)
+  regime_df = bind_rows(from_regime, to_regime)
   # Regime switches involving only periodic regimes
   # if (!grepl("Chaotic", from_regime$regime, fixed = TRUE) & !grepl("Chaotic", to_regime$regime, fixed = TRUE)){
   if (all(!grepl("Chaotic", regime_df$regime)) & all(!grepl("None", regime_df$regime))){
   period_switch = regime_df %>%
-    dplyr::mutate_at(X_names, ~ as.numeric(stringr::str_replace(., "Period-", ""))) %>%
-    dplyr::select(dplyr::all_of(X_names)) %>% as.matrix()
+    mutate_at(X_names, ~ as.numeric(stringr::str_replace(., "Period-", ""))) %>%
+    select(all_of(X_names)) %>% as.matrix()
 
   period_switch_factor = period_switch[2,] / period_switch[1,]
 
@@ -312,13 +299,13 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
     broad_period_switch = regime_df %>%
       tidyr::gather(X, value, -setdiff(colnames(.), X_names)) %>%
       group_by(regime) %>%
-      dplyr::summarise(nr_periods = length(unique(value)), period = paste0(unique(value), collapse = ",")) %>%
-      dplyr::mutate(broad_regime = ifelse(grepl("Chaotic or Transitioning", regime), "Chaotic or Transitioning",
+      summarise(nr_periods = length(unique(value)), period = paste0(unique(value), collapse = ",")) %>%
+      mutate(broad_regime = ifelse(grepl("Chaotic or Transitioning", regime), "Chaotic or Transitioning",
                                           ifelse(grepl("None", regime), "None",
                            ifelse(nr_periods == 1, period, "Mixed-Periodic"))))
     return(sprintf("%s to %s",
-            broad_period_switch[from_regime$regime == broad_period_switch$regime, ] %>% dplyr::pull(broad_regime),
-                broad_period_switch[to_regime$regime == broad_period_switch$regime,] %>% dplyr::pull(broad_regime)))
+            broad_period_switch[from_regime$regime == broad_period_switch$regime, ] %>% pull(broad_regime),
+                broad_period_switch[to_regime$regime == broad_period_switch$regime,] %>% pull(broad_regime)))
   }
 }
 
@@ -379,23 +366,20 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
 #' @param min_length_regime Minimum length of regime
 #'
 #' @return Dataframe with smoothed periodicity
+#' @importFrom dplyr arrange mutate pull lag rowwise
 #' @importFrom magrittr `%>%`
 #'
 #' @examples
 smooth_periods <- function(periods, min_length_regime){
   # If a consistent regime shows one exception, smooth over.
-  smooth_idxs = periods %>% dplyr::arrange(bifpar_idx) %>%
-    dplyr::mutate(lag_p = dplyr::lag(period_bifpar),
+  smooth_idxs = periods %>% arrange(bifpar_idx) %>%
+    mutate(lag_p = lag(period_bifpar),
                   # Apply rolling function to check for each row whether the previous min_length_regime values were the same and the future min_length_regime values were the same. If they were, fill in leading value.
-  embedded_in_same_regime = zoo::rollapply(period_bifpar, min_length_regime*2 + 1, function(x){length(unique(x[-(min_length_regime + 1)]))}, by = 1, fill=NA, align = 'center') ) %>% dplyr::rowwise() %>%
-    dplyr::mutate(period_bifpar_smooth = ifelse(embedded_in_same_regime == 1 & period_bifpar != lag_p, 1, 0)) %>% dplyr::pull(period_bifpar_smooth) %>% as.logical() %>% which()
+  embedded_in_same_regime = zoo::rollapply(period_bifpar, min_length_regime*2 + 1, function(x){length(unique(x[-(min_length_regime + 1)]))}, by = 1, fill=NA, align = 'center') ) %>% rowwise() %>%
+    mutate(period_bifpar_smooth = ifelse(embedded_in_same_regime == 1 & period_bifpar != lag_p, 1, 0)) %>% pull(period_bifpar_smooth) %>% as.logical() %>% which()
   if (!rlang::is_empty(smooth_idxs)){
   periods[smooth_idxs, setdiff(colnames(periods), "bifpar_idx")] = periods[smooth_idxs - 1, setdiff(colnames(periods), "bifpar_idx")]
   }
-  # select(-c(lag_p, embedded_in_same_regime))
-    # dplyr::mutate(same = period_bifpar == period_bifpar_smooth) %>%
-    # select(bifpar_idx, period_bifpar, period_bifpar_smooth, same, embedded_in_same_regime) %>%
-    # as.data.frame()
 
   return(periods)
 }
@@ -410,6 +394,7 @@ smooth_periods <- function(periods, min_length_regime){
 #' @param max_k Maximum cluster size to look for
 #'
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
+#' @importFrom dplyr arrange group_modify ungroup filter select group_by mutate rename bind_rows all_of slice_tail
 #' @importFrom magrittr `%>%`
 #' @export
 #'
@@ -430,32 +415,32 @@ find_regimes <- function(df,
 
   # For each value of the bifurcation parameter, find the period length k which has a minimum WCSS.
   print("Finding best fitting period length for all bifurcation parameter values")
-  period_per_var_ = peaks_df %>% dplyr::group_by(variable, bifpar_idx) %>%
-    dplyr::arrange(time_idx, .by_group=TRUE) %>%
-    dplyr::group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, max_k = max_k)) %>%
-    dplyr::ungroup()
+  period_per_var_ = peaks_df %>% group_by(variable, bifpar_idx) %>%
+    arrange(time_idx, .by_group=TRUE) %>%
+    group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, max_k = max_k)) %>%
+    ungroup()
 
   period_per_var = period_per_var_ %>%
     # tidyr::unnest(names(.)) %>%
     # Our algorithm will *always* find a period length k with a minimum WCSS, also for chaotic data. Set a threshold that decides which WCSS is too large to be classified as a neat periodic sequence.
-    # dplyr::mutate(period = ifelse(coord_WCSS > thresh_coord_WCSS & peak_idx_WCSS > thresh_peak_idx_WCSS,
+    # mutate(period = ifelse(coord_WCSS > thresh_coord_WCSS & peak_idx_WCSS > thresh_peak_idx_WCSS,
     #                               "Chaotic or Transitioning", paste0("Period-", k) ))
-    dplyr::mutate(period = ifelse(max_spread_coord > thresh_coord_spread & max_spread_peak_idx > thresh_peak_idx_spread,
+    mutate(period = ifelse(max_spread_coord > thresh_coord_spread & max_spread_peak_idx > thresh_peak_idx_spread,
                                   "Chaotic or Transitioning", paste0("Period-", k) ))
 
   periods_ = period_per_var %>% select(bifpar_idx, period, variable) %>%
-    dplyr::group_by(bifpar_idx, period) %>%
-    dplyr::mutate(period_group = paste0(
+    group_by(bifpar_idx, period) %>%
+    mutate(period_group = paste0(
       unique(period),
       " (",
       paste0(sort(unique(variable)), collapse = ","),
       ")"
     )
-    ) %>% dplyr::group_by(bifpar_idx) %>%
-    dplyr::mutate(period_bifpar = paste0(sort(unique(period_group)), collapse = ' AND ')
-    ) %>% dplyr::select(-period_group) %>% dplyr::ungroup() %>%
+    ) %>% group_by(bifpar_idx) %>%
+    mutate(period_bifpar = paste0(sort(unique(period_group)), collapse = ' AND ')
+    ) %>% select(-period_group) %>% ungroup() %>%
     tidyr::pivot_wider(names_from = variable, values_from = period) %>%
-    dplyr::arrange(bifpar_idx)
+    arrange(bifpar_idx)
   periods = smooth_periods(periods_, min_length_regime)
 
   # Get basin boundaries (when system hits edges of basin)
@@ -463,31 +448,31 @@ find_regimes <- function(df,
 
   # Find regimes with any chaotic behaviour and regimes with periodic behaviour
   broad_regimes = periods %>%
-    dplyr::mutate(period_bifpar2 = ifelse(grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE),
+    mutate(period_bifpar2 = ifelse(grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE),
                                           "Chaotic or Transitioning", "Periodic")) %>%
-    dplyr::group_by(period_bifpar2) %>%
-    dplyr::group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% dplyr::arrange(start_bifpar_idx) %>%
-    dplyr::ungroup() %>%
-    dplyr::rename(regime = period_bifpar2)
+    group_by(period_bifpar2) %>%
+    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
+    ungroup() %>%
+    rename(regime = period_bifpar2)
 
    # Compile regimes
   regimes = periods %>%
-    dplyr::filter(!grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE)) %>%
-    dplyr::group_by(period_bifpar, X1, X2, X3, X4) %>%
-    dplyr::group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% dplyr::arrange(start_bifpar_idx) %>%
-    dplyr::ungroup() %>% dplyr::rename(regime = period_bifpar) %>%
-    dplyr::bind_rows(basin_bound) %>%
-    dplyr::bind_rows(broad_regimes %>% dplyr::filter(regime != "Periodic")) %>% dplyr::arrange(start_bifpar_idx)
+    filter(!grepl("Chaotic or Transitioning", period_bifpar, fixed = TRUE)) %>%
+    group_by(period_bifpar, X1, X2, X3, X4) %>%
+    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% arrange(start_bifpar_idx) %>%
+    ungroup() %>% rename(regime = period_bifpar) %>%
+    bind_rows(basin_bound) %>%
+    bind_rows(broad_regimes %>% filter(regime != "Periodic")) %>% arrange(start_bifpar_idx)
 
   # Find regime boundaries
   regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime, X_names = X_names)
     # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
   regime_bounds =  merge(regime_bounds_,
                          df %>%
-            dplyr::filter(bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>%
-              dplyr::slice_tail(n=1, by = bifpar_idx) %>%
-            dplyr::mutate(regime1_start_idx= bifpar_idx + 1) %>%
-            dplyr::select(regime1_start_idx, dplyr::all_of(X_names)), all.x = TRUE)
+            filter(bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>%
+              slice_tail(n=1, by = bifpar_idx) %>%
+            mutate(regime1_start_idx= bifpar_idx + 1) %>%
+            select(regime1_start_idx, all_of(X_names)), all.x = TRUE)
 
   return(list(peaks_df = peaks_df,
     period_per_var = period_per_var,

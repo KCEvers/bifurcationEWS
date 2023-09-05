@@ -107,39 +107,40 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, crit_values, nr_conse
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
 #' @return Dataframe with warnings per EWS metric
+#' @importFrom dplyr arrange ungroup filter group_by mutate mutate_at summarise group_modify
 #' @importFrom magrittr `%>%`
 #' @export
 #'
 #' @examples
 get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
-  EWS_df_CI = split_df_EWS %>% dplyr::arrange(bifpar_idx) %>% dplyr::group_by(metric) %>%
-    dplyr::filter(bifpar_idx <= baseline_steps) %>%
-    dplyr::summarise(mean_w0 = mean(value), sd_w0 = stats::sd(value),
+  EWS_df_CI = split_df_EWS %>% arrange(bifpar_idx) %>% group_by(metric) %>%
+    filter(bifpar_idx <= baseline_steps) %>%
+    summarise(mean_w0 = mean(value), sd_w0 = stats::sd(value),
                      quantile_000 = as.numeric(stats::quantile(value, 0, na.rm=TRUE)),
                      quantile_100 = as.numeric(stats::quantile(value, 1, na.rm=TRUE)),
                      .groups = 'drop')
 
   # Compute z-scores - we're interested in absolute deviations, so either below or above mu + alpha_crit*sd
-  winEWS_df = merge(split_df_EWS, EWS_df_CI) %>% dplyr::arrange(bifpar_idx) %>%
-    dplyr::group_by(metric) %>%
+  winEWS_df = merge(split_df_EWS, EWS_df_CI) %>% arrange(bifpar_idx) %>%
+    group_by(metric) %>%
     # Compute z-scores (normalized): Convert z-score so that it can be compared to any sigma (i.e. you don't have to rerun the procedure for every sigma) using the following formula:
     # current > mu_baseline + (sigma_baseline * sigma_crit)
     # (current - mu_baseline) > (sigma_baseline * sigma_crit)
     # ((current - mu_baseline) / sigma_baseline) > (sigma_crit)
     # z = (current - mu_baseline) / sigma_baseline
-    dplyr::mutate(z_score_sd = ((value - mean_w0) / sd_w0)) %>% dplyr::ungroup() %>%
+    mutate(z_score_sd = ((value - mean_w0) / sd_w0)) %>% ungroup() %>%
     apply(2, unlist) %>% as.data.frame %>%
-    dplyr::mutate_at(c("bifpar_idx", "value", "z_score_sd", "mean_w0", "sd_w0", "quantile_000", "quantile_100"), ~ as.numeric(as.character(.x))) %>%
-    dplyr::group_by(metric) %>%
-    dplyr::mutate(bifpar_idx = round(as.numeric(as.character(bifpar_idx)))) %>%
-    dplyr::ungroup()
+    mutate_at(c("bifpar_idx", "value", "z_score_sd", "mean_w0", "sd_w0", "quantile_000", "quantile_100"), ~ as.numeric(as.character(.x))) %>%
+    group_by(metric) %>%
+    mutate(bifpar_idx = round(as.numeric(as.character(bifpar_idx)))) %>%
+    ungroup()
 
   # Get warnings per critical sigma
   warning_df = winEWS_df %>%
-    dplyr::filter(bifpar_idx > baseline_steps, bifpar_idx <= (baseline_steps + transition_steps)) %>%
-    dplyr::group_by(metric) %>%
-    dplyr::group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score_sd, crit_values= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% dplyr::ungroup()
+    filter(bifpar_idx > baseline_steps, bifpar_idx <= (baseline_steps + transition_steps)) %>%
+    group_by(metric) %>%
+    group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score_sd, crit_values= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup()
 
   return(list(winEWS_df = winEWS_df,
               warning_df = warning_df))
