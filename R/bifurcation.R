@@ -199,7 +199,7 @@ get_bifurcation_range <- function(bifpar_start, bifpar_end, pre_steps = 0,
 #'
 #' @param bifpar_idx_ Sequence of indices
 #'
-#' @importFrom dplyr .data
+#' @importFrom dplyr .data arrange mutate rowwise
 #' @return Start and end of each consecutive value sequence
 #'
 #' @examples
@@ -212,9 +212,9 @@ find_consec_seq = function(bifpar_idx_) {
     purrr::map(list_conseq_seq, length) %>% as.data.frame()
   ) %>% t() %>%
     magrittr::set_colnames(c("start_bifpar_idx", "end_bifpar_idx", "length_region")) %>% as.data.frame() %>%
-    dplyr::mutate(region_nr = 1:nrow(.), nr_regions = nrow(.)) %>%  dplyr::rowwise()
+    mutate(region_nr = 1:nrow(.), nr_regions = nrow(.)) %>% rowwise()
 
-  return(df_conseq_seq %>% dplyr::arrange(.data$start_bifpar_idx))
+  return(df_conseq_seq %>% arrange(.data$start_bifpar_idx))
 }
 
 
