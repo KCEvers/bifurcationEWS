@@ -249,7 +249,9 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
                            end_bifpar_idx = minmax_peaks_df %>% slice(nrow(.)) %>% pull(.data$bifpar_idx),
                            regime = "Basin-Boundary"
   ) %>%
-    mutate(length_region = .data$end_bifpar_idx - .data$start_bifpar_idx + 1, region_nr = ifelse(is.na(.data$start_bifpar_idx), NA, 1), nr_regions = ifelse(is.na(.data$start_bifpar_idx), NA, 1))
+    mutate(length_region = .data$end_bifpar_idx - .data$start_bifpar_idx + 1,
+           region_nr = ifelse(is.na(.data$start_bifpar_idx), NA, 1),
+           nr_regions = ifelse(is.na(.data$start_bifpar_idx), NA, 1))
 
   return(basin_bound)
 }
@@ -276,23 +278,49 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
     select(all_of(X_names)) %>% as.matrix()
 
   period_switch_factor = period_switch[2,] / period_switch[1,]
+  nr_doubling = sum(period_switch_factor == 2)
+  nr_halving = sum(period_switch_factor == 0.5)
+  nr_same = sum(period_switch_factor == 1)
+  nr_increasing = sum(period_switch_factor > 1 & period_switch_factor != 2)
+  nr_decreasing = sum(period_switch_factor < 1 & period_switch_factor != 0.5)
+  N = length(X_names)
 
-  if (all(period_switch_factor == 2)){
+  if (nr_doubling == N){
    return("Period-Doubling")
-  } else if (all(period_switch_factor == 0.5)){
+  } else if (nr_halving == N){
     return("Period-Halving")
-  } else if (all(period_switch_factor > 1)){
+  } else if (nr_increasing == N){
     return("Period-Increasing")
-  } else if (all(period_switch_factor < 1)){
+  } else if (nr_decreasing == N){
     return("Period-Decreasing")
-  } else if (all(period_switch_factor == 1)){
+  } else if (nr_same == N){
     return("Same-Period")
+  } else if ((nr_increasing > 0 | nr_doubling > 0) & (nr_decreasing > 0 | nr_halving > 0)){
+    return("Both-Increasing-Decreasing-Period")
+  } else if (nr_doubling == 1 & nr_same==(N-1)){
+    return("OneVar-Period-Doubling")
+  } else if (nr_halving == 1 & nr_same==(N-1)){
+    return("OneVar-Period-Halving")
+  } else if (nr_increasing == 1 & nr_same==(N-1)){
+    return("OneVar-Period-Increasing")
+  } else if (nr_decreasing == 1 & nr_same==(N-1)){
+    return("OneVar-Period-Decreasing")
+  } else if (nr_doubling > 1 & nr_same==(N-sum(nr_doubling))){
+    return("MultVar-Period-Doubling")
+  } else if (nr_halving > 1 & nr_same==(N-sum(nr_halving))){
+    return("MultVar-Period-Halving")
+  } else if (nr_increasing > 1 & nr_same==(N-sum(nr_increasing))){
+    return("MultVar-Period-Increasing")
+  } else if (nr_decreasing > 1 & nr_same==(N-sum(nr_decreasing))){
+    return("MultVar-Period-Decreasing")
+    } else {
+    return("Unknown Periodic")
   }
 
   } else {
     # Regime switches involving chaotic behaviour
     broad_period_switch = regime_df %>%
-      tidyr::gather(.data$X, .data$value, -setdiff(colnames(.), X_names)) %>%
+      tidyr::gather(X, value, -setdiff(colnames(.), X_names)) %>%
       group_by(.data$regime) %>%
       summarise(nr_periods = length(unique(.data$value)), period = paste0(unique(.data$value), collapse = ",")) %>%
       mutate(broad_regime = ifelse(grepl("Chaotic or Transitioning", .data$regime), "Chaotic or Transitioning",
@@ -443,18 +471,22 @@ find_regimes <- function(df,
     mutate(period_bifpar2 = ifelse(grepl("Chaotic or Transitioning", .data$period_bifpar, fixed = TRUE),
                                           "Chaotic or Transitioning", "Periodic")) %>%
     group_by(.data$period_bifpar2) %>%
-    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% arrange(.data$start_bifpar_idx) %>%
+    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
+    arrange(.data$start_bifpar_idx) %>%
     ungroup() %>%
     rename(regime = .data$period_bifpar2)
 
    # Compile regimes
   regimes = periods %>%
     filter(!grepl("Chaotic or Transitioning", .data$period_bifpar, fixed = TRUE)) %>%
-    group_by(.data$period_bifpar, all_of(X_names)) %>%
-    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>% arrange(.data$start_bifpar_idx) %>%
+    # group_by_at(.data$period_bifpar, all_of(X_names)) %>%
+    group_by_at(setdiff(colnames(.), "bifpar_idx")) %>%
+    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
+    arrange(.data$start_bifpar_idx) %>%
     ungroup() %>% rename(regime = .data$period_bifpar) %>%
     bind_rows(basin_bound) %>%
-    bind_rows(broad_regimes %>% filter(.data$regime != "Periodic")) %>% arrange(.data$start_bifpar_idx)
+    bind_rows(broad_regimes %>% filter(.data$regime != "Periodic")) %>%
+    arrange(.data$start_bifpar_idx)
 
   # Find regime boundaries
   regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime, X_names = X_names)
