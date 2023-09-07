@@ -313,6 +313,10 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
     return("MultVar-Period-Increasing")
   } else if (nr_decreasing > 1 & nr_same==(N-sum(nr_decreasing))){
     return("MultVar-Period-Decreasing")
+    } else if ((nr_decreasing + nr_halving) == N){
+      return("MultVar-Period-Decreasing-or-Halving")
+    } else if ((nr_increasing + nr_doubling) == N){
+      return("MultVar-Period-Increasing-or-Doubling")
     } else {
     return("Unknown Periodic")
   }
@@ -589,7 +593,8 @@ find_best_k <- function(coord, peak_idx, thresh_node, max_k = NULL){
                        max_spread_coord = max(stats::dist(coord)),
                        mean_spread_peak_idx = mean(stats::dist(peak_idx)),
                        min_spread_peak_idx = min(stats::dist(peak_idx)),
-                       max_spread_peak_idx = max(stats::dist(peak_idx))))
+                       max_spread_peak_idx = max(stats::dist(peak_idx)),
+                       max_k = 1))
   }
 
   if (is.null(max_k)){
@@ -641,5 +646,5 @@ find_best_k <- function(coord, peak_idx, thresh_node, max_k = NULL){
   # cluster_idx = rep(1:(spread_df[idx_min,]$k), length(coord))[1:length(coord)]
   # plot(cluster_idx, coord, cex = .5, pch = 16, type = 'p')
 
-  return(as.data.frame(spread_df[idx_min,]))
+  return(cbind(as.data.frame(spread_df[idx_min,]), max_k=max_k))
 }

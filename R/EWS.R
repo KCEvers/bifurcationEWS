@@ -247,31 +247,6 @@ spatial_kurtosis <- function(x) {
 }
 
 
-#' Recurrence Quantification Analysis
-#'
-#' @param x Data, can be a vector or matrix or dataframe
-#' @param emDim Embedding dimension
-#' @param emLag Embedding lag
-#' @param theiler Size of Theiler window
-#' @param distNorm Distance norm used for constructing recurrence matrix
-#' @param targetValue Target value for thresholding recurrence matrix
-#'
-#' @return RQA measures
-#' @export
-#'
-#' @examples
-runRQA <- function(x, emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05){
-  RM <- casnet::rp(
-    x,
-    emDim   = emDim,
-    emLag   = emLag,
-    emRad   = NA, #pars$emRad,
-    theiler = theiler,
-    method = distNorm,
-    targetValue    = targetValue
-  )
-  return(casnet::rp_measures(RM))
-}
 
 
 ## Univariate EWS Metrics
