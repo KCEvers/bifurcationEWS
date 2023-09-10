@@ -4,10 +4,10 @@
 \alias{run_EWS}
 \title{Compute early warning signals (EWS)}
 \usage{
-run_EWS(df, uni_metrics, multi_metrics, EWS_args = list())
+run_EWS(x, uni_metrics, multi_metrics, EWS_args = list())
 }
 \arguments{
-\item{df}{Dataframe}
+\item{x}{Dataframe}
 
 \item{uni_metrics}{List of univariate EWS}
 

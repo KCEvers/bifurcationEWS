@@ -9,8 +9,8 @@ run_bifEWS(
   X_names,
   uni_metrics,
   multi_metrics,
-  EWS_args = list(RQA = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max",
-    targetValue = 0.05))
+  EWS_args = list(Smax = list(fs = 1, nr_timesteps = 100), RQA = list(emDim = 1, emLag =
+    1, theiler = 1, distNorm = "max", targetValue = 0.05))
 )
 }
 \arguments{

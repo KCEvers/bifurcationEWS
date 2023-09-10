@@ -11,6 +11,7 @@ find_regimes(
   thresh_coord_spread = 0.025,
   thresh_peak_idx_spread = 2,
   min_length_regime = 5,
+  nr_smooth = 2,
   max_k = NULL
 )
 }
@@ -26,6 +27,8 @@ find_regimes(
 \item{thresh_peak_idx_spread}{Same as thresh_coord_spread but for peak and trough indices}
 
 \item{min_length_regime}{Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime}
+
+\item{nr_smooth}{Number of exceptions in a stable periodicity window to smooth over}
 
 \item{max_k}{Maximum cluster size to look for}
 }

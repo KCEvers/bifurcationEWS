@@ -1,6 +1,6 @@
 #' Compute early warning signals (EWS)
 #'
-#' @param df Dataframe
+#' @param x Dataframe
 #' @inheritParams run_bifEWS
 #'
 #' @return Dataframe with early warning signals
@@ -8,28 +8,73 @@
 #' @export
 #'
 #' @examples
-run_EWS <- function(df, uni_metrics, multi_metrics, EWS_args = list()){
+run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 
   # print(names(list(...)))
 
-  uni_EWS = lapply(names(uni_metrics), function(j){
-    unlist(lapply(1:ncol(df), function(i){
-      do.call(uni_metrics[[j]], utils::modifyList(list(x = df[,i]), EWS_args[j]))
-    }))
-    # apply(df, 2, uni_metric)
-  }) %>%
-    do.call(rbind, .) %>%
-    magrittr::set_rownames(NULL) %>%
-    as.data.frame() %>% cbind(metric = names(uni_metrics))  %>% tidyr::pivot_longer(!.data$metric) %>%
-    dplyr::mutate(metric = paste0(.data$metric, "_", .data$name)) %>% dplyr::select(-.data$name)
+  # uni_EWS = lapply(names(uni_metrics), function(j){
+  #   unlist(lapply(1:ncol(x), function(i){
+  #     do.call(uni_metrics[[j]], utils::modifyList(list(x = x[,i]), EWS_args[j]))
+  #   }))
+  #   # apply(x, 2, uni_metric)
+  # }) %>%
+  #   do.call(rbind, .) %>%
+  #   magrittr::set_rownames(NULL) %>%
+  #   as.data.frame() %>% cbind(metric = names(uni_metrics))  %>% tidyr::pivot_longer(!.data$metric) %>%
+  #   dplyr::mutate(metric = paste0(.data$metric, "_", .data$name)) %>% dplyr::select(-.data$name)
 
-  multi_EWS = lapply(names(multi_metrics), function(j){
-    do.call(multi_metrics[[j]], utils::modifyList(list(x = df), EWS_args[j]))
-    # multi_metric(df)
-  }) %>%
-    do.call(rbind, .) %>% magrittr::set_rownames(NULL) %>%
-    as.data.frame() %>% cbind(metric = names(multi_metrics)) %>%
-    dplyr::rename(value = .data$V1)
+  uni_EWS = plyr::ldply(names(uni_metrics), function(j){
+    plyr::ldply(1:ncol(x), function(i){
+      if (j %in% names(EWS_args)){
+        EWS_arg = EWS_args[[j]]
+      } else {
+        EWS_arg = list()
+      }
+
+      uni_x = do.call(uni_metrics[[j]], utils::modifyList(list(x = x[,i]), EWS_arg))
+
+      # In case of multiple outputs
+      if (length(uni_x) > 1){
+        uni_df = data.frame(metric = paste0(j, "_", names(uni_x), "_", "var", i),
+                            value = matrix(unlist(uni_x), ncol = 1))
+      } else {
+        # Single output
+        uni_df = data.frame(metric = paste0(j, "_", "var", i),
+                            value = matrix(unlist(uni_x), ncol = 1))
+      }
+
+      return(uni_df)
+    })
+    # apply(x, 2, uni_metric)
+  })
+
+  multi_EWS = plyr::ldply(names(multi_metrics), function(j){
+    # do.call(multi_metrics[[j]], utils::modifyList(list(x = x), EWS_args[j]))
+
+    if (j %in% names(EWS_args)){
+      EWS_arg = EWS_args[[j]]
+    } else {
+      EWS_arg = list()
+    }
+
+    multi_x = do.call(multi_metrics[[j]], utils::modifyList(list(x = x), EWS_arg))
+
+    # In case of multiple outputs
+    if (length(multi_x) > 1){
+      multi_df = data.frame(metric = paste0(j, "_", names(multi_x)),
+                          value = matrix(unlist(multi_x), ncol = 1))
+    } else {
+      # Single output
+      multi_df = data.frame(metric = paste0(j),
+                          value = matrix(unlist(multi_x), ncol = 1))
+    }
+
+    return(multi_df)
+  })
+  # %>%
+  #   do.call(rbind, .) %>% magrittr::set_rownames(NULL) %>%
+  #   as.data.frame() %>% cbind(metric = names(multi_metrics)) %>%
+  #   dplyr::rename(value = .data$V1)
 
   return(rbind(uni_EWS, multi_EWS))
 }
@@ -48,7 +93,8 @@ run_EWS <- function(df, uni_metrics, multi_metrics, EWS_args = list()){
 #'
 #' @examples
 run_bifEWS <- function(df, X_names, uni_metrics, multi_metrics,
-                       EWS_args = list("RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05))){
+                       EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100),
+                                       "RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05))){
 
   # Split dataframe per bifurcation parameter
   split_df = df %>% as.data.frame() %>% group_by(.data$bifpar_idx) %>% group_split()
@@ -283,3 +329,30 @@ get_autocorr <- function(x) {
   stats::acf(x, plot = FALSE, lag = 1)$acf[[2]]
 }
 
+
+
+
+#' Get maximum spectral density
+#'
+#' @param x Signal
+#' @param fs Sampling frequency
+#' @param nr_timesteps Number of timesteps
+#'
+#' @return Maximum spectral density and corresponding frequency
+#' @export
+#'
+#' @examples
+get_Smax = function(x, fs, nr_timesteps){
+  lx <- fs * nr_timesteps
+  pw <- gsignal::pwelch(x, window = lx, fs = fs,
+                        # Remove mean so that the spectral peak isn't at zero
+                        detrend = c("long-mean", "short-mean", "long-linear", "short-linear", "none")[1],
+                        range = "half")
+  # plot(x)
+  # plot(pw,
+  #      # xlim = c(0, 20),
+  #      yscale='log',
+  #      main = "PSD estimate using FFT")
+
+  return(data.frame(Smax = pw$freq[which.max(pw$spec)], Fmax = max(pw$spec)))
+}
