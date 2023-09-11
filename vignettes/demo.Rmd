@@ -24,7 +24,6 @@ library(bifurcationEWS)
 library(ggh4x)
 library(dplyr)
 library(ggplot2)
-# install.packages("EWSmethods")
 ```
 
 ### Generating timeseries
@@ -67,7 +66,7 @@ What are some more complicated regimes that we can find in the model?
 There is no "one" type of chaos - chaotic dynamics can look radically different. 
 
 ```{r chaos, echo=FALSE}
-times      <- seq(0, 100, by = 0.01)
+times      <- seq(0, 10000, by = 0.01)
 sel_idxs = round(.25*length(times)):length(times)
 # Chaos 1
 model_pars["s"] = .97
@@ -93,13 +92,13 @@ print(pl3)
 ```{r bifurcation diagram, include=FALSE}
 # Generate data with changing bifurcation parameter
 downsample_pars = list(type = c("average", "one_sample")[1],
-                                                  win_size = 25,
-                                                  which_X = c(25, "first", "middle", "last", "random")[1],
+                                                  win_size = 50,
+                                                  which_X = c(50, "first", "middle", "last", "random")[1],
                                                   seed = 123)
 timestep = .01
 nr_timesteps = 2000
 bifpar_list = get_bifurcation_range(bifpar_start = .96, bifpar_end = .97, pre_steps = 0,
-                                  baseline_steps = 0, transition_steps = 100, post_steps = 0)
+                                  baseline_steps = 0, transition_steps = 101, post_steps = 0)
 
 GLV = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
                bifpar_list = bifpar_list,
@@ -108,9 +107,7 @@ GLV = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = 
                X_names = X_names)
 df = GLV$df
 head(df)
-# saveRDS(GLV, file.path(dirname(getwd(), "test2.RDS")))
-# GLV = readRDS(file.path(dirname(getwd()), "test2.RDS"))
-# df=GLV$df
+
 # Get dataframe with peaks
 peaks_df = peaks_bifdiag(df, X_names)
 head(peaks_df)
@@ -136,7 +133,7 @@ print(style_plot(pl_peaks))
 
 
 
-```{r intermittency}
+```{r intermittency, eval=FALSE, include=FALSE}
 nr_timesteps = 100
 bifpar_list = get_bifurcation_range(bifpar_start = .965, bifpar_end = .985, pre_steps = 0,
                                   baseline_steps = 0, transition_steps = 100, post_steps = 0)
@@ -178,10 +175,12 @@ Note that although there are much more sophisticated temporal clustering algorit
 
 ```{r periodicity, eval=FALSE, include=FALSE}
 regime_list = find_regimes(df,
-                         X_names,
-                         thresh_coord_spread = .025,
-                         thresh_peak_idx_spread=2,
-                         min_length_regime = 5)
+                           X_names, GLV$X0s,
+                             thresh_node = .1,
+                             thresh_coord_spread = .025,
+                             thresh_peak_idx_spread= 2,
+                             min_length_regime = 5,
+                             nr_smooth = 2)
 
 print(head(regime_list$period_per_var))
 print(regime_list$periods)
@@ -194,7 +193,6 @@ print(regime_list$regime_bounds)
 pl_periods = ggplot(regime_list$period_per_var %>%
                         merge(peaks_df) %>%
            dplyr::filter(variable == "X1")
-           # dplyr::filter(min_from == c("coord", "peak_idx")[2])
          ) +
     geom_point(aes(x = bifpar_idx, y = X, col = factor(period),
                    # col = coord_WCSS
@@ -249,7 +247,7 @@ Now, we might be interested in a select few transitions. To get a sense of the s
 Say we are interested in the regime switch of *** - how might we simulate this? We already have the range of $s$ for which a particular regime switch occurs. However, the system is also multistable for many parameter ranges, such that a randomly chosen initial condition is not likely to yield the desired regime. To circumvent this issue, we make use of our full GLV timeseries. This timeseries offers both the regime boundaries $s$ and corresponding initial condition needed to simulate a new (much shorter) transition model. In addition, we can now add a proper baseline and transition period. 
 
 ```{r pars}
-pre_steps = 50
+pre_steps = 0
 baseline_steps = 50
 transition_steps = 25
 post_steps = 25
@@ -257,7 +255,10 @@ post_steps = 25
 
 ```{r transition model, eval=FALSE, include=FALSE}
 # desired_switch = regime_list$regime_bounds[regime_list$regime_bounds$regime1 == "Period-4 (X1,X2,X3,X4)",]
-desired_switch = regime_list$regime_bounds[regime_list$regime_bounds$regime_switch == "Mixed-Periodic to Chaotic or Transitioning",]
+# desired_switch = regime_list$regime_bounds[regime_list$regime_bounds$regime_switch == "Mixed-Periodic to Chaotic or Transitioning",]
+
+desired_switch = regime_list$regime_bounds %>% dplyr::filter(regime_switch_type == "Mixed-Periodic to Chaotic or Transitioning" & regime1 == "Period-16 (X2,X3,X4) AND Period-20 (X1)" & regime2 == "Chaotic or Transitioning")
+
 s_seq = get_bifurcation_range(bifpar_start = bifpar_list[[desired_switch$regime1_halfway_idx]]$s, 
                               bifpar_end = bifpar_list[[desired_switch$regime2_start_idx]]$s, 
                               pre_steps = pre_steps,
@@ -345,40 +346,6 @@ print(style_plot(pl_peaks_null))
 
 ### Computing windowed EWS
 ```{r Windowed EWS}
-
-# df %>% dplyr::group_by(bifpar_idx) %>%
-#   dplyr::group_modify(~
-# EWSmethods::multiEWS(
-#   data.frame(.x$win_nr, .x$X1, .x$X2, .x$X3, .x$X4),
-#   metrics = c("meanAR", "maxAR", "meanSD", "maxSD", "eigenMAF", "mafAR", "mafSD",
-#     "pcaAR", "pcaSD", "eigenCOV", "maxCOV", "mutINFO"),
-#   method = c("expanding", "rolling")[1],
-#   winsize = n(),
-#   burn_in = 0,
-#   threshold = 2,
-#   tail.direction = "one.tailed"
-# ))
-
-# test = EWSmethods::multiEWS(
-#   cbind(time = 1:nrow(df_), df_),
-#   metrics = c("meanAR", "maxAR", "meanSD", "maxSD", "eigenMAF", "mafAR", "mafSD",
-#     "pcaAR", "pcaSD", "eigenCOV", "maxCOV", "mutINFO"),
-#   method = c("expanding", "rolling")[2],
-#   winsize = 500,
-#   burn_in = 1,
-#   threshold = 2,
-#   tail.direction = "one.tailed"
-# )
-# head(test)
-# df = readRDS("test2.RDS")
-# df1_ = df %>% as.data.frame %>% dplyr::filter(bifpar_idx > 10, bifpar_idx < 100) %>% arrange(time_idx) 
-# plot(df1_$bifpar_idx, df1_$X, pch = 16, type = 'p')
-# 
-# df_ = df1 %>% dplyr::filter(bifpar_idx == 3) %>% arrange(time_idx) %>% select(all_of(X_names)) %>% as.matrix() 
-# head(df_)
-# nrow(df_)
-# rm(df)
-# 
 uni_metrics = c("mean"= mean, "variance"= var, 
                 "skewness" = moments::skewness, "kurtosis" = moments::kurtosis)
 multi_metrics = c("meanAbsCrossCorr" = get_conn,
@@ -388,17 +355,19 @@ multi_metrics = c("meanAbsCrossCorr" = get_conn,
                   "spatial_kurtosis" = spatial_kurtosis
                   # "RQA" = runRQA
                   )
-label_func = function(x){ 
-  labels = data.frame(var = "spatial_variance", label = "Spatial Variance")
-  return(labels[labels$var == x, ]$label)
-}
+# label_func = function(x){ 
+  # labels = data.frame(var = "spatial_variance", label = "Spatial Variance")
+  # return(labels[labels$var == x, ]$label)
+# }
 
 
-split_df_EWS = run_bifEWS(df, uni_metrics, multi_metrics)
+split_df_EWS = run_bifEWS(df, X_names, uni_metrics, multi_metrics, EWS_args = list())
 pl_EWS <- split_df_EWS %>% ggplot() +
   geom_point(aes(x=bifpar_idx, y = value), size = .25) +
   geom_line(aes(x=bifpar_idx, y = value), linewidth = .25) +
-  ggh4x::facet_wrap2(. ~ metric, ncol = 3, scales = "free_y", labeller = label_func)
+  ggh4x::facet_wrap2(. ~ metric, ncol = 3, scales = "free_y",
+                     # labeller = label_func
+                     )
 print(style_plot(pl_EWS))
 
 
@@ -410,7 +379,7 @@ print(style_plot(pl_EWS))
 To make the regime switch harder to detect, we add some simple white observational noise.
 
 ```{r Adding observational noise}
-noise_sigma = .05
+noise_sigma = .02
 noisy_df = add_obs_noise(df, X_names, noise_mean = 0, noise_sigma = noise_sigma, noise_constant = 0)
 pl_noisy = noisy_df %>% 
   dplyr::filter(bifpar_idx > 5, bifpar_idx < 10) %>%

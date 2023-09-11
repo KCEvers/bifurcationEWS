@@ -7,6 +7,7 @@
 find_regimes(
   df,
   X_names,
+  X0s,
   thresh_node = 0.1,
   thresh_coord_spread = 0.025,
   thresh_peak_idx_spread = 2,
@@ -19,6 +20,8 @@ find_regimes(
 \item{df}{Dataframe}
 
 \item{X_names}{Names of variables in model}
+
+\item{X0s}{Initial condition (before downsampling) per bifurcation parameter value}
 
 \item{thresh_node}{Threshold under which timeseries is classified as node}
 

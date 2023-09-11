@@ -43,7 +43,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
   times = seq(0, nr_timesteps, by = timestep)
   min_t = times[1]
   bifpar_idxs = seq.int(length(bifpar_list))
-  X0s <- matrix(nrow = length(bifpar_list), ncol = length(X_names)+1)
+  X0s <- matrix(nrow = length(bifpar_list), ncol = length(X_names)+1) %>% magrittr::set_colnames(c("bifpar_idx", X_names))
   tmps <- list()
 
   # Generate data for each bifurcation parameter
@@ -273,7 +273,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
   regime_df = bind_rows(from_regime, to_regime)
   # Regime switches involving only periodic regimes
   # if (!grepl("Chaotic", from_regime$regime, fixed = TRUE) & !grepl("Chaotic", to_regime$regime, fixed = TRUE)){
-  if (all(!grepl("Chaotic", regime_df$regime)) & all(!grepl("None", regime_df$regime))){
+  if (all(!grepl("Chaotic", regime_df$regime)) & all(!grepl("None", regime_df$regime)) & !any(regime_df %>% select(all_of(X_names)) %>%is.na()) ){
   period_switch = regime_df %>%
     mutate_at(X_names, ~ as.numeric(stringr::str_replace(., "Period-", ""))) %>%
     select(all_of(X_names)) %>% as.matrix()
@@ -329,8 +329,9 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
       group_by(.data$regime) %>%
       summarise(nr_periods = length(unique(.data$value)), period = paste0(unique(.data$value), collapse = ",")) %>%
       mutate(broad_regime = ifelse(grepl("Chaotic or Transitioning", .data$regime), "Chaotic or Transitioning",
+                                   ifelse(grepl("Basin-Boundary", .data$regime), "Basin-Boundary",
                                           ifelse(grepl("None", .data$regime), "None",
-                           ifelse(.data$nr_periods == 1, .data$period, "Mixed-Periodic"))))
+                           ifelse(.data$nr_periods == 1, .data$period, "Mixed-Periodic")))))
     return(sprintf("%s to %s",
             broad_period_switch[from_regime$regime == broad_period_switch$regime, ] %>% pull(.data$broad_regime),
                 broad_period_switch[to_regime$regime == broad_period_switch$regime,] %>% pull(.data$broad_regime)))
@@ -365,6 +366,7 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
     ))
   } else {
   regime_bounds_df = lapply(1:(length(regime_idx)), function(i){
+
     from_regime = regimes[regime_idx[i],] %>% mutate(regime = ifelse(is.na(.data$regime), "None", .data$regime))
     to_regime = regimes[regime_idx[i+1],] %>% mutate(regime = ifelse(is.na(.data$regime), "None", .data$regime))
     regime_switch_type = get_regime_switch_type(from_regime, to_regime, X_names)
@@ -420,6 +422,7 @@ smooth_periods <- function(periods, nr_smooth, min_length_regime){
 #'
 #' @param df Dataframe
 #' @param X_names Names of variables in model
+#' @param X0s Initial condition (before downsampling) per bifurcation parameter value
 #' @param thresh_node Threshold under which timeseries is classified as node
 #' @param thresh_coord_spread Threshold for distance in peak and trough coordinates that determines whether a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning
 #' @param thresh_peak_idx_spread Same as thresh_coord_spread but for peak and trough indices
@@ -433,7 +436,7 @@ smooth_periods <- function(periods, nr_smooth, min_length_regime){
 #'
 #' @examples
 find_regimes <- function(df,
-                         X_names,
+                         X_names, X0s,
                          thresh_node = .1,
                          thresh_coord_spread = .025,
                          thresh_peak_idx_spread=2,
@@ -445,6 +448,7 @@ find_regimes <- function(df,
   #  thresh_node = .1
   # thresh_coord_spread = .025
   # thresh_peak_idx_spread=2
+  # nr_smooth=2
   # min_length_regime = 5
 
   # Get dataframe with peaks
@@ -453,7 +457,7 @@ find_regimes <- function(df,
   # For each value of the bifurcation parameter, find the period length k which has a minimum WCSS.
   print("Finding best fitting period length for all bifurcation parameter values")
   period_per_var_ = peaks_df %>%
-    # filter(bifpar_idx > 125, bifpar_idx < 500) %>%
+    # filter(bifpar_idx > 125, bifpar_idx < 150) %>%
     group_by(.data$variable, .data$bifpar_idx) %>%
     arrange(.data$time_idx, .by_group=TRUE) %>%
     group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, thresh_node = thresh_node, max_k = max_k)) %>%
@@ -514,13 +518,17 @@ find_regimes <- function(df,
   regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime, X_names = X_names)
     # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
   regime_bounds =  merge(regime_bounds_,
-                         df %>%
-            filter(.data$bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>%
-              slice_tail(n=1, by = .data$bifpar_idx) %>%
-            mutate(regime1_start_idx= .data$bifpar_idx + 1) %>%
-            select(.data$regime1_start_idx, all_of(X_names)), all.x = TRUE)
+                         X0s  %>% as.data.frame() %>%
+                           filter(.data$bifpar_idx %in% c(regime_bounds_$regime1_start_idx)) %>%
+                             rename(regime1_start_idx = bifpar_idx),
+            #              df %>%
+            # filter(.data$bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>%
+            #   slice_tail(n=1, by = .data$bifpar_idx) %>%
+            # mutate(regime1_start_idx= .data$bifpar_idx + 1) %>%
+            # select(.data$regime1_start_idx, all_of(X_names)),
+            all.x = TRUE)
 
-  return(list(peaks_df = peaks_df,
+    return(list(peaks_df = peaks_df,
     period_per_var = period_per_var,
               periods = periods,
               regimes = regimes,
