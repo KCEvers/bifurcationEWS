@@ -400,20 +400,31 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
 #' @examples
 smooth_periods <- function(periods, nr_smooth, min_length_regime){
   # If a consistent regime shows one exception, smooth over.
+
+  find_nr_surrounding_regimes <- function(x, min_length_regime, nr_smooth){
+    # Split vector
+    m <- zoo::rollapply(x, min_length_regime*2 + nr_smooth, by = 1, FUN = c)
+    # Find number of unique periods surrounding nr_smooth, excluding nr_smooth. Look back min_length_regime + nr_smooth - 1 steps (ignoring nr_smooth steps) and forward min_length_regime steps
+    c(rep(NA, min_length_regime + nr_smooth - 1), split(m, row(m)) %>% purrr::map(
+      function(x){length(unique(x[-seq(min_length_regime + 1, min_length_regime + nr_smooth)]))}) %>%
+        unname %>% unlist, rep(NA, min_length_regime) ) %>% return()
+  }
+  # If a consistent regime shows one exception, smooth over.
   periods_smooth = periods %>% group_by(.data$variable) %>% arrange(.data$bifpar_idx, .by_group = TRUE) %>%
     mutate(lag_p = lag(.data$period, n = nr_smooth),
-                  # Apply rolling function to check for each row whether the previous min_length_regime values were the same and the future min_length_regime values were the same. If they were, fill in leading value.
-  embedded_in_same_regime = zoo::rollapply(.data$period, min_length_regime*2 + nr_smooth, function(x){length(unique(x[-seq(min_length_regime + 1, min_length_regime + nr_smooth, by = 1)]))}, by = 1, fill=NA, align = 'center') == 1 ) %>% ungroup() %>% rowwise() %>%
+           # Apply rolling function to check for each row whether the previous min_length_regime values were the same and the future min_length_regime values were the same. If they were, fill in leading value.
+           embedded_in_same_regime =
+             # zoo::rollapply(.data$period, min_length_regime*2 + nr_smooth, function(x){length(unique(x[-seq(min_length_regime + 1, min_length_regime + nr_smooth)]))}, by = 1, fill=NA, align = 'center')
+             find_nr_surrounding_regimes(.data$period, min_length_regime, nr_smooth) == 1 ) %>%
+    ungroup() %>% rowwise() %>%
     rename(period_unsmooth = .data$period) %>%
     mutate(
       # check_ = (.data$embedded_in_same_regime == TRUE) & (.data$period != .data$lag_p),
-           # check1 = (.data$embedded_in_same_regime == TRUE),
-           # check2 =  (.data$period != .data$lag_p),
-           period = ifelse(is.na(.data$lag_p) | is.na(.data$embedded_in_same_regime), .data$period_unsmooth,
-                           ifelse((.data$embedded_in_same_regime == TRUE) & (.data$period_unsmooth != .data$lag_p), .data$lag_p, .data$period_unsmooth))) %>% ungroup() %>% select(-c(.data$lag_p, .data$embedded_in_same_regime)) # %>% pull(.data$period_smooth) %>% as.logical() %>% which()
-  # if (!rlang::is_empty(smooth_idxs)){
-  # periods[smooth_idxs, setdiff(colnames(periods), "bifpar_idx")] = periods[smooth_idxs - 1, setdiff(colnames(periods), "bifpar_idx")]
-  # }
+      # check1 = (.data$embedded_in_same_regime == TRUE),
+      # check2 =  (.data$period != .data$lag_p),
+      period = ifelse(is.na(.data$lag_p) | is.na(.data$embedded_in_same_regime), .data$period_unsmooth,
+                      ifelse((.data$embedded_in_same_regime == TRUE) & (.data$period_unsmooth != .data$lag_p), .data$lag_p, .data$period_unsmooth))) %>% ungroup() %>%
+    select(-c(.data$lag_p, .data$embedded_in_same_regime)) # %>% pull(.data$period_smooth) %>% as.logical() %>% which()
 
   return(periods_smooth)
 }
@@ -520,7 +531,7 @@ find_regimes <- function(df,
   regime_bounds =  merge(regime_bounds_,
                          X0s  %>% as.data.frame() %>%
                            filter(.data$bifpar_idx %in% c(regime_bounds_$regime1_start_idx)) %>%
-                             rename(regime1_start_idx = bifpar_idx),
+                             rename(regime1_start_idx = .data$bifpar_idx),
             #              df %>%
             # filter(.data$bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>%
             #   slice_tail(n=1, by = .data$bifpar_idx) %>%
@@ -609,6 +620,19 @@ find_dist_per_k <- function(ks, coord, peak_idx){
 scale_range = function(x, a = 0, b = 1){
   return((b-a) * ((x - min(x)) / (max(x) - min(x))) + a)
 }
+
+#' Reverse scaling of vector between range (a,b)
+#'
+#' @inheritParams scale_range
+#' @param min_x Previous minimum of x
+#' @param max_x Previous maximum of x
+#'
+#' @return Scaled vector
+#' @export
+#'
+#' @examples
+rev_scale_range <- function(x,a,b,min_x,max_x){return((x - a) / (b-a) * (max_x - min_x) + min_x) }
+
 
 #' Find best fitting period length k
 #'
