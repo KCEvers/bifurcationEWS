@@ -144,8 +144,8 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, crit_values, nr_conse
 #' Get warnings per EWS metric
 #'
 #' @param split_df_EWS Dataframe of EWS split into lists, with one entry per value of the bifurcation parameter
-#' @param baseline_steps Number of baseline steps in bifurcation parameter
-#' @param transition_steps Number of transition steps in bifurcation parameter
+#' @param baseline_idx Indices of baseline steps in bifurcation parameter
+#' @param transition_idx Indices of transition steps in bifurcation parameter
 #' @param sigmas_crit Sequence of critical values of sigma
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
@@ -154,10 +154,10 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, crit_values, nr_conse
 #' @export
 #'
 #' @examples
-get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1){
+get_warnings <- function(split_df_EWS, baseline_idx, transition_idx, sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
   EWS_df_CI = split_df_EWS %>% arrange(.data$bifpar_idx) %>% group_by(.data$metric) %>%
-    filter(.data$bifpar_idx <= baseline_steps) %>%
+    filter(.data$bifpar_idx %in% baseline_idx) %>%
     summarise(mean_w0 = mean(.data$value), sd_w0 = stats::sd(.data$value),
                      quantile_000 = as.numeric(stats::quantile(.data$value, 0, na.rm=TRUE)),
                      quantile_100 = as.numeric(stats::quantile(.data$value, 1, na.rm=TRUE)),
@@ -180,7 +180,7 @@ get_warnings <- function(split_df_EWS, baseline_steps, transition_steps, sigmas_
 
   # Get warnings per critical sigma
   warning_df = winEWS_df %>%
-    filter(.data$bifpar_idx > baseline_steps, .data$bifpar_idx <= (baseline_steps + transition_steps)) %>%
+    filter(.data$bifpar_idx %in% transition_idx) %>%
     group_by(.data$metric) %>%
     group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score_sd, crit_values= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup()
 
