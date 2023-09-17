@@ -13,6 +13,8 @@
 #' @param do_downsample Reduce dataframe size by downsampling?
 #' @param downsample_pars List of parameters for downsampling
 #' @param silent Don't output progress if TRUE
+#' @param max_iter Maximum number of tries to restart from a new initial condition and not hit undesirable regime
+#' @param seed_change Function to update seed number when restarting after hitting undesirable regime
 #'
 #' @return List with timeseries matrix and parameters used to generate the timeseries
 #' @export
@@ -24,83 +26,111 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
                            seed_nr = 123,
                            timestep = .01, nr_timesteps = 100,
                            deSolve_method = c("lsoda", "euler", "rk4")[1],
-                           stopifregime = function(out){FALSE},
+                           # stopifregime = function(out){FALSE},
+                           stopifregime = function(out){any(apply(out, 2, is.infinite)) | any(apply(out, 2, is.nan))},
+
                            do_downsample = TRUE,
                            downsample_pars = list(type = c("average", "one_sample")[1],
-                                                  win_size = 10,
-                                                  which_X = c(10, "first", "middle", "last", "random")[1],
+                                                  win_size = 50,
+                                                  which_X = c(50, "first", "middle", "last", "random")[1],
                                                   seed = 123),
-                           silent = FALSE){
+                           silent = FALSE,
+                           max_iter = 1,
+                           seed_change = function(seed_nr){seed_nr + 1}){
   if (rlang::is_empty(X0) & rlang::is_empty(X_names)){
     message("Specify either a named initial condition X0 (e.g. X0 = (X1 = .1, X2 = .3)) or the names of your variables to set a random initial condition using X_names (e.g. X_names = c('X1', 'X2')).")
     return()
   }
+
   # Initialize
-  if (rlang::is_empty(X0)){
-    set.seed(seed_nr)
-    X0      <- stats::runif(length(X_names)) %>% stats::setNames(X_names)
-  }
+  success = FALSE; iter = 1
   times = seq(0, nr_timesteps, by = timestep)
   min_t = times[1]
   bifpar_idxs = seq.int(length(bifpar_list))
   X0s <- matrix(nrow = length(bifpar_list), ncol = length(X_names)+1) %>% magrittr::set_colnames(c("bifpar_idx", X_names))
-  tmps <- list()
 
-  # Generate data for each bifurcation parameter
-  for (bifpar_idx in bifpar_idxs){
-    if (!silent){
-      print(sprintf("%s Generating data for bifurcation index %d/%d", Sys.time(), bifpar_idx, length(bifpar_idxs)))
+  while (!success & (iter <= max_iter)){
+    # Initialize
+    if (rlang::is_empty(X0)){
+      set.seed(seed_nr)
+      X0      <- stats::runif(length(X_names)) %>% stats::setNames(X_names)
+      if (!silent){
+        print(X0)
+      }
     }
-    # Adjust bifurcation parameter
-    bifpar = bifpar_list[[bifpar_idx]]
-    model_pars = utils::modifyList(model_pars, bifpar)
+    tmps <- list() #as.list(rep("", length(bifpar_idxs))) #list()
 
-    # Save initial condition
-    X0s[bifpar_idx,] <- c(bifpar_idx, X0)
+    # Generate data for each bifurcation parameter
+    for (bifpar_idx in bifpar_idxs){
+      if (!silent){
+        print(sprintf("%s Generating data for bifurcation index %d/%d", Sys.time(), bifpar_idx, length(bifpar_idxs)))
+      }
+      # Adjust bifurcation parameter
+      bifpar = bifpar_list[[bifpar_idx]]
+      model_pars = utils::modifyList(model_pars, bifpar)
 
-    # Generate data
-    out <- deSolve::ode(y = X0, times = times + min_t, func = model,
-                        parms = model_pars,
-                        method = deSolve_method)
-    # head(out)
-    # tail(out)
-    # nrow(out)
+      # Save initial condition
+      X0s[bifpar_idx,] <- c(bifpar_idx, X0)
 
-    # Overwrite initial state
-    X0 <- out[nrow(out),names(X0)]
-    min_t = out[nrow(out),c("time")]
+      # Generate data
+      out <- deSolve::ode(y = X0, times = times + min_t, func = model,
+                          parms = model_pars,
+                          method = deSolve_method)
+      # head(out)
+      # tail(out)
+      # nrow(out)
 
-    # Remove last time point
-    out <- out[-nrow(out),]
-    # print(X0)
+      # Overwrite initial state
+      X0 <- out[nrow(out),names(X0)]
+      min_t = out[nrow(out),c("time")]
 
-    # Stop if condition is met
-    if (stopifregime(out)){
-      message("Hit undesirable regime! Deleting generated timeseries")
-      break
+      # Remove last time point
+      out <- out[-nrow(out),]
+      # print(X0)
+
+      # Stop if condition is met
+      if (stopifregime(out)){
+        message("Hit undesirable regime! Deleting generated timeseries and starting from new initial condition")
+        break
+      }
+
+      if (do_downsample){
+        out = downsample(out, X_names, type = downsample_pars$type,
+                         win_size = downsample_pars$win_size,
+                         which_X = downsample_pars$which_X,
+                         seed_nr = downsample_pars$seed_nr)
+      }
+      # Save intermediate result for efficiency
+      tmp <- tempfile(fileext = ".RDS")
+      saveRDS(out, tmp)
+      tmps[bifpar_idx] <- tmp
+      rm(out)
     }
 
-    if (do_downsample){
-      out = downsample(out, X_names, type = downsample_pars$type,
-                       win_size = downsample_pars$win_size,
-                       which_X = downsample_pars$which_X,
-                       seed_nr = downsample_pars$seed_nr)
+    if (length(tmps) == length(bifpar_idxs)){
+      # Collect all generate data and remove temporary files
+      OUT = do.call(rbind, lapply(bifpar_idxs,
+                                  function(bifpar_idx){
+                                    tmp <- tmps[[bifpar_idx]]
+                                    if (file.exists(tmp)){
+                                    out <- readRDS(tmp)
+                                    unlink(tmp)
+
+                                    return(cbind(out, bifpar_idx))
+                                    } else {
+                                      return(NULL)
+                                    }
+                                  }))
+      success = TRUE
+    } else {
+      # Start again
+      X0 = c()
+      seed_nr = seed_change(seed_nr)
+      iter = iter + 1
+      print(sprintf("Iteration %d, seed number: %.8f", iter, seed_nr))
     }
-    # Save intermediate result for efficiency
-    tmp <- tempfile(fileext = ".RDS")
-    saveRDS(out, tmp)
-    tmps[bifpar_idx] <- tmp
-    rm(out)
   }
 
-  # Collect all generate data and remove temporary files
-  OUT = do.call(rbind, lapply(bifpar_idxs,
-                              function(bifpar_idx){
-                                tmp <- tmps[[bifpar_idx]]
-                                out <- readRDS(tmp)
-                                unlink(tmp)
-                                return(cbind(out, bifpar_idx))
-                              }))
   # OUT$time_idx = 1:nrow(OUT)
   # OUT %>% head
 
