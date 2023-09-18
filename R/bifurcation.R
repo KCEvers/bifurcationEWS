@@ -717,7 +717,7 @@ find_best_k <- function(coord, peak_idx, thresh_node, max_k = NULL, factor_k = .
   max_spread_coord_scaled=spread_df$max_spread_coord / min(spread_df$max_spread_coord)
   # Divide by the period length k - how much longer or shorter is each k compared to the k corresponding to the minimum spread?
   k_scaled=spread_df$k / (which.min(spread_df$max_spread_coord) + 1)
-  # Choose k that balances minimum spread with short period length
+  # Choose k that balances minimum spread with short period length. If factor_k is very high, it's near impossible for a high period length to be the optimal period - it needs to have an excellent fit compared to other period lengths.
   idx_min = which.min(scale_range(max_spread_coord_scaled) + scale_range(k_scaled, a = 0, b = factor_k))
 
   return(cbind(as.data.frame(spread_df[idx_min,]), max_k=max_k))
