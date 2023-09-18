@@ -469,6 +469,7 @@ smooth_periods <- function(periods, nr_smooth, min_length_regime){
 #' @param min_length_regime Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime
 #' @param max_k Maximum cluster size to look for
 #' @param nr_smooth Number of exceptions in a stable periodicity window to smooth over
+#' @param factor_k Weighting of period length k; heavier weight means shorter k is preferred; factor_k = 0 means the optimal period length is chosen based solely on minimum spread
 #'
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
 #' @importFrom dplyr arrange group_modify ungroup filter select group_by mutate rename bind_rows all_of slice_tail .data
@@ -481,6 +482,7 @@ find_regimes <- function(GLV,
                          thresh_peak_idx_spread=2,
                          min_length_regime = 5,
                          nr_smooth = 2,
+                         factor_k = .25,
                          max_k = NULL){
 
   # max_k = NULL
@@ -668,7 +670,6 @@ rev_scale_range <- function(x,a,b,min_x,max_x){return((x - a) / (b-a) * (max_x -
 #' @param coord Peak and trough coordinates
 #' @param peak_idx Peak and trough indices
 #' @param max_k Maximum cluster size to look for
-#' @param factor_k Weighting of period length k; heavier weight means shorter k is preferred; factor_k = 0 means the optimal period length is chosen based solely on minimum spread
 #' @inheritParams find_regimes
 #'
 #' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
