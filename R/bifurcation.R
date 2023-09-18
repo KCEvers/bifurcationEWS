@@ -490,6 +490,7 @@ find_regimes <- function(GLV,
   # thresh_coord_spread = .025
   # thresh_peak_idx_spread=2
   # nr_smooth=2
+  # factor_k = .25
   # min_length_regime = 5
 
   # Get dataframe with peaks
@@ -501,7 +502,7 @@ find_regimes <- function(GLV,
     # filter(bifpar_idx > 10, bifpar_idx < 200) %>%
     group_by(.data$variable, .data$bifpar_idx) %>%
     arrange(.data$time_idx, .by_group=TRUE) %>%
-    group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, thresh_node = thresh_node, max_k = max_k)) %>%
+    group_modify(~ find_best_k(coord = .x$X, peak_idx = .x$peak_idx, thresh_node = thresh_node, max_k = max_k, factor_k = factor_k)) %>%
     ungroup()
 
   period_per_var = period_per_var_ %>%
@@ -578,7 +579,10 @@ find_regimes <- function(GLV,
               regime_bounds = regime_bounds,
               thresh_coord_spread = thresh_coord_spread,
               thresh_peak_idx_spread=thresh_peak_idx_spread,
-              min_length_regime = min_length_regime, max_k = max_k)))
+              min_length_regime = min_length_regime,
+    max_k = max_k,
+    nr_smooth = nr_smooth,
+    factor_k = factor_k)))
 }
 
 
@@ -703,10 +707,10 @@ find_best_k <- function(coord, peak_idx, thresh_node, max_k = NULL, factor_k = .
 
   # idx_min = spread_df %>% ungroup() %>%
   #   dplyr::mutate_at(c("max_spread_coord", "max_spread_peak_idx"), ~ ifelse(. == 0, 0, log(. * k))) %>%
+  #   dplyr::select(c("k", "max_spread_coord", "max_spread_peak_idx")) %>%
+  #   scale(center = F) %>% as.data.frame %>%
   #   # Penalize for period length k twice
   #   dplyr::mutate(k = k * factor_k) %>%
-  #   dplyr::select(c("k", "max_spread_coord", "max_spread_peak_idx")) %>%
-  #   scale(center = F) %>%
     # apply(1, mean) %>% which.min()
 
   # Divide by minimum spread - how much more spread does each k have as compared to the minimum?
