@@ -65,7 +65,7 @@ What are some more complicated regimes that we can find in the model?
 
 There is no "one" type of chaos - chaotic dynamics can look radically different. 
 
-```{r chaos, echo=FALSE}
+```{r chaos, eval=FALSE, include=FALSE}
 times      <- seq(0, 10000, by = 0.01)
 sel_idxs = round(.25*length(times)):length(times)
 # Chaos 1
@@ -174,14 +174,13 @@ The code below executes a quite crude yet effective approach. For a number of ca
 Note that although there are much more sophisticated temporal clustering algorithms out there (such as provided in the R package **dtwclust**), we only required a very simple metric to assess how well temporal sequences could be distinguished.
 
 ```{r periodicity, eval=FALSE, include=FALSE}
-regime_list = find_regimes(df,
-                           X_names, GLV$X0s,
+regime_list = find_regimes(GLV,
                              thresh_node = .1,
                              thresh_coord_spread = .025,
-                             thresh_peak_idx_spread= 2,
-                             min_length_regime = 5,
-                             nr_smooth = 2)
-
+                             thresh_peak_idx_spread=2,
+                             min_length_regime =5,
+                             nr_smooth = 0,
+                              factor_k = .1)
 print(head(regime_list$period_per_var))
 print(regime_list$periods)
 print(regime_list$regimes)
@@ -298,6 +297,10 @@ pl_peaks_trans = peaks_df_trans_ %>% ggplot() + geom_point(aes(x = bifpar_idx, y
              aes(xintercept = xintercept))
 
 print(style_plot(pl_peaks_trans))
+
+# Plot change in phase space
+pl1 = rgl::plot3d(df_trans[sel_idxs,c("X1", "X2", "X3")], aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f", model_pars[["s"]]))
+
 ```
 
 Similarly, we can generate a null model, where the control parameter stays constant.
@@ -379,13 +382,17 @@ print(style_plot(pl_EWS))
 To make the regime switch harder to detect, we add some simple white observational noise.
 
 ```{r Adding observational noise}
-noise_sigma = .02
-noisy_df = add_obs_noise(df, X_names, noise_mean = 0, noise_sigma = noise_sigma, noise_constant = 0)
-pl_noisy = noisy_df %>% 
-  dplyr::filter(bifpar_idx > 5, bifpar_idx < 10) %>%
-  tidyr::gather(variable, value, -setdiff(colnames(.), X_names)) %>%
-  ggplot() +
-  geom_point(aes(x = time_idx, y = value), size = .05) +
+noise_sigma = .01
+noisy_df = df %>%
+  add_obs_noise(X_names, noise_mean = 0, noise_sigma = noise_sigma, noise_constant = 0)
+pl_noisy = ggplot(data = df %>% 
+  dplyr::filter(bifpar_idx > 5, bifpar_idx < 7) %>%
+  tidyr::gather(variable, value, -setdiff(colnames(.), X_names))) +
+  geom_point(aes(x = time_idx, y = value), col = 'grey50', alpha = .75, size = .05) +
+  geom_point(data = noisy_df %>% 
+                 dplyr::filter(bifpar_idx > 5, bifpar_idx < 7) %>%
+               tidyr::gather(variable, value, -setdiff(colnames(.), X_names)), 
+  aes(x = time_idx, y = value), col = 'orange3', alpha = .75, size = .05) +
   ggh4x::facet_grid2(variable ~ .) + labs(title = sprintf("sigma = %.2f", noise_sigma))
 print(style_plot(pl_noisy))
 ``` 
@@ -437,4 +444,131 @@ print(pl_warnings)
 
 ```{r AUC}
 
+
+```
+
+
+## 
+
+```{r}
+GLV <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/PD_2to4/nr1_T2000_ts0.010_Xsigma0.00000_transition_25transSteps.RDS")
+GLV <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/PD_2to4/nr1_T2000_ts0.010_Xsigma0.00000_transition_50transSteps.RDS")
+df = GLV$df
+
+split_df = noisy_df %>% as.data.frame() %>% group_by(.data$bifpar_idx) %>% group_split()
+df_ = split_df[[14]] 
+df_ %>% head
+
+C0 = GLV$model_pars$C0
+s = GLV$bifpar_list[[14]]$s
+C = C0 * s
+diag(C) = diag(C0)
+# C %*% state
+
+df1 = df_ %>% arrange(.data$time_idx) %>% select(all_of(X_names)) %>% as.matrix()
+
+stats::cor(df1[,1:2])
+stats::cor(df1[1:(nrow(df1)-1),1], df1[2:nrow(df1),2])
+stats::cor(df1[1:(nrow(df1)-1),2], df1[2:nrow(df1),1])
+library(lmtest)
+lmtest::grangertest(X1 ~ X2, order = 1, data = as.data.frame(df1))
+lmtest::grangertest(X2 ~ X1, order = 1, data = as.data.frame(df1))
+
+lmtest::grangertest(X2 ~ X3, order = 1, data = as.data.frame(df1))
+lmtest::grangertest(X3 ~ X2, order = 1, data = as.data.frame(df1))
+
+full_mi <- function(x){
+  # Discretize per column
+  x_discr <- infotheo::discretize(x, disc="equalfreq",
+                             nbins = 100)
+
+  # Mutual information between all combinations of variables
+  D = expand.grid(a = 1:ncol(x), b = 1:ncol(x)) %>% as.data.frame() %>% dplyr::filter(a != b)
+  MI_df = plyr::laply(1:nrow(D), function(idx){infotheo::mutinformation(x_discr[,D[idx,"a"]], x_discr[,D[idx,"b"]], method="emp") }) %>% as.matrix() %>% t() %>% magrittr::set_colnames(paste0("MI_", apply(D, 1, paste0, collapse = ""))) %>% as.data.frame()
+  MI_df$multi =  infotheo::multiinformation(x_discr,method = "emp")
+  MI_df$inter =  infotheo::interinformation(x_discr,method = "emp")
+  return(MI_df)
+}
+
+full_conn <- function(x){
+ stats::cor(x) %>% as.data.frame()%>% unlist %>%as.data.frame(row.names = names(.))%>%t()%>%as.data.frame()
+}
+
+lagged_conn <- function(x){
+  D = expand.grid(a = 1:ncol(x), b = 1:ncol(x)) %>% as.data.frame() %>% dplyr::filter(a != b)
+  conn_df = plyr::laply(1:nrow(D), function(idx){stats::cor(x[1:(nrow(x)-1),D[idx,"a"]], x[2:nrow(x),D[idx,"b"]])}) %>% as.matrix() %>% t() %>% magrittr::set_colnames(paste0("r_", apply(D, 1, paste0, collapse = ""))) %>% as.data.frame()
+  
+ return(conn_df)
+}
+
+var_coeff <- function(x){
+  var_mod = vars::VAR(x, p = 1, type = "none")
+purrr::map(var_mod$varresult, function(x){as.data.frame(x$coefficients)}) %>%
+  do.call(rbind, .) %>% as.data.frame() %>% t() %>% as.data.frame() %>% return()
+
+}
+uni_metrics = c("autocorrelation"= get_autocorr)
+multi_metrics = c(
+  # "full_conn"=full_conn,
+                  "VAR" = var_coeff,
+                  # "mutual_info" = full_mi,
+                  # "lagged_conn"=lagged_conn,
+                  "meanAbsCrossCorr" = get_conn,
+                  "largestLambdaCovMatrix" = eigenvalue,
+                  "spatial_variance" = spatial_variance,
+                  "spatial_skewness" = spatial_skewness,
+                  "spatial_kurtosis" = spatial_kurtosis)
+split_df_EWS = split_df %>%
+    lapply(function(df_){run_EWS(df_ %>% arrange(.data$time_idx) %>% select(all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, EWS_args = list())} %>%
+             mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
+    do.call(rbind, .) %>% as.data.frame()
+
+
+# split_df_EWS = run_bifEWS(df, X_names, uni_metrics, multi_metrics, EWS_args = list())
+pl_EWS <- split_df_EWS %>%
+  tidyr::spread(metric, value) %>%
+  dplyr::mutate(VAR_X1.X2.l1_ = VAR_X1.X2.l1 / VAR_X1.X1.l1,
+                VAR_X1.X3.l1_ = VAR_X1.X3.l1 / VAR_X1.X1.l1,
+                VAR_X1.X4.l1_ = VAR_X1.X4.l1 / VAR_X1.X1.l1
+                ) %>% tidyr::gather(metric, value, -c(bifpar_idx)) %>%
+  ggplot() +
+  geom_point(aes(x=bifpar_idx, y = value), size = .25) +
+  geom_line(aes(x=bifpar_idx, y = value), linewidth = .25) +
+  ggh4x::facet_wrap2(. ~ metric, ncol = 4, scales = "free_y",
+                     # labeller = label_func
+                     ) +
+  # Baseline
+  geom_vline(aes(xintercept = 50 + 50), col = 'purple', linewidth = 1) +
+  # Transition
+  geom_vline(aes(xintercept = 50 + 50 + 25), col = 'purple', linewidth = 1)
+print(style_plot(pl_EWS))
+
+
+```
+
+
+
+## Lyapunov Exponent
+```{r}
+# Generate data with changing bifurcation parameter
+
+timestep = .01
+nr_timesteps = 20000
+bifpar_list = get_bifurcation_range(bifpar_start = .85, bifpar_end = .85, pre_steps = 0,
+                                  baseline_steps = 0, transition_steps = 1, post_steps = 0)
+
+GLV = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
+               bifpar_list = bifpar_list,
+               timestep = timestep, nr_timesteps = nr_timesteps,
+               do_downsample = FALSE,
+               # downsample_pars = downsample_pars,
+               X_names = X_names)
+df = GLV$df
+head(df)
+
+# Lyapunov exponent (https://en.wikipedia.org/wiki/Lyapunov_exponent)
+df_X = df %>% select(all_of(X_names)) %>% slice(10000:10100) %>% as.matrix()
+nrow(df_X)
+LAMBDA = (1 / (2* nrow(df_X))) * log(df_X %*% t(df_X) )
+eigen(LAMBDA)
 ```
