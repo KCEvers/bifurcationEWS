@@ -6,8 +6,8 @@
 \usage{
 get_warnings(
   split_df_EWS,
-  baseline_steps,
-  transition_steps,
+  baseline_idx,
+  transition_idx,
   sigmas_crit = seq(0.25, 6, by = 0.25),
   nr_consecutive_warnings = 1
 )
@@ -15,9 +15,9 @@ get_warnings(
 \arguments{
 \item{split_df_EWS}{Dataframe of EWS split into lists, with one entry per value of the bifurcation parameter}
 
-\item{baseline_steps}{Number of baseline steps in bifurcation parameter}
+\item{baseline_idx}{Indices of baseline steps in bifurcation parameter}
 
-\item{transition_steps}{Number of transition steps in bifurcation parameter}
+\item{transition_idx}{Indices of transition steps in bifurcation parameter}
 
 \item{sigmas_crit}{Sequence of critical values of sigma}
 

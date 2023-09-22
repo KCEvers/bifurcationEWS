@@ -75,7 +75,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
       # Generate data
       out <- deSolve::ode(y = X0, times = times + min_t, func = model,
                           parms = model_pars,
-                          method = deSolve_method)
+                          method = deSolve_method) %>% cbind(bifpar_idx=bifpar_idx)
       # head(out)
       # tail(out)
       # nrow(out)
@@ -89,7 +89,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
       # print(X0)
 
       # Stop if condition is met
-      if (stopifregime(out)){
+      if (stopifregime(out) & (bifpar_idx > bifpar_idxs[1])){
         message("Hit undesirable regime! Deleting generated timeseries and starting from new initial condition")
         break
       }
@@ -115,8 +115,9 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
                                     if (file.exists(tmp)){
                                     out <- readRDS(tmp)
                                     unlink(tmp)
+                                    return(out)
 
-                                    return(cbind(out, bifpar_idx))
+                                    # return(cbind(out, bifpar_idx))
                                     } else {
                                       return(NULL)
                                     }
@@ -374,6 +375,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
 #'
 #' @param regimes Dataframe with periodicity per value of the bifurcation parameter
 #' @inheritParams find_regimes
+#' @inheritParams bifurcation_ts
 #'
 #' @importFrom dplyr arrange ungroup mutate .data group_by_at
 #' @return Dataframe with regime boundaries
@@ -620,7 +622,7 @@ max_dist <- function(vec, cluster_idx){
   # return(mean(max_dist_per_k))
   return(c(
     mean_spread = mean(max_dist_per_k),
-    median_spread = median(max_dist_per_k),
+    median_spread = stats::median(max_dist_per_k),
     # min_spread = min(max_dist_per_k),
     max_spread = max(max_dist_per_k)
   ))
@@ -689,7 +691,6 @@ rev_scale_range <- function(x,a,b,min_x,max_x){return((x - a) / (b-a) * (max_x -
 #' @param coord Peak and trough coordinates
 #' @param peak_idx Peak and trough indices
 #' @param max_k Maximum cluster size to look for
-#' @inheritParams find_regimes
 #'
 #' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
 #' @export
@@ -721,6 +722,7 @@ find_spread_per_k <- function(coord, peak_idx, max_k = NULL){
 #'
 #' @return Dataframe containing one row with best period length
 #' @export
+#' @importFrom dplyr select mutate_at mutate .data
 #'
 #' @examples
 choose_best_k <- function(spread_df, thresh_node, factor_k, method_best_k = c("log", "min_scaled")[2]){
@@ -732,19 +734,19 @@ choose_best_k <- function(spread_df, thresh_node, factor_k, method_best_k = c("l
   # Method 1: log
   if (method_best_k == "log"){
     idx_min = spread_df %>% ungroup() %>%
-      dplyr::select(c("k", "max_spread_coord", "median_spread_coord",
+      select(c("k", "max_spread_coord", "median_spread_coord",
                       # "max_spread_peak_idx"
       )) %>%
       # Penalize for period length k twice
       # dplyr::mutate(k = k * factor_k) %>%
       # dplyr::mutate_all(~ (.+.00001)) %>%
-      dplyr::mutate_at(c("max_spread_coord", "median_spread_coord"), ~ scale_range(., a = 0.00001, b = 0.00001 + 1)) %>%
+      mutate_at(c("max_spread_coord", "median_spread_coord"), ~ scale_range(., a = 0.00001, b = 0.00001 + 1)) %>%
       # dplyr::mutate_at(c("max_spread_coord", "median_spread_coord"), ~ ifelse(. == 0, 0, scale_range(log(.), a = 0.00001, b = 1))) %>%
       # dplyr::mutate_at(c("max_spread_coord", "median_spread_coord", "max_spread_peak_idx"), ~ ifelse(. == 0, 0, log(. * k))) %>%
       # scale(center = F) %>%
       # apply(2,scale_range, a = 1, b = 2) %>%
       # as.data.frame %>%
-      dplyr::mutate(k = scale_range(k, a = 0.00001, b = 0.00001+factor_k)) %>%
+      mutate(k = scale_range(.data$k, a = 0.00001, b = 0.00001+factor_k)) %>%
       # as.data.frame %>%
     apply(1, mean) %>% which.min()
 
@@ -753,7 +755,7 @@ choose_best_k <- function(spread_df, thresh_node, factor_k, method_best_k = c("l
     # Divide by minimum spread - how much more spread does each k have as compared to the minimum?
     max_spread_coord_scaled=spread_df$max_spread_coord / min(spread_df$max_spread_coord)
     # Divide by the period length k - how much longer or shorter is each k compared to the k corresponding to the minimum spread?
-    k_scaled=spread_df$k / (which.min(spread_df$max_spread_coord) )
+    k_scaled=spread_df$k / which.min(spread_df$max_spread_coord)
     # Choose k that balances minimum spread with short period length. If factor_k is very high, it's near impossible for a high period length to be the optimal period - it needs to have an excellent fit compared to other period lengths.
     idx_min = which.min(scale_range(max_spread_coord_scaled) + scale_range(k_scaled, a = 0, b = factor_k))
   }

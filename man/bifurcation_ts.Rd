@@ -15,12 +15,17 @@ bifurcation_ts(
   nr_timesteps = 100,
   deSolve_method = c("lsoda", "euler", "rk4")[1],
   stopifregime = function(out) {
-     FALSE
+     any(apply(out, 2, is.infinite)) | any(apply(out, 2,
+    is.nan))
  },
   do_downsample = TRUE,
-  downsample_pars = list(type = c("average", "one_sample")[1], win_size = 10, which_X =
-    c(10, "first", "middle", "last", "random")[1], seed = 123),
-  silent = FALSE
+  downsample_pars = list(type = c("average", "one_sample")[1], win_size = 50, which_X =
+    c(50, "first", "middle", "last", "random")[1], seed = 123),
+  silent = FALSE,
+  max_iter = 1,
+  seed_change = function(seed_nr) {
+     seed_nr + 1
+ }
 )
 }
 \arguments{
@@ -49,6 +54,10 @@ bifurcation_ts(
 \item{downsample_pars}{List of parameters for downsampling}
 
 \item{silent}{Don't output progress if TRUE}
+
+\item{max_iter}{Maximum number of tries to restart from a new initial condition and not hit undesirable regime}
+
+\item{seed_change}{Function to update seed number when restarting after hitting undesirable regime}
 }
 \value{
 List with timeseries matrix and parameters used to generate the timeseries

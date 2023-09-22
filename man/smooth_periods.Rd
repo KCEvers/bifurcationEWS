@@ -9,7 +9,7 @@ smooth_periods(periods, nr_smooth, min_length_regime)
 \arguments{
 \item{periods}{Dataframe with periodicity per bifurcation parameter}
 
-\item{nr_smooth}{Number of exceptions in a stable periodicity window to smooth over}
+\item{nr_smooth}{Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing}
 
 \item{min_length_regime}{Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime}
 }
