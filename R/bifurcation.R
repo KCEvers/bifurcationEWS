@@ -493,6 +493,7 @@ find_regimes <- function(GLV,
   # max_k = NULL
   #  thresh_node = .1
   # thresh_coord_spread = .025
+  #    method_best_k = c("log", "min_scaled")[1]
   # thresh_peak_idx_spread=2
   # nr_smooth=0
   # factor_k = .1
@@ -728,10 +729,14 @@ find_spread_per_k <- function(coord, peak_idx, max_k = NULL){
 choose_best_k <- function(spread_df, thresh_node, factor_k, method_best_k = c("log", "min_scaled")[2]){
 
   # Detect nodes for which k = 1 should be a good fit
-  if (spread_df[spread_df$k == 1, c("max_spread_coord")] < thresh_node){
+  # if (spread_df[spread_df$k == 1, c("max_spread_coord")] < thresh_node){
+  if(max(stats::dist(spread_df$max_spread_coord)) < thresh_node){ # If all fits are the same
     idx_min=1
+
+    # k_spread%>%group_by(variable,bifpar_idx) %>% dplyr::summarise(max(stats::dist(max_spread_coord)))
   } else {
   # Method 1: log
+  spread_df = spread_df[spread_df$k != 1,] # If it's not a node, k = 1 is not a good partitioning
   if (method_best_k == "log"){
     idx_min = spread_df %>% ungroup() %>%
       select(c("k", "max_spread_coord", "median_spread_coord",
@@ -755,7 +760,7 @@ choose_best_k <- function(spread_df, thresh_node, factor_k, method_best_k = c("l
     # Divide by minimum spread - how much more spread does each k have as compared to the minimum?
     max_spread_coord_scaled=spread_df$max_spread_coord / min(spread_df$max_spread_coord)
     # Divide by the period length k - how much longer or shorter is each k compared to the k corresponding to the minimum spread?
-    k_scaled=spread_df$k / which.min(spread_df$max_spread_coord)
+    k_scaled = spread_df$k / spread_df$k[which.min(spread_df$max_spread_coord)]
     # Choose k that balances minimum spread with short period length. If factor_k is very high, it's near impossible for a high period length to be the optimal period - it needs to have an excellent fit compared to other period lengths.
     idx_min = which.min(scale_range(max_spread_coord_scaled) + scale_range(k_scaled, a = 0, b = factor_k))
   }
