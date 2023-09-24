@@ -6,13 +6,12 @@
 \usage{
 find_regimes(
   GLV,
-  thresh_node = 0.1,
+  thresh_node = 0.001,
   thresh_coord_spread = 0.025,
   thresh_peak_idx_spread = 2,
   min_length_regime = 5,
   nr_smooth = 0,
-  factor_k = 1,
-  method_best_k = c("log", "min_scaled")[1],
+  factor_k = 0.1,
   max_k = NULL
 )
 }
@@ -30,8 +29,6 @@ find_regimes(
 \item{nr_smooth}{Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing}
 
 \item{factor_k}{Weighting of period length k; heavier weight means shorter k is preferred; factor_k = 0 means the optimal period length is chosen based solely on minimum spread}
-
-\item{method_best_k}{Method of choosing best period length}
 
 \item{max_k}{Maximum cluster size to look for}
 }

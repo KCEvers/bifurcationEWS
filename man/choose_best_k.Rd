@@ -4,12 +4,7 @@
 \alias{choose_best_k}
 \title{Choose best period length}
 \usage{
-choose_best_k(
-  spread_df,
-  thresh_node,
-  factor_k,
-  method_best_k = c("log", "min_scaled")[2]
-)
+choose_best_k(spread_df, thresh_node, factor_k)
 }
 \arguments{
 \item{spread_df}{Output of find_spread_per_k()}
@@ -17,8 +12,6 @@ choose_best_k(
 \item{thresh_node}{Threshold under which timeseries is classified as node}
 
 \item{factor_k}{Weighting of period length k; heavier weight means shorter k is preferred; factor_k = 0 means the optimal period length is chosen based solely on minimum spread}
-
-\item{method_best_k}{Method of choosing best period length}
 }
 \value{
 Dataframe containing one row with best period length

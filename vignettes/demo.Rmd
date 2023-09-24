@@ -23,6 +23,7 @@ rgl::setupKnitr(autoprint = TRUE) # suppress opening new window
 library(bifurcationEWS)
 library(ggh4x)
 library(dplyr)
+library(plotly)
 library(ggplot2)
 ```
 
@@ -85,6 +86,16 @@ model_pars["s"] = 1.125
 df_chaos3 <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars)
 pl3 = rgl::plot3d(df_chaos3[sel_idxs,c("X1", "X2", "X3")], aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f", model_pars[["s"]]))
 print(pl3)
+
+# To display in an R Markdown document:
+rglwidget()
+
+# To save to a file:
+# htmlwidgets::saveWidget(rgl::rglwidget(width = 520, height = 520), 
+#                         file = "3dscatter.html",
+#                         libdir = "libs",
+#                         selfcontained = FALSE
+#                         )
 ```
 
 ### Bifurcation diagram
@@ -100,16 +111,17 @@ nr_timesteps = 2000
 bifpar_list = get_bifurcation_range(bifpar_start = .96, bifpar_end = .97, pre_steps = 0,
                                   baseline_steps = 0, transition_steps = 101, post_steps = 0)
 
-GLV = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
+model_pars = list(r = r0, C0 = C0, mu = mu)
+GLV_full = bifurcation_ts(model = GLV_model, model_pars = model_pars,
                bifpar_list = bifpar_list,
                timestep = timestep, nr_timesteps = nr_timesteps,
                downsample_pars = downsample_pars,
-               X_names = X_names)
-df = GLV$df
+               X_names = X_names, seed_nr = 100)
+df = GLV_full$df
 head(df)
 
 # Get dataframe with peaks
-peaks_df = peaks_bifdiag(df, X_names)
+peaks_df = peaks_bifdiag(GLV_full$df, GLV_full$X_names)
 head(peaks_df)
 ```
 
@@ -175,7 +187,7 @@ Note that although there are much more sophisticated temporal clustering algorit
 
 ```{r periodicity, eval=FALSE, include=FALSE}
 regime_list = find_regimes(GLV,
-                             thresh_node = .1,
+                             thresh_node = .001,
                              thresh_coord_spread = .025,
                              thresh_peak_idx_spread=2,
                              min_length_regime =5,
@@ -266,13 +278,14 @@ s_seq = get_bifurcation_range(bifpar_start = bifpar_list[[desired_switch$regime1
 X0 = unlist(desired_switch[,X_names])
                
 # Generate data with changing bifurcation parameter
-df_trans = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
+GLV_trans = bifurcation_ts(model = GLV_model, model_pars = model_pars,
                bifpar_list = s_seq,
                X0 = X0,
                timestep = timestep, nr_timesteps = nr_timesteps,
                 downsample_pars = downsample_pars,
                X_names = X_names
-               )$df
+               )
+df_trans = GLV_trans$df
 head(df_trans)
 
 pl_df_trans = df_trans %>%
@@ -285,7 +298,7 @@ print(style_plot(pl_df_trans))
 
 # We need to check whether our simulation generated the desired regimes using the same process as above:
 # Get dataframe with peaks
-peaks_df_trans = peaks_bifdiag(df_trans, X_names)
+peaks_df_trans = peaks_bifdiag(GLV_trans$df, GLV_trans$X_names)
 head(peaks_df_trans)
 
 peaks_df_trans_ = peaks_df_trans %>% dplyr::filter(variable == "X1")
@@ -310,13 +323,14 @@ s_seq = get_bifurcation_range(bifpar_start = bifpar_list[[desired_switch$regime1
 pre_steps = pre_steps, baseline_steps = baseline_steps, transition_steps = transition_steps, post_steps = post_steps)
 
 # Generate data with changing bifurcation parameter
-df_null = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
+GLV_null = bifurcation_ts(model = GLV_model, model_pars = model_pars,
                bifpar_list = s_seq,
                X0 = X0,
                timestep = timestep, nr_timesteps = nr_timesteps,
                 downsample_pars = downsample_pars,
                X_names = X_names
-               )$df
+               )
+df_null = GLV_null$df
 head(df_null)
 
 pl_df_null = df_null %>%
@@ -328,7 +342,7 @@ print(style_plot(pl_df_null))
 
 # We need to check whether our simulation generated the desired regimes using the same process as above:
 # Get dataframe with peaks
-peaks_df_null = peaks_bifdiag(df_null, X_names)
+peaks_df_null = peaks_bifdiag(GLV_null$df, GLV_null$X_names)
 head(peaks_df_null)
 
 
@@ -343,59 +357,66 @@ pl_peaks_null = peaks_df_null_ %>% ggplot() + geom_point(aes(x = bifpar_idx, y =
 print(style_plot(pl_peaks_null))
 ```
 
-
-
-## Early Warning Signals
-
-### Computing windowed EWS
-```{r Windowed EWS}
-uni_metrics = c("mean"= mean, "variance"= var, 
-                "skewness" = moments::skewness, "kurtosis" = moments::kurtosis)
-multi_metrics = c("meanAbsCrossCorr" = get_conn,
-                  "largestLambdaCovMatrix" = eigenvalue,
-                  "spatial_variance" = spatial_variance,
-                  "spatial_skewness" = spatial_skewness,
-                  "spatial_kurtosis" = spatial_kurtosis
-                  # "RQA" = runRQA
-                  )
-# label_func = function(x){ 
-  # labels = data.frame(var = "spatial_variance", label = "Spatial Variance")
-  # return(labels[labels$var == x, ]$label)
-# }
-
-
-split_df_EWS = run_bifEWS(df, X_names, uni_metrics, multi_metrics, EWS_args = list())
-pl_EWS <- split_df_EWS %>% ggplot() +
-  geom_point(aes(x=bifpar_idx, y = value), size = .25) +
-  geom_line(aes(x=bifpar_idx, y = value), linewidth = .25) +
-  ggh4x::facet_wrap2(. ~ metric, ncol = 3, scales = "free_y",
-                     # labeller = label_func
-                     )
-print(style_plot(pl_EWS))
-
-
-
-
-
-```
-
 To make the regime switch harder to detect, we add some simple white observational noise.
 
 ```{r Adding observational noise}
 noise_sigma = .01
-noisy_df = df %>%
-  add_obs_noise(X_names, noise_mean = 0, noise_sigma = noise_sigma, noise_constant = 0)
-pl_noisy = ggplot(data = df %>% 
+GLV_trans$noisy_df = GLV_trans$df %>%
+  add_obs_noise(GLV_trans$X_names, noise_mean = 0, noise_sigma = noise_sigma, noise_constant = 0)
+pl_noisy = ggplot(data = GLV_trans$df %>% 
   dplyr::filter(bifpar_idx > 5, bifpar_idx < 7) %>%
   tidyr::gather(variable, value, -setdiff(colnames(.), X_names))) +
   geom_point(aes(x = time_idx, y = value), col = 'grey50', alpha = .75, size = .05) +
-  geom_point(data = noisy_df %>% 
+  geom_point(data = GLV_trans$noisy_df %>% 
                  dplyr::filter(bifpar_idx > 5, bifpar_idx < 7) %>%
                tidyr::gather(variable, value, -setdiff(colnames(.), X_names)), 
   aes(x = time_idx, y = value), col = 'orange3', alpha = .75, size = .05) +
   ggh4x::facet_grid2(variable ~ .) + labs(title = sprintf("sigma = %.2f", noise_sigma))
 print(style_plot(pl_noisy))
 ``` 
+
+
+
+## Early Warning Signals
+
+### Computing windowed EWS
+```{r Windowed EWS}
+uni_metrics = c(
+  "mean" = mean,
+  "variance" = var,
+  "autocorrelation" = get_autocorr,
+  "skewness" = moments::skewness,
+  "kurtosis" = moments::kurtosis,
+  "Smax" = get_Smax
+)
+multi_metrics = c(
+  "meanAbsCrossCorr" = get_conn,
+  "largestLambdaCovMatrix" = eigenvalue,
+  "spatial_variance" = spatial_variance,
+  "spatial_skewness" = spatial_skewness,
+  "spatial_kurtosis" = spatial_kurtosis
+  # "RQA" = runRQA
+)
+
+
+# label_func = function(x){ 
+  # labels = data.frame(var = "spatial_variance", label = "Spatial Variance")
+  # return(labels[labels$var == x, ]$label)
+# }
+
+
+split_df_EWS = run_bifEWS(GLV_trans$noisy_df, GLV_trans$X_names, uni_metrics, multi_metrics, EWS_args = list())
+pl_EWS <- split_df_EWS %>% ggplot() +
+    geom_line(aes(x = bifpar_idx, y = value), linewidth = .45, alpha = .5, color ='grey50') +
+          geom_point(aes(x = bifpar_idx, y = value), size = .6, color ='grey20') +
+  ggh4x::facet_wrap2(. ~ metric, ncol = 3, scales = "free_y",
+                     labeller = labeller(metric = label_func)
+                     )
+print(style_plot(pl_EWS))
+
+
+```
+
 
 ### Warnings
 
@@ -406,7 +427,39 @@ By varying the width of the confidence bands, we get a better understanding of t
 The only two settings that are required are the definition of the baseline period and the range of $\sigma_{crit}$ that is tested.
 
 ```{r warning}
-warnings_trans = get_warnings(split_df_EWS, baseline_steps, transition_steps, sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1)
+
+
+
+# Add confidence band
+sigma_crit = 2
+sigmas_crit = seq(.025, 6, by = 0.025)
+
+
+# Count baseline back
+      baseline_idx = round(seq(regime_bounds$baseline_start_idx, regime_bounds$baseline_end_idx))
+      transition_idx = round(seq(regime_bounds$transition_start_idx, regime_bounds$transition_end_idx))
+
+    # Compute at which critical sigma value a warning occurs
+    split_df_EWS_CI = get_warnings(split_df_EWS,
+                              baseline_idx,
+                              transition_idx,
+                                  sigmas_crit = sigmas_crit,
+                                  nr_consecutive_warnings = 1)
+    
+    warning_df = split_df_EWS_CI$warning_df %>%
+      rowwise() %>%
+      dplyr::mutate(warning_signal = sum(nr_warnings != 0), no_warning_signal = sum(nr_warnings == 0)) %>% ungroup()
+
+    if (pars$trans_or_null == "transition"){
+      warning_df = warning_df %>%
+        dplyr::rename(nr_tp = warning_signal, nr_fn = no_warning_signal) %>%
+        dplyr::mutate(nr_fp = NA, nr_tn = NA)
+    } else if (pars$trans_or_null == "null"){
+      warning_df = warning_df %>%
+        dplyr::rename(nr_tn = no_warning_signal, nr_fp = warning_signal) %>%
+      dplyr::mutate(nr_tp = NA, nr_fn = NA)
+    }
+
 
 # Plot
 sigma_crit = 2
@@ -571,4 +624,207 @@ df_X = df %>% select(all_of(X_names)) %>% slice(10000:10100) %>% as.matrix()
 nrow(df_X)
 LAMBDA = (1 / (2* nrow(df_X))) * log(df_X %*% t(df_X) )
 eigen(LAMBDA)
+```
+
+
+
+```{r}
+GLV <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/PD_8to16/nr1_T2000_ts0.010_Xsigma0.00000_transition_50transSteps.RDS")
+GLV <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/PD_2to4/nr1_T2000_ts0.010_Xsigma0.00000_transition_50transSteps.RDS")
+GLV <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/SUBD_Chaotic_to_Mixed-Periodic1/nr1_T2000_ts0.010_Xsigma0.00000_transition_50transSteps.RDS")
+GLV2000 <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/SUBD_Chaotic_to_Mixed-Periodic1/nr1_T2000_ts0.010_Xsigma0.00000_transition_25transSteps.RDS")
+GLV10000 <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/SUBD_Chaotic_to_Mixed-Periodic1/nr1_T10000_ts0.010_Xsigma0.00000_transition_25transSteps.RDS")
+
+df = GLV$df
+pl1 = rgl::plot3d(df[,c("X1", "X2", "X3")], 
+                  col = df[,c("bifpar_idx")], aspect = TRUE, lwd = 1,
+                            clab = c("Sepal", "Width (cm)") # clab is used to change the title of the color legend.
+
+                  # alpha = .01,
+                  # main = sprintf("s = %.4f", model_pars[["s"]])
+                  )
+print(pl1)
+
+```
+
+```{r echo=TRUE}
+library(plotly)
+
+fig <- plot_ly(df %>% filter(bifpar_idx %in% c(100, 125, 150, 175)), 
+               type="scatter3d", mode = "lines+markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               # colors = c('#FFE1A1', '#683531', 'pink', 'blue'),
+               marker = list(color = ~bifpar_idx, size = 2,
+                             colorscale="Rainbow", opacity = .5,
+                             # colorscale = c('#FFE1A1', '#683531'),
+                             showscale = TRUE))
+# fig <- fig %>% 
+  # add_markers()
+fig <- fig %>% layout(scene = list(xaxis = list(title = 'X1'),
+                                   yaxis = list(title = 'X2'),
+                                   zaxis = list(title = 'X3'))
+                      # annotations = list(
+                      #   x = 1.13,
+                      #   y = 1.05,
+                      #   text = 'Miles/(US) gallon',
+                      #   xref = 'paper',
+                      #   yref = 'paper',
+                      #   showarrow = FALSE
+                        # )
+)
+fig
+
+```
+
+
+```{r echo=TRUE}
+
+fig1 <- plot_ly(df %>% filter(bifpar_idx==100), scene = 'scene1',
+               type="scatter3d", mode = "markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "red", size = 1)) %>% 
+  layout(margin = list(t=150,r=150,b=150,l=150), 
+         scene = list(xaxis = list(title = 'X1'),
+                                   yaxis = list(title = 'X2'),
+                                   zaxis = list(title = 'X3')))
+fig2 <- plot_ly(df %>% filter(bifpar_idx==147), scene = 'scene2',
+               type="scatter3d", mode = "markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "orange", size = 1)) %>% 
+  layout(margin = list(t=150,r=150,b=150,l=150), 
+         scene = list(xaxis = list(title = 'X1'),
+                                   yaxis = list(title = 'X2'),
+                                   zaxis = list(title = 'X3')))
+fig3 <- plot_ly(df %>% filter(bifpar_idx==175), scene = 'scene3',
+               type="scatter3d", mode = "markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "blue", size = 1)) %>% 
+  layout(margin = list(t=150,r=150,b=150,l=150), 
+         scene = list(xaxis = list(title = 'X1'),
+                                   yaxis = list(title = 'X2'),
+                                   zaxis = list(title = 'X3')))
+# subplot and define scene
+fig <- plotly::subplot(fig1, fig2, fig3, nrows = 1) 
+# fig <- fig %>% layout(title = "3D Subplots",
+#          scene = list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3')),
+#          scene2 = list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3')),
+#          scene3 =list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3'))
+#         )
+fig
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r echo=TRUE}
+library(plotly)
+df = GLV10000$df
+m = list(t=50,r=50,b=50,l=50)
+scenes = list(xaxis = list(title = 'X1'),
+                                   yaxis = list(title = 'X2'),
+                                   zaxis = list(title = 'X3'))
+
+fig1 <- plot_ly(df %>% filter(bifpar_idx==50), scene='scene1',
+               type="scatter3d", mode = "lines+markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "red", size = 1)) %>% 
+  layout(margin = m, 
+         scene = scenes)
+fig2 <- plot_ly(df %>% filter(bifpar_idx==78), scene='scene2', 
+               type="scatter3d", mode = "lines+markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "orange", size = 1)) %>% 
+  layout(margin = m, 
+         scene = scenes)
+fig3 <- plot_ly(df %>% filter(bifpar_idx==103), scene='scene3', 
+               type="scatter3d", mode = "lines+markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "blue", size = 1)) %>% 
+  layout(margin = m, 
+         scene = scenes)
+# subplot and define scene
+fig <- plotly::subplot(fig1, fig2, fig3, nrows = 1) 
+# fig <- fig %>% layout(title = "3D Subplots",
+#          scene = list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3')),
+#          scene2 = list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3')),
+#          scene3 =list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3'))
+#         )
+fig
+
+
+fig4 <- plot_ly(df %>% 
+                  # filter(bifpar_idx==78, win_nr >= (max(win_nr)*.9)) %>%
+                  filter(bifpar_idx==77, win_nr <= (max(win_nr)*.2)) %>%
+                  arrange(time_idx), 
+               type="scatter3d", mode = "markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "orange", size = 1)
+               ) %>% 
+  layout(margin = m, 
+         scene = scenes)
+fig4
+
+
+```
+
+
+```{r}
+
+bifpar_idx = 77
+X0 = GLV10000$X0s %>% as.data.frame() %>% filter(bifpar_idx == !!bifpar_idx) %>% select(all_of(X_names)) %>% unlist()
+s_seq = list(GLV10000$bifpar_list[[bifpar_idx]])
+nr_timesteps = 100000
+timestep = .01
+
+# Generate timeseries
+GLV = bifurcation_ts(
+  model = GLV_model,
+  model_pars = model_pars,
+  bifpar_list = s_seq,
+  timestep = timestep,
+  X0 = X0,
+  nr_timesteps = nr_timesteps,
+  downsample_pars = downsample_pars,
+  X_names = X_names
+)
+    
+df = GLV$df
+
+fig5 <- plot_ly(df %>% 
+                  filter(win_nr >= (max(win_nr)*.96)) %>%
+                  # filter(win_nr <= (max(win_nr)*.2)) %>%
+                  arrange(time_idx), 
+               type="scatter3d", mode = "markers",
+               x = ~X1, y = ~X2, z = ~X3, color = ~time_idx,
+               marker = list(size = 1,
+                             colorscale="Rainbow", opacity = .5,
+                             showscale = TRUE)
+               ) %>% 
+  layout(margin = m, 
+         scene = scenes)
+fig5  
+
+        
 ```
