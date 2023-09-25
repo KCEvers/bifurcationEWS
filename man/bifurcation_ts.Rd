@@ -7,7 +7,8 @@
 bifurcation_ts(
   model,
   model_pars,
-  bifpar_list,
+  bifpar_list = NULL,
+  bifpar_pars = NULL,
   X0 = c(),
   X_names = names(X0),
   seed_nr = 123,
@@ -34,6 +35,8 @@ bifurcation_ts(
 \item{model_pars}{Fixed model parameters}
 
 \item{bifpar_list}{List with changing bifurcation parameter values}
+
+\item{bifpar_pars}{List with parameters to generate bifpar_list, needs to include list(bifpar_start = .96, bifpar_end = .96), optionally specify list(pre_steps = 0, baseline_steps = 100, transition_steps = 0, post_steps = 0)}
 
 \item{X0}{Initial state}
 

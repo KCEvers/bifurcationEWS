@@ -28,10 +28,10 @@
 # https://grasshoppermouse.github.io/posts/2017-10-18-put-your-data-in-an-r-package/
 # # Set up the data-raw directory and data processing script
 # # You can use any name you want for your data
-# usethis::use_data_raw(name = 'GLV_trans')
+# usethis::use_data_raw(name = 'GLV_null')
 # # This script in the R directory will contain the documentation.
 # # You can use any name you want.
-# file.create("R/GLV_trans.R")
+# file.create("R/GLV_null.R")
 # # Put your data files into the data-raw folder. Your new package directory should look something like this:
 # # Write your data processing code in a data-raw/mydataset.R script. It would look something like this:
 #   # data-raw/mydataset.R
@@ -46,8 +46,8 @@
 # # Note that names are unquoted.
 # # I like using overwrite = T so everytime I run the script the
 # # updated objects are saved, but the default is overwrite = F
-# usethis::use_data(GLV_trans, demographics, overwrite = T)
-# sinew::makeOxygen(GLV_trans, add_fields = "source")
+# usethis::use_data(GLV_null, overwrite = T)
+# sinew::makeOxygen(GLV_null, add_fields = "source")
 
 
 #' Reduce size of dataframe by downsampling

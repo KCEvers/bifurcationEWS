@@ -3,6 +3,7 @@
 #' @param model ODE in the style of deSolve
 #' @param model_pars Fixed model parameters
 #' @param bifpar_list List with changing bifurcation parameter values
+#' @param bifpar_pars List with parameters to generate bifpar_list, needs to include list(bifpar_start = .96, bifpar_end = .96), optionally specify list(pre_steps = 0, baseline_steps = 100, transition_steps = 0, post_steps = 0)
 #' @param X0 Initial state
 #' @param X_names Names of variables in model
 #' @param seed_nr Seed number
@@ -20,7 +21,7 @@
 #' @export
 #'
 #' @examples
-bifurcation_ts <- function(model, model_pars, bifpar_list,
+bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = NULL,
                            X0 = c(),
                            X_names = names(X0),
                            seed_nr = 123,
@@ -40,6 +41,14 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
   if (rlang::is_empty(X0) & rlang::is_empty(X_names)){
     message("Specify either a named initial condition X0 (e.g. X0 = (X1 = .1, X2 = .3)) or the names of your variables to set a random initial condition using X_names (e.g. X_names = c('X1', 'X2')).")
     return()
+  }
+
+  if (is.null(bifpar_list) & is.null(bifpar_pars)){
+    message("Specify either a named list with bifurcation parameter values using bifpar_list or specify a list in bifpar_pars to construct such a list, e.g. bifpar_list = list(list('s' = .96)) or bifpar_pars = list(bifpar_start = .96, bifpar_end = .97, transition_steps = 100).")
+    return()
+  }  else if (is.null(bifpar_list)){
+    bifpar_list = utils::modifyList(list(pre_steps = 0, baseline_steps = 100, transition_steps = 0, post_steps = 0), bifpar_pars) %>%
+      do.call(get_bifurcation_range, .)
   }
 
   # Initialize
@@ -145,6 +154,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list,
               stopifregime = stopifregime,
               deSolve_method = deSolve_method,
               bifpar_list = bifpar_list,
+              bifpar_pars = bifpar_pars,
               do_downsample = do_downsample,
               downsample_pars = downsample_pars))
 }
