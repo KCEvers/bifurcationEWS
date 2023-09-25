@@ -17,7 +17,7 @@
 # browseURL("doc/demo.html")
 
 # Add dependencies
-# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr")
+# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr", "plotly")
 # for (p in pkgs){
 # usethis::use_package(p)
 # }
@@ -46,9 +46,11 @@
 # # Note that names are unquoted.
 # # I like using overwrite = T so everytime I run the script the
 # # updated objects are saved, but the default is overwrite = F
-# usethis::use_data(GLV_null, overwrite = T)
+# usethis::use_data(GLV_trans, overwrite = T)
 # sinew::makeOxygen(GLV_null, add_fields = "source")
-
+# sinew::makeOxygen(GLV_null)
+# tools::resaveRdaFiles("data/GLV_trans.rda",compress="xz")
+# tools::checkRdaFiles("data/")# To check that the compression has been done successfully
 
 #' Reduce size of dataframe by downsampling
 #'

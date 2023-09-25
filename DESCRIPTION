@@ -27,6 +27,7 @@ Imports:
     magrittr,
     Matrix,
     moments,
+    plotly,
     plyr,
     pracma,
     purrr,

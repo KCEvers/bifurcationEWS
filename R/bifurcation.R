@@ -744,7 +744,7 @@ choose_best_k <- function(spread_df, thresh_node, factor_k){
   # Method 1: log
   spread_df = spread_df[spread_df$k != 1,] # If it's not a node, k = 1 is not a good partitioning
     idx_min = spread_df %>% ungroup() %>%
-      select(c("k", "max_spread_coord", "median_spread_coord",
+      select(c("k", "max_spread_coord", "median_spread_coord"
                       # "max_spread_peak_idx"
       )) %>%
       # Penalize for period length k twice
