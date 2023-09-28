@@ -128,13 +128,17 @@ downsample <- function(df, X_names, type = c("average", "one_sample")[1],
 #' @param noise_mean Mean of white noise
 #' @param noise_sigma Standard deviation of white noise
 #' @param noise_constant Constant to add to observed timeseries
+#' @param seed_nr Seed number for generating noise
 #'
 #' @return Noisy dataframe
 #' @export
 #'
 #' @examples
-add_obs_noise <- function(df, X_names, noise_mean = 0, noise_sigma = .01, noise_constant = 0){
+add_obs_noise <- function(df, X_names, noise_mean = 0, noise_sigma = .01, noise_constant = 0, seed_nr = NULL){
 
+  if (!is.null(seed_nr)){
+    set.seed(seed_nr)
+  }
   # Add white noise to each variable
   df[,X_names] = df[,X_names] + pracma::Reshape(stats::rnorm(n = length(X_names) * nrow(df), mean = noise_mean, sd = noise_sigma), n = nrow(df), m = length(X_names)) + noise_constant
 

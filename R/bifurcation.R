@@ -280,7 +280,7 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
                                        thresh_expansion = .1){
 
   # Extract indices in the chaotic regime
-  starts_ends = regimes %>% filter(.data$regime=="Chaotic or Transitioning" & length_region >= min_length_regime) %>%
+  start_ends = regimes %>% filter(.data$regime=="Chaotic or Transitioning" & length_region >= min_length_regime) %>%
     select(.data$start_bifpar_idx, .data$end_bifpar_idx)
 
  minmax_peaks_df = peaks_df %>%
@@ -292,7 +292,7 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
 
 
   ##### EXPANSION/REDUCTION
-  if (nrow(starts_ends) > 0){
+  if (nrow(start_ends) > 0){
   find_win_diff <- function(x, min_length_regime){
     # Split vector
     m <- zoo::rollapply(x, min_length_regime*2, by = 1, FUN = c)
