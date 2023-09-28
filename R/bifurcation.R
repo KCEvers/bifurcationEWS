@@ -100,6 +100,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       # Stop if condition is met
       if (stopifregime(out) & (bifpar_idx > bifpar_idxs[1])){
         message("Hit undesirable regime! Deleting generated timeseries and starting from new initial condition")
+        print(as.data.frame(out)[seq(1, nr_timesteps, length.out = 10),])
         break
       }
 
@@ -260,44 +261,128 @@ find_consec_seq = function(bifpar_idx_) {
 }
 
 
-
-#' Find whether and when basin boundaries are hit
+#' Update regimes with basin boundaries and chaotic expansion or reduction
 #'
+#' @inheritParams find_regimes
 #' @param peaks_df Dataframe with peaks
-#' @param variable_name Column name in dataframe to assess
-#' @param min_edge Minimum value reached
-#' @param max_edge Maximum value reached
+#' @param regimes Dataframe with regimes
+#' @param variable_name Column name in dataframe to assess for hitting basin boundaries
+#' @param min_edge Minimum basin boundary
+#' @param max_edge Maximum basin boundary
+#' @param thresh_expansion Threshold of difference in peak maxima at least one variable has to satisfy to qualify as expansion or reduction
 #'
-#' @return Dataframe with bifurcation parameter value for which the system touches the basin boundaries as defined by min_edge and max_edge, if it hits these. Otherwise, dataframe filled with NA.
-#' @importFrom dplyr select mutate filter slice group_by ungroup all_of rename row_number summarise pull arrange n .data
+#' @return Updated dataframe
+#' @export
+#' @importFrom dplyr select mutate filter slice group_by ungroup all_of rename row_number summarise pull arrange bind_rows n .data
 #'
 #' @examples
-find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1){
+find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, variable_name = "X1", min_edge = 0, max_edge = 1,
+                                       thresh_expansion = .1){
 
-  minmax_peaks_df = peaks_df %>% select(.data$bifpar_idx, .data$variable, .data$minmax, .data$time_idx, .data$X) %>%
-    filter(.data$variable == variable_name) %>%
+  # Extract indices in the chaotic regime
+  start_ends = regimes %>% filter(.data$regime=="Chaotic or Transitioning") %>%
+    select(.data$start_bifpar_idx, .data$end_bifpar_idx)
+
+  chaotic_idxs = plyr::llply(1:nrow(start_ends),
+                             function(i){seq(start_ends$start_bifpar_idx[i], start_ends$end_bifpar_idx[i])}) %>% unlist %>% unique
+
+  minmax_peaks_df = peaks_df %>%
+    filter(.data$bifpar_idx %in% chaotic_idxs) %>%
+    select(.data$bifpar_idx, .data$variable, .data$minmax, .data$X) %>%
     group_by(.data$bifpar_idx, .data$variable, .data$minmax) %>%
     summarise(max = round(max(.data$X), 2), min = round(min(.data$X), 2), .groups='drop') %>%
     tidyr::pivot_wider(names_from = "minmax", values_from = c("max", "min")) %>%
-    select(.data$bifpar_idx, .data$variable, .data$max_maxpeak,.data$min_minpeak) %>% ungroup %>%
-    filter(.data$max_maxpeak == max_edge & .data$min_minpeak == min_edge) %>% arrange(.data$bifpar_idx) %>%
-    filter(row_number()==1 | row_number()==n())
-  # If the edges were not touched
-  if (nrow(minmax_peaks_df) == 0){
-    # minmax_peaks_df = data.frame(bifpar_idx = NA)
-    return(data.frame())
+    select(.data$bifpar_idx, .data$variable, .data$max_maxpeak,.data$min_minpeak)
+
+
+  ##### EXPANSION/REDUCTION
+  find_win_diff <- function(x, min_length_regime){
+    # Split vector
+    m <- zoo::rollapply(x, min_length_regime*2, by = 1, FUN = c)
+
+    c(rep(NA, min_length_regime),
+
+      split(m, row(m)) %>% purrr::map(
+        function(vec){diff(c(max(vec[1:min_length_regime]),
+                             max(vec[(min_length_regime+1):length(vec)])))}) %>%
+        unname %>% unlist, rep(NA, min_length_regime-1)) %>% return()
   }
 
-  basin_bound = data.frame(start_bifpar_idx = minmax_peaks_df %>% slice(1) %>% pull(.data$bifpar_idx),
-                           end_bifpar_idx = minmax_peaks_df %>% slice(nrow(.)) %>% pull(.data$bifpar_idx),
-                           regime = "Basin-Boundary"
-  ) %>%
-    mutate(length_region = .data$end_bifpar_idx - .data$start_bifpar_idx + 1,
-           region_nr = ifelse(is.na(.data$start_bifpar_idx), NA, 1),
-           nr_regions = ifelse(is.na(.data$start_bifpar_idx), NA, 1))
+  expansion_df = minmax_peaks_df %>%
+    group_by(.data$variable) %>%
+    arrange(.data$bifpar_idx, .by_group=TRUE) %>%
+    mutate(win_diff_maxpeak = find_win_diff(x = .data$max_maxpeak, min_length_regime)) %>%
+    mutate(diff_maxpeak = c(0, diff(.data$max_maxpeak))) %>%
+    ungroup() %>% group_by(.data$bifpar_idx) %>%
+    # Condition for qualifying as chaos expansion or chaos reduction:
+    #  All have a reduction/expansion in maxpeak of congruent direction (i.e. all reduce or all expand), and at least one variable has a large reduction/expansion as specified by a threshold
+    filter(length(unique(sign(.data$win_diff_maxpeak))) == 1 & all(abs(.data$win_diff_maxpeak) > 0) & any(abs(.data$win_diff_maxpeak) >= thresh_expansion) & length(unique(sign(.data$diff_maxpeak))) == 1 & all(abs(.data$diff_maxpeak) > 0) & any(abs(.data$diff_maxpeak) >= thresh_expansion)) %>%
+    group_by(.data$bifpar_idx) %>% summarise(maxpeak = max(.data$max_maxpeak), diff_maxpeak = max(.data$diff_maxpeak), .groups='drop')
 
-  return(basin_bound)
+  # If no expansion or reduction occurred
+  if (nrow(expansion_df) > 0){
+    # Per expansion/reduction row, find corresponding from and to regime and only keep them if both are chaotic
+    expansion_regimes = plyr::llply(1:nrow(expansion_df),
+                                    function(i){
+                                      bifpar_idx_exp = expansion_df %>% slice(i) %>% pull(.data$bifpar_idx)
+
+                                      # Find transitioning from and transitioning to regime
+                                      from_regime_idx = regimes %>%
+                                        tibble::rownames_to_column() %>%
+                                        filter((.data$start_bifpar_idx <= bifpar_idx_exp - 1) & (.data$end_bifpar_idx >= (bifpar_idx_exp - 1))) %>%
+                                        pull(.data$rowname) %>% as.numeric()
+
+                                      to_regime_idx = regimes %>%
+                                        tibble::rownames_to_column() %>%
+                                        filter((.data$start_bifpar_idx <= bifpar_idx_exp) & (.data$end_bifpar_idx >= (bifpar_idx_exp))) %>%
+                                        pull(.data$rowname) %>% as.numeric()
+
+                                      if (length(from_regime_idx) > 0 & length(to_regime_idx) > 0){
+
+                                      red_or_exp = ifelse((expansion_df %>% slice(i) %>% pull(.data$diff_maxpeak)) < 0 , "Reduction", "Expansion")
+                                        exp_or_red_regime = c(sprintf(" (%s Chaos-%s)", c("Before", "After"), red_or_exp))
+
+                                        # If the from regime and to regime is the same one, the expansion/reduction apparently happens within the chaotic regime -> split regime at reduction/expansion
+                                        if (from_regime_idx == to_regime_idx){
+                                          expansion_regime = bind_rows(regimes[from_regime_idx,] %>% mutate(end_bifpar_idx = .data$bifpar_idx_exp - 1), regimes[to_regime_idx,] %>% mutate(start_bifpar_idx = .data$bifpar_idx_exp))
+                                        } else {
+                                          expansion_regime = bind_rows(regimes[from_regime_idx,],regimes[to_regime_idx,])
+                                        }
+                                        # Remove old regime row, keep new regime
+                                        return(list(remove_idx = c(from_regime_idx, to_regime_idx),
+                                                    expansion_regime=expansion_regime %>%
+                                                      mutate(length_region = .data$end_bifpar_idx - .data$start_bifpar_idx + 1, regime = paste0(.data$regime, exp_or_red_regime))))
+                                      }
+                                    })
+    updated_regimes = regimes %>%
+      slice(-as.numeric(unique(unlist(purrr::map(expansion_regimes, "remove_idx"))))) %>%
+      bind_rows( purrr::map(expansion_regimes, "expansion_regime") %>% do.call(rbind, .) %>% as.data.frame()) %>% arrange(.data$start_bifpar_idx)
+
+  } else {
+    updated_regimes = regimes
+  }
+
+  ##### BASIN-BOUNDARY
+  basin_bound =  minmax_peaks_df %>%
+    filter(.data$variable == !!variable_name) %>% select(-.data$variable) %>%
+    filter(.data$max_maxpeak == !!max_edge & .data$min_minpeak == !!min_edge) %>%
+    arrange(.data$bifpar_idx)
+
+  # Update regimes dataframe: If a chaotic regime contained points that hit the basin boundary, rename
+  if (nrow(basin_bound) > 0){
+    update_idxs_basin_bound = updated_regimes %>%
+      tibble::rownames_to_column() %>%
+      rowwise() %>%
+      filter( any(basin_bound$bifpar_idx %in% seq(.data$start_bifpar_idx, .data$end_bifpar_idx)) ) %>% pull(.data$rowname) %>% as.numeric()
+    updated_regimes[update_idxs_basin_bound, "regime"] = paste0(updated_regimes[update_idxs_basin_bound,] %>% pull(.data$regime), " (Touching Basin-Boundary)")
+  }
+
+  return(updated_regimes)
+
 }
+
+
+
 
 
 #' Find type of regime switch
@@ -307,7 +392,7 @@ find_basin_boundary <- function(peaks_df, variable_name = "X1", min_edge = 0, ma
 #' @param X_names Names of variables
 #'
 #' @return Regime switch type
-#' @importFrom dplyr select mutate mutate_at filter slice group_by ungroup all_of rename row_number summarise pull bind_rows .data
+#' @importFrom dplyr select mutate mutate_at filter slice group_by ungroup all_of rename row_number summarise pull bind_rows across .data
 #'
 #' @examples
 get_regime_switch_type <- function(from_regime, to_regime, X_names){
@@ -364,19 +449,50 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
     return("Unknown Periodic")
   }
 
-  } else {
-    # Regime switches involving chaotic behaviour
-    broad_period_switch = regime_df %>%
-      tidyr::gather(X, value, -setdiff(colnames(.), X_names)) %>%
-      group_by(.data$regime) %>%
-      summarise(nr_periods = length(unique(.data$value)), period = paste0(unique(.data$value), collapse = ",")) %>%
-      mutate(broad_regime = ifelse(grepl("Chaotic or Transitioning", .data$regime), "Chaotic or Transitioning",
-                                   ifelse(grepl("Basin-Boundary", .data$regime), "Basin-Boundary",
-                                          ifelse(grepl("None", .data$regime), "None",
-                           ifelse(.data$nr_periods == 1, .data$period, "Mixed-Periodic")))))
-    return(sprintf("%s to %s",
-            broad_period_switch[from_regime$regime == broad_period_switch$regime, ] %>% pull(.data$broad_regime),
-                broad_period_switch[to_regime$regime == broad_period_switch$regime,] %>% pull(.data$broad_regime)))
+  } else {    # Regime switches involving chaotic behaviour
+
+    # Check for mixed periodicity
+    regime_df_ = regime_df %>% rowwise() %>% mutate(nr_periods = ifelse(any(is.na(across(all_of(X_names)))), NA, length(unique(across(all_of(X_names)))))) %>%
+      mutate(broad_regime = ifelse(is.na(.data$nr_periods), "Chaotic or Transitioning", ifelse(.data$nr_periods == 1, .data$period, "Mixed-Periodic")))
+
+    # Check for chaos expansion or reduction
+    chaos_exp = grepl("Chaos-Expansion", regime_df$regime)
+    chaos_red = grepl("Chaos-Reduction", regime_df$regime)
+
+    # Check for hitting basin-boundary in the from_regime -> boundary-crisis
+     if (grepl("Basin-Boundary", regime_df$regime[1]) & !grepl("Basin-Boundary", regime_df$regime[2])){
+      bound_crisis = "Boundary-Crisis"
+    } else {
+      bound_crisis = ""
+    }
+
+    if (length(unique(regime_df_$regime)) == 1){
+      return("Same-Chaos")
+    } else if (sum(chaos_red) == 2){
+      return(trimws(sprintf("Chaos-Reduction %s", bound_crisis)))
+    } else if (sum(chaos_exp) == 2){
+      return(trimws(sprintf("Chaos-Expansion %s", bound_crisis)))
+    } else if (!rlang::is_bare_character(bound_crisis)){
+      return(sprintf("%s: %s to %s",
+                     bound_crisis, regime_df_$broad_regime[1], regime_df_$broad_regime[2]))
+    } else {
+      return(sprintf("%s to %s",
+             regime_df_$broad_regime[1], regime_df_$broad_regime[2]))
+    }
+
+
+    # broad_period_switch = regime_df %>%
+    #   tidyr::gather(X, value, -setdiff(colnames(.), X_names)) %>%
+    #   group_by(.data$regime) %>%
+    #   summarise(nr_periods = length(unique(.data$value)), period = paste0(unique(.data$value), collapse = ",")) %>%
+    #   mutate(broad_regime = ifelse(grepl("Chaotic or Transitioning", .data$regime), "Chaotic or Transitioning",
+    #                                ifelse(grepl("Basin-Boundary", .data$regime), "Basin-Boundary",
+    #                                       ifelse(grepl("None", .data$regime), "None",
+    #                        ifelse(.data$nr_periods == 1, .data$period, "Mixed-Periodic")))))
+    # return(sprintf("%s to %s",
+    #         broad_period_switch[from_regime$regime == broad_period_switch$regime, ] %>% pull(.data$broad_regime),
+    #             broad_period_switch[to_regime$regime == broad_period_switch$regime,] %>% pull(.data$broad_regime)))
+
   }
 }
 
@@ -392,6 +508,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
 #'
 #' @examples
 find_regime_bounds <- function(regimes, min_length_regime, X_names){
+
   # Find regimes that satisfy a certain size
   regimes = regimes %>% ungroup() %>% arrange(.data$start_bifpar_idx)
   regime_idx = which(regimes$length_region >= min_length_regime)
@@ -512,7 +629,7 @@ find_regimes <- function(GLV,
   # For each value of the bifurcation parameter, find the period length k which has a minimum spread
   print("Finding best fitting period length for all bifurcation parameter values")
   k_spread = peaks_df %>%
-    # filter(bifpar_idx > 10, bifpar_idx < 12) %>%
+    # filter(bifpar_idx > 560, bifpar_idx < 570) %>%
     group_by(.data$variable, .data$bifpar_idx) %>%
     arrange(.data$time_idx, .by_group=TRUE) %>%
     group_modify(~ find_spread_per_k(coord = .x$X, peak_idx = .x$peak_idx,
@@ -552,8 +669,8 @@ find_regimes <- function(GLV,
     tidyr::pivot_wider(names_from = .data$variable, values_from = .data$period) %>%
     arrange(.data$bifpar_idx)
 
-  # Get basin boundaries (when system hits edges of basin)
-  basin_bound = find_basin_boundary(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1)
+#   # Get basin boundaries (when system hits edges of basin)
+#   basin_bound = find_basin_boundary(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1)
 
   # Find regimes with any chaotic behaviour and regimes with periodic behaviour
   broad_regimes = periods %>%
@@ -566,29 +683,28 @@ find_regimes <- function(GLV,
     rename(regime = .data$period_bifpar2)
 
   # Compile regimes
-  regimes = periods %>%
+  regimes_ = periods %>%
     filter(!grepl("Chaotic or Transitioning", .data$period_bifpar, fixed = TRUE)) %>%
-    # group_by_at(.data$period_bifpar, all_of(X_names)) %>%
     group_by_at(setdiff(colnames(.), "bifpar_idx")) %>%
     group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
     arrange(.data$start_bifpar_idx) %>%
     ungroup() %>% rename(regime = .data$period_bifpar) %>%
-    bind_rows(basin_bound) %>%
+    # bind_rows(basin_bound) %>%
     bind_rows(broad_regimes %>% filter(.data$regime != "Periodic")) %>%
     arrange(.data$start_bifpar_idx)
 
+  # Update regimes with chaotic phenomena: touching the basin boundary and chaotic expansion (sudden enlargement or reduction of the chaotic attractor)
+  regimes = find_expansion_basin_bound(peaks_df, regimes_, variable_name = "X1", min_edge = 0, max_edge = 1,
+                                         thresh_expansion = .1)
+
   # Find regime boundaries
   regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime, X_names = GLV$X_names)
+
   # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
   regime_bounds =  merge(regime_bounds_,
                          GLV$X0s  %>% as.data.frame() %>%
                            filter(.data$bifpar_idx %in% c(regime_bounds_$regime1_start_idx)) %>%
                            rename(regime1_start_idx = .data$bifpar_idx),
-                         #              df %>%
-                         # filter(.data$bifpar_idx %in% c(regime_bounds_$regime1_start_idx - 1)) %>%
-                         #   slice_tail(n=1, by = .data$bifpar_idx) %>%
-                         # mutate(regime1_start_idx= .data$bifpar_idx + 1) %>%
-                         # select(.data$regime1_start_idx, all_of(X_names)),
                          all.x = TRUE)
 
   regime_list = utils::modifyList(GLV, list(df = NULL,
@@ -620,17 +736,20 @@ find_regimes <- function(GLV,
 #'
 #' @examples
 max_dist <- function(vec, cluster_idx){
+  if (length(vec) <= 1){
+    max_dist_per_k = 0
+  } else {
   # From the package sarafrr/basicClEval
   vec = as.matrix(vec)
   sizeCl <- summary(as.factor(cluster_idx))
   # Compute maximal distance within each cluster
   max_dist_per_k = unlist(lapply(split(vec, cluster_idx), function(x){max(stats::dist(x))}))
+}
 
   # return(mean(max_dist_per_k))
   return(c(
     mean_spread = mean(max_dist_per_k),
     median_spread = stats::median(max_dist_per_k),
-    # min_spread = min(max_dist_per_k),
     max_spread = max(max_dist_per_k)
   ))
 }
@@ -659,6 +778,7 @@ find_dist_per_k <- function(ks, coord, peak_idx){
     do.call(rbind, .) %>%
     magrittr::set_colnames(paste0(colnames(.), "_peak_idx")) %>%
     as.data.frame()
+
   spread_df = cbind(k = ks, cbind(coord_spread, peak_idx_spread))
 
   # plot(cluster_idx, coord)
@@ -708,13 +828,14 @@ find_spread_per_k <- function(coord, peak_idx, max_k = NULL){
 
   # Only consider partitionings with at least two repetitions
   if (is.null(max_k)){
-    max_k = (floor(length(coord)/2)-1)
+    max_k = floor(length(coord)/2)-1
   } else {
     # Check whether max_k is possible to look for
     if (max_k > (floor(length(coord)/2)-1)){
       max_k = (floor(length(coord)/2)-1)
     }
   }
+  max_k = ifelse(max_k < 1, 1, max_k)
   ks = seq(1, max_k)
 
   spread_df = find_dist_per_k(ks, coord, peak_idx)
@@ -736,10 +857,10 @@ choose_best_k <- function(spread_df, thresh_node, factor_k){
 
   # Detect nodes for which k = 1 should be a good fit
   # if (spread_df[spread_df$k == 1, c("max_spread_coord")] < thresh_node){
-  if (max(stats::dist(spread_df$max_spread_coord)) < thresh_node){ # If all fits are the same
+  if (length(spread_df$max_spread_coord) == 1){
+    idx_min = 1
+  } else if (max(stats::dist(spread_df$max_spread_coord)) < thresh_node){ # If all fits are the same
     idx_min=1
-
-    # k_spread%>%group_by(variable,bifpar_idx) %>% dplyr::summarise(max(stats::dist(max_spread_coord)))
   } else {
   # Method 1: log
   spread_df = spread_df[spread_df$k != 1,] # If it's not a node, k = 1 is not a good partitioning

@@ -108,10 +108,10 @@ downsample_pars = list(type = c("average", "one_sample")[1],
                                                   seed = 123)
 timestep = .01
 nr_timesteps = 2000
-bifpar_list = get_bifurcation_range(bifpar_start = .96, bifpar_end = .97, #bifpar_start = .965, bifpar_end = .985,
+bifpar_pars = list(bifpar_start = .96, bifpar_end = .97, #bifpar_start = .965, bifpar_end = .985,
                                     pre_steps = 0,
                                   baseline_steps = 0, transition_steps = 101, post_steps = 0)
-
+bifpar_list=do.call(get_bifurcation_range, bifpar_pars)
 model_pars = list(r = r0, C0 = C0, mu = mu)
 
 # GLV_full = bifurcation_ts(model = GLV_model, model_pars = model_pars,
@@ -119,8 +119,7 @@ model_pars = list(r = r0, C0 = C0, mu = mu)
 #                timestep = timestep, nr_timesteps = nr_timesteps,
 #                downsample_pars = downsample_pars,
 #                X_names = X_names, seed_nr = 100)
-df = GLV_full$df
-head(df)
+head(GLV_full$df)
 
 # Get dataframe with peaks
 peaks_df = peaks_bifdiag(GLV_full$df, GLV_full$X_names)
@@ -129,7 +128,7 @@ head(peaks_df)
 
 
 ```{r plot timeseries, echo=FALSE}
-pl_ts = df %>% 
+pl_ts = GLV_full$df %>% 
   dplyr::filter(bifpar_idx > 1, bifpar_idx < 3) %>%
   ggplot() + 
   geom_line(aes(x = time_idx, y = X1), linewidth = .1) +
@@ -161,8 +160,6 @@ regimes_full = find_regimes(GLV_full,
                              min_length_regime =5,
                              nr_smooth = 0,
                               factor_k = .1)
-print(head(regimes_full$period_per_var))
-print(regimes_full$periods)
 print(regimes_full$regimes)
 print(regimes_full$regime_bounds)
 ```
@@ -173,10 +170,8 @@ pl_periods = ggplot(regimes_full$period_per_var %>%
                         merge(peaks_df) %>%
            dplyr::filter(variable == "X1")
          ) +
-    geom_point(aes(x = bifpar_idx, y = X, col = factor(period),
-                   # col = coord_WCSS
+    geom_point(aes(x = bifpar_idx, y = X, col = factor(period)
                    ),
-               # size = .25
                size = 1.05
                ) +
      ggh4x::facet_grid2(variable ~ .) +
@@ -197,7 +192,6 @@ pl_regimes = ggplot(peaks_df %>%
          ) +
     geom_point(aes(x = bifpar_idx, y = X, 
                    # col = factor(period),
-                   # col = coord_WCSS
                    ),
                # size = .25
                size = 1.05
@@ -225,7 +219,7 @@ Now, we might be interested in a select few transitions. To get a sense of the s
 
 Say we are interested in the regime switch of *** - how might we simulate this? We already have the range of $s$ for which a particular regime switch occurs. However, the system is also multistable for many parameter ranges, such that a randomly chosen initial condition is not likely to yield the desired regime. To circumvent this issue, we make use of our full GLV timeseries. This timeseries offers both the regime boundaries $s$ and corresponding initial condition needed to simulate a new (much shorter) transition model. In addition, we can now add a proper baseline and transition period. 
 
-```{r}
+```{r include=FALSE}
 plot_landscape <- function(df, bifpar_list, bifpar_idx1, bifpar_idx2, bifpar_idx3){
   size_marker = 1
   color1 = 'green'
@@ -266,85 +260,121 @@ plot_landscape <- function(df, bifpar_list, bifpar_idx1, bifpar_idx2, bifpar_idx
 ```
 
 
-```{r}
+
+```{r echo=FALSE}
 # Select regime switch
-desired_switch = regimes_full$regime_bounds %>% 
+desired_switch = regimes_full$regime_bounds %>%
   # dplyr::filter(regime_switch_type == "Mixed-Periodic to Chaotic or Transitioning" & regime1 == "Period-16 (X2,X3,X4) AND Period-20 (X1)" & regime2 == "Chaotic or Transitioning")
-  dplyr::filter(regime1 == "Period-4 (X2,X3,X4) AND Period-6 (X1)" & regime2 == "Period-10 (X1) AND Period-8 (X2,X3,X4)")
+  dplyr::filter(
+    regime1 == "Period-4 (X2,X3,X4) AND Period-6 (X1)" &
+      regime2 == "Period-10 (X1) AND Period-8 (X2,X3,X4)"
+  )
 
-bifpar_pars = list(pre_steps = 50,
-baseline_steps = 50,
-transition_steps = 50,
-post_steps = 50,
-bifpar_start = bifpar_list[[desired_switch$regime1_halfway_idx]]$s,
-bifpar_end = bifpar_list[[desired_switch$regime2_start_idx]]$s)
+bifpar_pars_PD_4to8 = list(
+  pre_steps = 50,
+  baseline_steps = 50,
+  transition_steps = 50,
+  post_steps = 50,
+  bifpar_start = bifpar_list[[desired_switch$regime1_halfway_idx]]$s,
+  bifpar_end = bifpar_list[[desired_switch$regime2_start_idx]]$s
+)
 
-for (trans_or_null in c("transition", "null")){
-  if (trans_or_null == "transition"){
-    bifpar_pars_ = bifpar_pars
-  } else if (trans_or_null == "null"){
-    bifpar_pars_ = utils::modifyList(bifpar_pars, list(bifpar_end = NA))
+GLVs = list()
+regime_lists = list()
+
+with(bifpar_pars_PD_4to8, {
+  for (trans_or_null in c("transition", "null")) {
+    if (trans_or_null == "transition") {
+      bifpar_pars_PD_4to8_ = bifpar_pars_PD_4to8
+    } else if (trans_or_null == "null") {
+      bifpar_pars_PD_4to8_ = utils::modifyList(bifpar_pars_PD_4to8, list(bifpar_end = NA))
+    }
+    X0 = unlist(desired_switch[, GLV_full$X_names])
+    
+    # Generate data with changing bifurcation parameter
+    # GLV = bifurcation_ts(model = GLV_model, model_pars = model_pars,
+    #                bifpar_pars = bifpar_pars_PD_4to8,
+    #                X0 = X0,
+    #                timestep = timestep, nr_timesteps = nr_timesteps,
+    #                 downsample_pars = downsample_pars,
+    #                X_names = X_names
+    #                )
+    # Use package-made GLV
+    if (trans_or_null == "transition") {
+      GLV = GLV_trans
+    } else if (trans_or_null == "null") {
+      GLV = GLV_null
+    }
+    head(GLV$df)
+    
+    pl_ts_trans = GLV$df %>%
+      dplyr::filter(bifpar_idx == 2) %>%
+      tidyr::gather(variable, value,-setdiff(colnames(.), X_names)) %>%
+      ggplot() + geom_point(aes(x = time, y = value), size = .1) +
+      ggh4x::facet_grid2(variable ~ .)
+    print(style_plot(pl_ts_trans))
+    
+    # We need to check whether our simulation generated the desired regimes using the same process as above:
+    # Get dataframe with peaks
+    peaks_df = peaks_bifdiag(GLV$df, GLV$X_names)
+    regime_list = find_regimes(
+      GLV,
+      thresh_node = .001,
+      thresh_coord_spread = .025,
+      thresh_peak_idx_spread = 2,
+      min_length_regime = 5,
+      nr_smooth = 0,
+      factor_k = .1
+    )
+    print(regime_list$regimes)
+    print(regime_list$regime_bounds)
+    
+    pl_peaks = peaks_df %>% dplyr::filter(variable == "X1") %>%
+      ggplot() + geom_point(aes(x = bifpar_idx, y = X), size = .1) +
+      labs(x = 'Bifurcation parameter', y = latex2exp::TeX("$X_1$"), 
+           title = "Transient bifurcation diagram") +
+      geom_rect(aes(xmin = pre_steps + baseline_steps, 
+                    xmax = pre_steps + baseline_steps + transition_steps,
+                    ymin = -Inf, ymax = Inf
+    ),
+    alpha = 0.85, col = "blue", fill = NA,
+    linewidth = 1.25) +
+            geom_rect(data = regime_list$regime_bounds %>% dplyr::filter(regime1 == "Period-4 (X2,X3,X4) AND Period-6 (X1)"), 
+                aes(xmin = regime2_start_idx - 1 - transition_steps, 
+                    xmax = regime2_start_idx - 1,
+                    ymin = -Inf, ymax = Inf
+    ),
+    alpha = 0.85, col = "green", fill=NA,
+    linewidth = 1.25) 
+      # geom_vline(data = data.frame(
+      #   xintercept = c(
+      #     pre_steps + baseline_steps,
+      #     pre_steps + baseline_steps + transition_steps
+      #   ),
+      #   moment = c("Baseline", "Transition"),
+      #   col = rep("Parameter change",2)
+      # ),
+      # aes(xintercept = xintercept))
+    
+    print(style_plot(pl_peaks))
+     
+    # Plot change in phase space
+   plot_landscape(
+        GLV$df,
+        GLV$bifpar_list,
+        bifpar_idx1 = pre_steps + baseline_steps,
+        bifpar_idx2 = pre_steps + baseline_steps + round(.75 * transition_steps),
+        bifpar_idx3 = pre_steps + baseline_steps + transition_steps + 1
+      )
+
+   # Store
+      GLVs[[trans_or_null]] = GLV
+      regime_lists[[trans_or_null]] = regime_list
   }
-  X0 = unlist(desired_switch[,GLV_full$X_names])
-                 
-  # Generate data with changing bifurcation parameter
-  # GLV = bifurcation_ts(model = GLV_model, model_pars = model_pars,
-  #                bifpar_pars = bifpar_pars,
-  #                X0 = X0,
-  #                timestep = timestep, nr_timesteps = nr_timesteps,
-  #                 downsample_pars = downsample_pars,
-  #                X_names = X_names
-  #                )
-  # Use package-made GLV
-  if (trans_or_null == "transition"){
-     GLV = GLV_trans
-  } else if (trans_or_null == "null"){
-     GLV = GLV_null
-  }
-  head(df_trans)
-  
-  pl_df_trans = GLV$df %>%
-    as.data.frame() %>% 
-    # dplyr::filter(bifpar_idx < 5) %>%
-    tidyr::gather(variable, value, -setdiff(colnames(.), X_names)) %>%
-    ggplot() + geom_point(aes(x = time, y = value), size = .1) +
-    ggh4x::facet_grid2(variable ~ .)
-  print(style_plot(pl_df_trans))
-  
-  # We need to check whether our simulation generated the desired regimes using the same process as above:
-  # Get dataframe with peaks
-  peaks_df_trans = peaks_bifdiag(GLV$df, GLV$X_names)
-  head(peaks_df_trans)
-  
-  peaks_df_trans_ = peaks_df_trans %>% dplyr::filter(variable == "X1")
-  pl_peaks_trans = peaks_df_trans_ %>% ggplot() + geom_point(aes(x = bifpar_idx, y = X), size = .1) +
-    labs(x = 'Bifurcation parameter', y = "X1", title = "Transient bifurcation diagram") +
-    geom_vline(data = data.frame(xintercept = c(pre_steps + baseline_steps, 
-                                                pre_steps + baseline_steps + transition_steps), 
-                                 moment = c("Baseline", "Transition") ),
-               aes(xintercept = xintercept))
-  
-  print(style_plot(pl_peaks_trans))
-  
-  regimes_trans = find_regimes(GLV,
-                               thresh_node = .001,
-                               thresh_coord_spread = .025,
-                               thresh_peak_idx_spread=2,
-                               min_length_regime =5,
-                               nr_smooth = 0,
-                                factor_k = .1)
-  print(head(regimes_trans$period_per_var))
-  print(regimes_trans$periods)
-  print(regimes_trans$regimes)
-  print(regimes_trans$regime_bounds)
-  
-  # Plot change in phase space
-  plot_landscape(GLV$df, GLV$bifpar_list, bifpar_idx1 = pre_steps + baseline_steps, 
-                 bifpar_idx2 = pre_steps + baseline_steps + round(.75 * transition_steps),
-                 bifpar_idx3 = pre_steps + baseline_steps + transition_steps + 1)
-}
+})
 ```
 
+The bifurcation diagram above illustrates why it is so difficult to generate regime switches: the exact timing of the regime switch may vary depending on the initial condition and rate of change in the bifurcation parameter. We use the "empirical" (and not the "intended") transition moment for the detection of EWS.
 
 To make the regime switch harder to detect, we add some simple white observational noise.
 
@@ -387,8 +417,6 @@ multi_metrics = c(
   # "RQA" = runRQA
 )
 
-
-
 split_df_EWS = run_bifEWS(GLV_trans$noisy_df, GLV_trans$X_names, uni_metrics, multi_metrics, EWS_args = list())
 pl_EWS <- split_df_EWS %>% ggplot() +
     geom_line(aes(x = bifpar_idx, y = value), linewidth = .45, alpha = .5, color ='grey50') +
@@ -412,16 +440,13 @@ The only two settings that are required are the definition of the baseline perio
 
 ```{r warning}
 
-
-
 # Add confidence band
 sigma_crit = 2
 sigmas_crit = seq(.025, 6, by = 0.025)
 
-
 # Count baseline back
-      baseline_idx = round(seq(regime_bounds$baseline_start_idx, regime_bounds$baseline_end_idx))
-      transition_idx = round(seq(regime_bounds$transition_start_idx, regime_bounds$transition_end_idx))
+baseline_idx = round(seq(regime_bounds$baseline_start_idx, regime_bounds$baseline_end_idx))
+transition_idx = round(seq(regime_bounds$transition_start_idx, regime_bounds$transition_end_idx))
 
     # Compute at which critical sigma value a warning occurs
     split_df_EWS_CI = get_warnings(split_df_EWS,

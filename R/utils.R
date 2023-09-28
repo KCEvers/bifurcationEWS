@@ -17,7 +17,7 @@
 # browseURL("doc/demo.html")
 
 # Add dependencies
-# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr", "plotly")
+# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr", "plotly", "tibble")
 # for (p in pkgs){
 # usethis::use_package(p)
 # }
@@ -51,6 +51,9 @@
 # sinew::makeOxygen(GLV_null)
 # tools::resaveRdaFiles("data/GLV_trans.rda",compress="xz")
 # tools::checkRdaFiles("data/")# To check that the compression has been done successfully
+# GIven a LazyDataCompression warning: Add
+# LazyDataCompression:xz
+# to the description file.
 
 #' Reduce size of dataframe by downsampling
 #'
