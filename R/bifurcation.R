@@ -184,12 +184,16 @@ peaks_bifdiag <- function(df, X_names){
                           peak_idx = maxpeaks[,2],
                           begin_peak_idx = maxpeaks[,3], end_peak_idx = maxpeaks[,4]
       ) %>% as.data.frame() %>% mutate(minmax = "maxpeak")
+    } else {
+      maxpeaks_df = data.frame()
     }
     if (!rlang::is_empty(minpeaks)){
       minpeaks_df = cbind(df[minpeaks[,2], c(i, setdiff(colnames(df), X_names))],
                           peak_idx = minpeaks[,2],
                           begin_peak_idx = minpeaks[,3], end_peak_idx = minpeaks[,4]
       ) %>% as.data.frame() %>% mutate(minmax = "minpeak")
+    } else {
+      minpeaks_df = data.frame()
     }
     # Make sure each bifurcation parameter has an entry
     peaks_df = rbind(maxpeaks_df, minpeaks_df)
@@ -309,7 +313,6 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
                              function(i){seq(start_ends$start_bifpar_idx[i], start_ends$end_bifpar_idx[i])}) %>% unlist %>% unique
 
   expansion_df = minmax_peaks_df %>%
-    filter(.data$bifpar_idx %in% chaotic_idxs) %>%
     group_by(.data$variable) %>%
     arrange(.data$bifpar_idx, .by_group=TRUE) %>%
     mutate(win_diff_maxpeak = find_win_diff(x = .data$max_maxpeak, min_length_regime)) %>%
@@ -318,11 +321,14 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
     # Condition for qualifying as chaos expansion or chaos reduction:
     #  All have a reduction/expansion in maxpeak of congruent direction (i.e. all reduce or all expand), and at least one variable has a large reduction/expansion as specified by a threshold
     filter(length(unique(sign(.data$win_diff_maxpeak))) == 1 & all(abs(.data$win_diff_maxpeak) > 0) & any(abs(.data$win_diff_maxpeak) >= thresh_expansion) & length(unique(sign(.data$diff_maxpeak))) == 1 & all(abs(.data$diff_maxpeak) > 0) & any(abs(.data$diff_maxpeak) >= thresh_expansion)) %>%
-    group_by(.data$bifpar_idx) %>% summarise(maxpeak = max(.data$max_maxpeak), diff_maxpeak = max(.data$diff_maxpeak), .groups='drop')
+    filter(.data$bifpar_idx %in% chaotic_idxs)
 
   # If no expansion or reduction occurred
   if (nrow(expansion_df) > 0){
     # Per expansion/reduction row, find corresponding from and to regime and only keep them if both are chaotic
+
+    expansion_df = expansion_df %>%
+      group_by(.data$bifpar_idx) %>% summarise(maxpeak = max(.data$max_maxpeak), diff_maxpeak = max(.data$diff_maxpeak), .groups='drop')
     expansion_regimes = plyr::llply(1:nrow(expansion_df),
                                     function(i){
                                       bifpar_idx_exp = expansion_df %>% slice(i) %>% pull(.data$bifpar_idx)
