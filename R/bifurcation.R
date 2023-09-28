@@ -344,7 +344,7 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
 
                                         # If the from regime and to regime is the same one, the expansion/reduction apparently happens within the chaotic regime -> split regime at reduction/expansion
                                         if (from_regime_idx == to_regime_idx){
-                                          expansion_regime = bind_rows(regimes[from_regime_idx,] %>% mutate(end_bifpar_idx = .data$bifpar_idx_exp - 1), regimes[to_regime_idx,] %>% mutate(start_bifpar_idx = .data$bifpar_idx_exp))
+                                          expansion_regime = bind_rows(regimes[from_regime_idx,] %>% mutate(end_bifpar_idx = bifpar_idx_exp - 1), regimes[to_regime_idx,] %>% mutate(start_bifpar_idx = bifpar_idx_exp))
                                         } else {
                                           expansion_regime = bind_rows(regimes[from_regime_idx,],regimes[to_regime_idx,])
                                         }
@@ -694,7 +694,7 @@ find_regimes <- function(GLV,
     arrange(.data$start_bifpar_idx)
 
   # Update regimes with chaotic phenomena: touching the basin boundary and chaotic expansion (sudden enlargement or reduction of the chaotic attractor)
-  regimes = find_expansion_basin_bound(peaks_df, regimes_, variable_name = "X1", min_edge = 0, max_edge = 1,
+  regimes = find_expansion_basin_bound(peaks_df, regimes_, min_length_regime, variable_name = "X1", min_edge = 0, max_edge = 1,
                                          thresh_expansion = .1)
 
   # Find regime boundaries
