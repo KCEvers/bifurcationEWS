@@ -280,14 +280,10 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
                                        thresh_expansion = .1){
 
   # Extract indices in the chaotic regime
-  start_ends = regimes %>% filter(.data$regime=="Chaotic or Transitioning") %>%
+  starts_ends = regimes %>% filter(.data$regime=="Chaotic or Transitioning" & length_region >= min_length_regime) %>%
     select(.data$start_bifpar_idx, .data$end_bifpar_idx)
 
-  chaotic_idxs = plyr::llply(1:nrow(start_ends),
-                             function(i){seq(start_ends$start_bifpar_idx[i], start_ends$end_bifpar_idx[i])}) %>% unlist %>% unique
-
-  minmax_peaks_df = peaks_df %>%
-    filter(.data$bifpar_idx %in% chaotic_idxs) %>%
+ minmax_peaks_df = peaks_df %>%
     select(.data$bifpar_idx, .data$variable, .data$minmax, .data$X) %>%
     group_by(.data$bifpar_idx, .data$variable, .data$minmax) %>%
     summarise(max = round(max(.data$X), 2), min = round(min(.data$X), 2), .groups='drop') %>%
@@ -296,6 +292,7 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
 
 
   ##### EXPANSION/REDUCTION
+  if (nrow(starts_ends) > 0){
   find_win_diff <- function(x, min_length_regime){
     # Split vector
     m <- zoo::rollapply(x, min_length_regime*2, by = 1, FUN = c)
@@ -308,7 +305,11 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
         unname %>% unlist, rep(NA, min_length_regime-1)) %>% return()
   }
 
+  chaotic_idxs = plyr::llply(1:nrow(start_ends),
+                             function(i){seq(start_ends$start_bifpar_idx[i], start_ends$end_bifpar_idx[i])}) %>% unlist %>% unique
+
   expansion_df = minmax_peaks_df %>%
+    filter(.data$bifpar_idx %in% chaotic_idxs) %>%
     group_by(.data$variable) %>%
     arrange(.data$bifpar_idx, .by_group=TRUE) %>%
     mutate(win_diff_maxpeak = find_win_diff(x = .data$max_maxpeak, min_length_regime)) %>%
@@ -361,8 +362,11 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
   } else {
     updated_regimes = regimes
   }
-
+  } else {
+    updated_regimes = regimes
+}
   ##### BASIN-BOUNDARY
+  # In this case, we also want to find non-chaotic regimes that touch basin boundaries
   basin_bound =  minmax_peaks_df %>%
     filter(.data$variable == !!variable_name) %>% select(-.data$variable) %>%
     filter(.data$max_maxpeak == !!max_edge & .data$min_minpeak == !!min_edge) %>%
@@ -398,6 +402,13 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
 get_regime_switch_type <- function(from_regime, to_regime, X_names){
 
   regime_df = bind_rows(from_regime, to_regime)
+  # Check for hitting basin-boundary in the from_regime -> boundary-crisis
+  if (grepl("Basin-Boundary", regime_df$regime[1]) & !grepl("Basin-Boundary", regime_df$regime[2])){
+    bound_crisis = "Boundary-Crisis"
+  } else {
+    bound_crisis = ""
+  }
+
   # Regime switches involving only periodic regimes
   # if (!grepl("Chaotic", from_regime$regime, fixed = TRUE) & !grepl("Chaotic", to_regime$regime, fixed = TRUE)){
   if (all(!grepl("Chaotic", regime_df$regime)) & all(!grepl("None", regime_df$regime)) & !any(regime_df %>% select(all_of(X_names)) %>%is.na()) ){
@@ -413,7 +424,10 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
   nr_decreasing = sum(period_switch_factor < 1 & period_switch_factor != 0.5)
   N = length(X_names)
 
-  if (nr_doubling == N){
+  if (bound_crisis != ""){
+    return(bound_crisis)
+    # return(sprintf("%s: %s to %s",  bound_crisis, regime_df$regime[1], regime_df$regime[2]))
+  } else if (nr_doubling == N){
    return("Period-Doubling")
   } else if (nr_halving == N){
     return("Period-Halving")
@@ -459,20 +473,16 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
     chaos_exp = grepl("Chaos-Expansion", regime_df$regime)
     chaos_red = grepl("Chaos-Reduction", regime_df$regime)
 
-    # Check for hitting basin-boundary in the from_regime -> boundary-crisis
-     if (grepl("Basin-Boundary", regime_df$regime[1]) & !grepl("Basin-Boundary", regime_df$regime[2])){
-      bound_crisis = "Boundary-Crisis"
-    } else {
-      bound_crisis = ""
-    }
-
     if (length(unique(regime_df_$regime)) == 1){
       return("Same-Chaos")
+    } else if (any(grepl("None", regime_df$regime))){
+      return(sprintf("%s to %s",
+                     regime_df$regime[1], regime_df$regime[2]))
     } else if (sum(chaos_red) == 2){
       return(trimws(sprintf("Chaos-Reduction %s", bound_crisis)))
     } else if (sum(chaos_exp) == 2){
       return(trimws(sprintf("Chaos-Expansion %s", bound_crisis)))
-    } else if (!rlang::is_bare_character(bound_crisis)){
+    } else if (bound_crisis != ""){
       return(sprintf("%s: %s to %s",
                      bound_crisis, regime_df_$broad_regime[1], regime_df_$broad_regime[2]))
     } else {
