@@ -145,7 +145,8 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
   # OUT$time_idx = 1:nrow(OUT)
   # OUT %>% head
 
-  return(list(df = as.data.frame(cbind(OUT, time_idx=1:nrow(OUT))),
+  if (success){
+    return(list(df = as.data.frame(cbind(OUT, time_idx=1:nrow(OUT))),
               X_names = X_names,
               X0s = X0s,
               timestep = timestep,
@@ -158,6 +159,10 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
               bifpar_pars = bifpar_pars,
               do_downsample = do_downsample,
               downsample_pars = downsample_pars))
+  } else {
+    message("Simulation NOT successful!")
+    return()
+  }
 }
 
 
@@ -640,7 +645,7 @@ find_regimes <- function(GLV,
   # min_length_regime = 5
 
   # Get dataframe with peaks
-  peaks_df = peaks_bifdiag(GLV$df, GLV$X_names)
+  peaks_df = peaks_bifdiag(GLV$df, GLV$X_names) %>% filter(.data$bifpar_idx > 1)
 
   # For each value of the bifurcation parameter, find the period length k which has a minimum spread
   print("Finding best fitting period length for all bifurcation parameter values")

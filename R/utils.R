@@ -336,6 +336,7 @@ setup_pars <- function(model_name, pars_add = list()){
                                     byrow = TRUE)
       ),
       seed = 123,
+      max_iter=100,
       deSolve_method = "lsoda",
       downsample_pars = list(type = c("average", "one_sample")[1],
                              win_size = 50,
