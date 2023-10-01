@@ -310,6 +310,7 @@ setup_pars <- function(model_name, pars_add = list()){
       model_name = model_name,
       p = p,
       X_names = paste0("X", 1:p),
+      X0 = c(),
       timestep = .01,
       nr_timesteps = 1000,
       model_pars = list(s = .85,

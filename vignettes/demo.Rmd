@@ -109,10 +109,10 @@ downsample_pars = list(type = c("average", "one_sample")[1],
 timestep = .01
 nr_timesteps = 500
 bifpar_pars = list(
-  bifpar_start = 0, bifpar_end = 0, 
+  bifpar_start = 1.4, bifpar_end = .8,
   # bifpar_start = .96, bifpar_end = .97, #bifpar_start = .965, bifpar_end = .985,
                                     pre_steps = 0,
-                                  baseline_steps = 0, transition_steps = 101, post_steps = 0)
+                                  baseline_steps = 0, transition_steps = 251, post_steps = 0)
 bifpar_list=do.call(get_bifurcation_range, bifpar_pars)
 model_pars = list(r = r0, C0 = C0, mu = mu)
 
@@ -120,7 +120,10 @@ GLV_full = bifurcation_ts(model = GLV_model, model_pars = model_pars,
                bifpar_list = bifpar_list,
                timestep = timestep, nr_timesteps = nr_timesteps,
                downsample_pars = downsample_pars,
-               X_names = X_names, seed_nr = 100)
+               X_names = X_names, 
+               # X0 = c(X1=0,X2=0,X3=runif(1), X4=runif(1))
+               seed_nr = 100
+               )
 head(GLV_full$df)
 # GLV_full = bifurcationEWS::GLV_full
 
