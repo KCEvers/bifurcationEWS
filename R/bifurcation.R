@@ -477,7 +477,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
   } else {    # Regime switches involving chaotic behaviour
 
     # Check for mixed periodicity
-    regime_df_ = regime_df %>% rowwise() %>% mutate(nr_periods = ifelse(any(is.na(across(all_of(X_names)))), NA, length(unique(across(all_of(X_names)))))) %>%
+    regime_df_ = regime_df %>% rowwise() %>% mutate(nr_periods = ifelse( any(is.na(across(all_of(X_names)))) | any(grepl("Chaotic", across(all_of(X_names)))), NA, length(unique(across(all_of(X_names)))))) %>%
       mutate(broad_regime = ifelse(is.na(.data$nr_periods), "Chaotic or Transitioning", ifelse(.data$nr_periods == 1, .data$period, "Mixed-Periodic")))
 
     # Check for chaos expansion or reduction
@@ -697,14 +697,17 @@ find_regimes <- function(GLV,
   broad_regimes = periods %>%
     # Any time point containing at least one variable displaying chaotic behaviour is labelled as chaotic overall
     mutate(period_bifpar = ifelse(grepl("Chaotic or Transitioning", .data$period_bifpar, fixed = TRUE),
-                                   "Chaotic or Transitioning", "Periodic")) %>%
+                                  "Chaotic or Transitioning", "Periodic")) %>%
     group_by(.data$period_bifpar) %>%
     group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
     arrange(.data$start_bifpar_idx) %>%
     ungroup() %>%
-    rename(regime = .data$period_bifpar)
-  # Add Xs
- broad_regimes[,GLV$X_names] = "Chaotic or Transitioning" #NA
+    rename(regime = .data$period_bifpar) %>%
+    # Add Xs
+    merge(periods %>% select(.data$bifpar_idx, all_of(GLV$X_names)), all.x = TRUE, by.x = "start_bifpar_idx", by.y = "bifpar_idx")
+    # dplyr::bind_cols(matrix(NA, ncol = length(GLV$X_names)) %>% magrittr::set_colnames(GLV$X_names) %>% as.data.frame())
+
+ # broad_regimes[,GLV$X_names] = NA# "Chaotic or Transitioning" #"NA"
 
   # Compile regimes
   regimes_nonchaotic = periods %>%
