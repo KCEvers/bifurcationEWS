@@ -695,22 +695,32 @@ find_regimes <- function(GLV,
 
   # Find regimes with any chaotic behaviour and regimes with periodic behaviour
   broad_regimes = periods %>%
-    mutate(period_bifpar2 = ifelse(grepl("Chaotic or Transitioning", .data$period_bifpar, fixed = TRUE),
+    # Any time point containing at least one variable displaying chaotic behaviour is labelled as chaotic overall
+    mutate(period_bifpar = ifelse(grepl("Chaotic or Transitioning", .data$period_bifpar, fixed = TRUE),
                                    "Chaotic or Transitioning", "Periodic")) %>%
-    group_by(.data$period_bifpar2) %>%
+    group_by(.data$period_bifpar) %>%
     group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
     arrange(.data$start_bifpar_idx) %>%
     ungroup() %>%
-    rename(regime = .data$period_bifpar2)
+    rename(regime = .data$period_bifpar)
+  # Add Xs
+ broad_regimes[,X_names] = NA
 
   # Compile regimes
-  regimes_ = periods %>%
-    filter(!grepl("Chaotic or Transitioning", .data$period_bifpar, fixed = TRUE)) %>%
+  regimes_nonchaotic = periods %>%
+    filter(!grepl("Chaotic or Transitioning", .data$period_bifpar, fixed = TRUE))
+
+  if (nrow(regimes_nonchaotic) > 0){
+    regimes_nonchaotic = regimes_nonchaotic%>%
     group_by_at(setdiff(colnames(.), "bifpar_idx")) %>%
     group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
     arrange(.data$start_bifpar_idx) %>%
-    ungroup() %>% rename(regime = .data$period_bifpar) %>%
-    # bind_rows(basin_bound) %>%
+    ungroup() %>% rename(regime = .data$period_bifpar)
+
+  } else {
+      regimes_nonchaotic = data.frame()
+    }
+  regimes_ = regimes_nonchaotic %>%
     bind_rows(broad_regimes %>% filter(.data$regime != "Periodic")) %>%
     arrange(.data$start_bifpar_idx)
 
