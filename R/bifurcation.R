@@ -704,7 +704,7 @@ find_regimes <- function(GLV,
     ungroup() %>%
     rename(regime = .data$period_bifpar)
   # Add Xs
- broad_regimes[,GLV$X_names] = NA
+ broad_regimes[,GLV$X_names] = "Chaotic or Transitioning" #NA
 
   # Compile regimes
   regimes_nonchaotic = periods %>%
