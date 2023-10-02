@@ -84,6 +84,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       # Generate data
       out <- deSolve::ode(y = X0, times = times + min_t, func = model,
                           parms = model_pars,
+                          # rtol = 1e-6*10, atol = 1e-6*10,
                           method = deSolve_method) %>% cbind(bifpar_idx=bifpar_idx)
       # head(out)
       # tail(out)
@@ -333,42 +334,50 @@ find_expansion_basin_bound <- function(peaks_df, regimes, min_length_regime, var
     # Per expansion/reduction row, find corresponding from and to regime and only keep them if both are chaotic
 
     expansion_df = expansion_df %>%
-      group_by(.data$bifpar_idx) %>% summarise(maxpeak = max(.data$max_maxpeak), diff_maxpeak = max(.data$diff_maxpeak), .groups='drop')
-    expansion_regimes = plyr::llply(1:nrow(expansion_df),
-                                    function(i){
-                                      bifpar_idx_exp = expansion_df %>% slice(i) %>% pull(.data$bifpar_idx)
+      group_by(.data$bifpar_idx) %>%
+      summarise(maxpeak = max(.data$max_maxpeak), diff_maxpeak = max(.data$diff_maxpeak), .groups='drop')
 
-                                      # Find transitioning from and transitioning to regime
-                                      from_regime_idx = regimes %>%
-                                        tibble::rownames_to_column() %>%
-                                        filter((.data$start_bifpar_idx <= bifpar_idx_exp - 1) & (.data$end_bifpar_idx >= (bifpar_idx_exp - 1))) %>%
-                                        pull(.data$rowname) %>% as.numeric()
+    updated_regimes = regimes
+    for (i in 1:nrow(expansion_df)){
+      bifpar_idx_exp = expansion_df %>% slice(i) %>% pull(.data$bifpar_idx)
 
-                                      to_regime_idx = regimes %>%
-                                        tibble::rownames_to_column() %>%
-                                        filter((.data$start_bifpar_idx <= bifpar_idx_exp) & (.data$end_bifpar_idx >= (bifpar_idx_exp))) %>%
-                                        pull(.data$rowname) %>% as.numeric()
+      # Find transitioning from and transitioning to regime
+      from_regime_idx = updated_regimes %>%
+        tibble::rownames_to_column() %>%
+        filter((.data$start_bifpar_idx <= bifpar_idx_exp - 1) & (.data$end_bifpar_idx >= (bifpar_idx_exp - 1))) %>%
+        pull(.data$rowname) %>% as.numeric()
 
-                                      if (length(from_regime_idx) > 0 & length(to_regime_idx) > 0){
+      to_regime_idx = updated_regimes %>%
+        tibble::rownames_to_column() %>%
+        filter((.data$start_bifpar_idx <= bifpar_idx_exp) & (.data$end_bifpar_idx >= (bifpar_idx_exp))) %>%
+        pull(.data$rowname) %>% as.numeric()
 
-                                      red_or_exp = ifelse((expansion_df %>% slice(i) %>% pull(.data$diff_maxpeak)) < 0 , "Reduction", "Expansion")
-                                        exp_or_red_regime = c(sprintf(" (%s Chaos-%s)", c("Before", "After"), red_or_exp))
+      if (length(from_regime_idx) > 0 & length(to_regime_idx) > 0){
+        red_or_exp = ifelse((expansion_df %>% slice(i) %>% pull(.data$diff_maxpeak)) < 0 , "Reduction", "Expansion")
+        exp_or_red_regime = c(sprintf(" (%s Chaos-%s)", c("Before", "After"), red_or_exp))
 
-                                        # If the from regime and to regime is the same one, the expansion/reduction apparently happens within the chaotic regime -> split regime at reduction/expansion
-                                        if (from_regime_idx == to_regime_idx){
-                                          expansion_regime = bind_rows(regimes[from_regime_idx,] %>% mutate(end_bifpar_idx = bifpar_idx_exp - 1), regimes[to_regime_idx,] %>% mutate(start_bifpar_idx = bifpar_idx_exp))
-                                        } else {
-                                          expansion_regime = bind_rows(regimes[from_regime_idx,],regimes[to_regime_idx,])
-                                        }
-                                        # Remove old regime row, keep new regime
-                                        return(list(remove_idx = c(from_regime_idx, to_regime_idx),
-                                                    expansion_regime=expansion_regime %>%
-                                                      mutate(length_region = .data$end_bifpar_idx - .data$start_bifpar_idx + 1, regime = paste0(.data$regime, exp_or_red_regime))))
-                                      }
-                                    })
-    updated_regimes = regimes %>%
-      slice(-as.numeric(unique(unlist(purrr::map(expansion_regimes, "remove_idx"))))) %>%
-      bind_rows( purrr::map(expansion_regimes, "expansion_regime") %>% do.call(rbind, .) %>% as.data.frame()) %>% arrange(.data$start_bifpar_idx)
+        # If the from regime and to regime is the same one, the expansion/reduction apparently happens within the chaotic regime -> split regime at reduction/expansion
+        if (from_regime_idx == to_regime_idx){
+          expansion_regime = bind_rows(updated_regimes[from_regime_idx,] %>%
+                                         mutate(end_bifpar_idx = bifpar_idx_exp - 1),
+                                       updated_regimes[to_regime_idx,] %>% mutate(start_bifpar_idx = bifpar_idx_exp))
+        } else {
+          expansion_regime = bind_rows(updated_regimes[from_regime_idx,],updated_regimes[to_regime_idx,])
+        }
+        # Remove old regime row, keep new regime
+        updated_regimes = updated_regimes %>%
+          slice(-as.numeric(unique(c(from_regime_idx, to_regime_idx)))) %>%
+          bind_rows( expansion_regime %>%
+                        mutate(length_region = .data$end_bifpar_idx - .data$start_bifpar_idx + 1, regime = paste0(.data$regime, exp_or_red_regime)) ) %>%
+        arrange(.data$start_bifpar_idx)
+        # return(list(remove_idx = c(from_regime_idx, to_regime_idx),
+                                        #             expansion_regime=expansion_regime %>%
+                                        #               mutate(length_region = .data$end_bifpar_idx - .data$start_bifpar_idx + 1, regime = paste0(.data$regime, exp_or_red_regime))))
+     }
+    }
+    # updated_regimes = regimes %>%
+    #   slice(-as.numeric(unique(unlist(purrr::map(expansion_regimes, "remove_idx"))))) %>%
+    #   bind_rows( purrr::map(expansion_regimes, "expansion_regime") %>% do.call(rbind, .) %>% as.data.frame()) %>% arrange(.data$start_bifpar_idx)
 
   } else {
     updated_regimes = regimes
