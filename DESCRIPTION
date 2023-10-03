@@ -25,6 +25,7 @@ Imports:
     grid,
     gsignal,
     invctr,
+    latex2exp,
     magrittr,
     Matrix,
     moments,

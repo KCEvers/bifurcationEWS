@@ -25,46 +25,89 @@ library(ggh4x)
 library(dplyr)
 library(plotly)
 library(ggplot2)
-library(foreach)
 ```
 
 ### Generating timeseries
 
 ```{r demo GLV}
-pars <- setup_pars(model_name = "detGLV")
-bifpar_list <- list(list("s" = .965))
-timestep = .01
-nr_timesteps = 1000
-GLV = bifurcation_ts(model = GLV_model, model_pars = pars$model_pars,
-               bifpar_list = bifpar_list,
-               timestep = timestep, nr_timesteps = nr_timesteps,
-               # downsample_pars = downsample_pars,
-               X_names = pars$X_names,
-               # X0 = c(X1=0,X2=runif(1),X3=runif(1), X4=runif(1))
-               seed_nr = 100
-               )
-# head(GLV_full$df)
-pl_ts = GLV$df %>% 
-  ggplot() + 
-  geom_line(aes(x = time_idx, y = X1), linewidth = .1) +
-  geom_point(aes(x = time_idx, y = X1), size = .1)
+p <- 4
+mu <- rep(0, p)
+r0 = c(1, .72, 1.53, 1.27)
+C0 = matrix(c(1,
+              1.09,
+              1.52,
+              0,
+              0,
+              1,
+              0.44,
+              1.36,
+              2.33,
+              0,
+              1,
+              0.47,
+              1.21,
+              0.51,
+              0.35,
+              1),
+            p,
+            p,
+            byrow = TRUE)
+X_names = paste0("X", 1:p)
+X0      <- runif(p) %>% setNames(paste0("X", 1:p))
+times      <- seq(0, 1000, by = 0.01)
+model_pars <- list(r = r0, s = .86, C0 = C0, mu = mu)
+df <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars, method = 'lsoda')
+pl_ts = df %>% as.data.frame() %>% ggplot() + geom_point(aes(x = time, y = X1), size = .05)
 print(style_plot(pl_ts))
 ```
 
 
 What are some more complicated regimes that we can find in the model?
 
+There is no "one" type of chaos - chaotic dynamics can look radically different. 
+
+```{r chaos, eval=FALSE, include=FALSE}
+times      <- seq(0, 10000, by = 0.01)
+sel_idxs = round(.25*length(times)):length(times)
+# Chaos 1
+model_pars["s"] = .97
+df_chaos1 <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars)
+pl1 = rgl::plot3d(df_chaos1[sel_idxs,c("X1", "X2", "X3")], aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f", model_pars[["s"]]))
+print(pl1)
+
+# Chaos 2
+model_pars["s"] = .995
+df_chaos2 <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars)
+pl2 = rgl::plot3d(df_chaos2[sel_idxs,c("X1", "X2", "X3")], aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f", model_pars[["s"]]))
+print(pl2)
+
+# Chaos 3
+model_pars["s"] = 1.125
+df_chaos3 <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars)
+pl3 = rgl::plot3d(df_chaos3[sel_idxs,c("X1", "X2", "X3")], aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f", model_pars[["s"]]))
+print(pl3)
+
+# To display in an R Markdown document:
+rglwidget()
+
+# To save to a file:
+# htmlwidgets::saveWidget(rgl::rglwidget(width = 520, height = 520), 
+#                         file = "3dscatter.html",
+#                         libdir = "libs",
+#                         selfcontained = FALSE
+#                         )
+```
 
 ### Bifurcation diagram
 
 ```{r bifurcation diagram, include=FALSE}
-# # Generate data with changing bifurcation parameter
-# downsample_pars = list(type = c("average", "one_sample")[1],
-#                                                   win_size = 50,
-#                                                   which_X = c(50, "first", "middle", "last", "random")[1],
-#                                                   seed = 123)
-# timestep = .01
-# nr_timesteps = 500
+# Generate data with changing bifurcation parameter
+downsample_pars = list(type = c("average", "one_sample")[1],
+                                                  win_size = 50,
+                                                  which_X = c(50, "first", "middle", "last", "random")[1],
+                                                  seed = 123)
+timestep = .01
+nr_timesteps = 500
 # bifpar_pars = list(
 #   bifpar_start = 1.4, bifpar_end = .6,
 #   # bifpar_start = .96, bifpar_end = .97, #bifpar_start = .965, bifpar_end = .985,
@@ -124,39 +167,58 @@ regimes_full = find_regimes(GLV_full,
                              min_length_regime =5,
                              nr_smooth = 0,
                               factor_k = .1)
-
 print(regimes_full$regimes)
 print(regimes_full$regime_bounds)
 ```
-
-```{r echo=FALSE}
-pl_regimes = regimes_full$peaks_df %>% ggplot() +
-    geom_rect(data=regimes_full$regimes,aes(xmin=start_bifpar_idx,xmax=end_bifpar_idx,
-                                           ymin=-Inf, ymax=Inf, fill = regime), linewidth = .5, alpha = .4) +
-    geom_vline(data = regimes_full$regime_bounds, aes(
-      xintercept = regime1_end_idx,
-      col = regime_switch_type), linewidth = 1.3, linetype = 'dashed') +
-    geom_vline(data = regimes_full$regime_bounds, aes(
-      xintercept = regime2_start_idx,
-      col = regime_switch_type), linewidth = 1.3, linetype = 'dashed') +
-    geom_point(aes(x = bifpar_idx, y = X),col='grey30',alpha = .8, size = .25) +
-
-    viridis::scale_color_viridis(
-      discrete=TRUE,
-      option = 'magma',
-      begin = 0, end = .8, name = "Regime switch (end of first and start of second regime)") +
-    viridis::scale_fill_viridis(
+ 
+```{r Plot periods, eval=FALSE, include=FALSE}
+# Plot bifurcation diagram coloured according to periodicity
+pl_periods = ggplot(regimes_full$period_per_var %>%
+                        merge(peaks_df) %>%
+           dplyr::filter(variable == "X1")
+         ) +
+    geom_point(aes(x = bifpar_idx, y = X, col = factor(period)
+                   ),
+               size = 1.05
+               ) +
+     ggh4x::facet_grid2(variable ~ .) +
+    theme_bw() + viridis::scale_color_viridis(
       discrete=TRUE,
       option = 'turbo',
-      begin = 0, end = 1, name = "Period",
-      guide = guide_legend(override.aes = list(alpha = 1,
-                                               size = 3))) +
-    guides(color = guide_legend(ncol = 1), fill = guide_legend(ncol = 1)) + # x rows in legend
-    ggh4x::facet_grid2(variable ~ .) +
-    labs(x = 'Bifurcation parameter', y = "", title = "Transient bifurcation diagram")
-
-print(style_plot(pl_regimes))
+      begin = 0, end = .8) +
+  labs(x = 'Bifurcation parameter', y = "X1", title =  "Transient bifurcation diagram")
+print(style_plot(pl_periods))
 ```
+
+
+```{r Plot regime switches, eval=FALSE, include=FALSE}
+# Plot bifurcation diagram 
+pl_regimes = ggplot(peaks_df %>%
+           dplyr::filter(variable == "X2")
+           # dplyr::filter(min_from == c("coord", "peak_idx")[2])
+         ) +
+    geom_point(aes(x = bifpar_idx, y = X, 
+                   # col = factor(period),
+                   ),
+               # size = .25
+               size = 1.05
+               ) +
+     ggh4x::facet_grid2(variable ~ .) +
+    theme_bw() + viridis::scale_color_viridis(
+      discrete=TRUE,
+      option = 'turbo',
+      begin = 0, end = .8) +
+  labs(x = 'Bifurcation parameter', y = "X1", title =  "Transient bifurcation diagram")
+print(style_plot(pl_regimes))
+
+pl_regimes +
+  geom_vline(data = regimes_full$regime_bounds, aes(
+    # xintercept = regime2_start_idx, 
+    xintercept = regime1_end_idx,
+                                                   col = regime_switch_type))
+```
+
+
 
 ### Generating null and transition models
 
@@ -164,9 +226,7 @@ Now, we might be interested in a select few transitions. To get a sense of the s
 
 Say we are interested in the regime switch of *** - how might we simulate this? We already have the range of $s$ for which a particular regime switch occurs. However, the system is also multistable for many parameter ranges, such that a randomly chosen initial condition is not likely to yield the desired regime. To circumvent this issue, we make use of our full GLV timeseries. This timeseries offers both the regime boundaries $s$ and corresponding initial condition needed to simulate a new (much shorter) transition model. In addition, we can now add a proper baseline and transition period. 
 
-
-
-```{r echo=FALSE}
+```{r include=FALSE}
 plot_landscape <- function(df, bifpar_list, bifpar_idx1, bifpar_idx2, bifpar_idx3){
   size_marker = 1
   color1 = 'green'
@@ -208,16 +268,13 @@ plot_landscape <- function(df, bifpar_list, bifpar_idx1, bifpar_idx2, bifpar_idx
 
 
 
-
 ```{r echo=FALSE}
 # Select regime switch
-desired_regime1 = "Period-4 (X2,X3,X4) AND Period-6 (X1)" 
-desired_regime2 = "Period-10 (X1) AND Period-8 (X2,X3,X4)"
 desired_switch = regimes_full$regime_bounds %>%
   # dplyr::filter(regime_switch_type == "Mixed-Periodic to Chaotic or Transitioning" & regime1 == "Period-16 (X2,X3,X4) AND Period-20 (X1)" & regime2 == "Chaotic or Transitioning")
   dplyr::filter(
-    regime1 == !!desired_regime1 &
-      regime2 == !!desired_regime2
+    regime1 == "Period-4 (X2,X3,X4) AND Period-6 (X1)" &
+      regime2 == "Period-10 (X1) AND Period-8 (X2,X3,X4)"
   )
 
 bifpar_pars_PD_4to8 = list(
@@ -225,8 +282,8 @@ bifpar_pars_PD_4to8 = list(
   baseline_steps = 50,
   transition_steps = 50,
   post_steps = 50,
-  bifpar_start = GLV_full$bifpar_list[[desired_switch$regime1_halfway_idx]]$s,
-  bifpar_end = GLV_full$bifpar_list[[desired_switch$regime2_start_idx]]$s
+  bifpar_start = bifpar_list[[desired_switch$regime1_halfway_idx]]$s,
+  bifpar_end = bifpar_list[[desired_switch$regime2_start_idx]]$s
 )
 
 GLVs = list()
@@ -253,22 +310,21 @@ with(bifpar_pars_PD_4to8, {
     #                )
     # Use package-made GLV
     if (trans_or_null == "transition") {
-      GLV = bifurcationEWS::GLV_trans
+      GLV = GLV_trans
     } else if (trans_or_null == "null") {
-      GLV = bifurcationEWS::GLV_null
+      GLV = GLV_null
     }
     head(GLV$df)
     
     pl_ts_trans = GLV$df %>%
       dplyr::filter(bifpar_idx == 2) %>%
-      tidyr::gather(variable, value,-setdiff(colnames(.), GLV$X_names)) %>%
+      tidyr::gather(variable, value,-setdiff(colnames(.), X_names)) %>%
       ggplot() + geom_point(aes(x = time, y = value), size = .1) +
       ggh4x::facet_grid2(variable ~ .)
     print(style_plot(pl_ts_trans))
     
     # We need to check whether our simulation generated the desired regimes using the same process as above:
-   
-     # Get dataframe with peaks
+    # Get dataframe with peaks
     peaks_df = peaks_bifdiag(GLV$df, GLV$X_names)
     regime_list = find_regimes(
       GLV,
@@ -279,8 +335,6 @@ with(bifpar_pars_PD_4to8, {
       nr_smooth = 0,
       factor_k = .1
     )
-    # regime_list = 
-    # peaks_df = regime_list$peaks_df
     print(regime_list$regimes)
     print(regime_list$regime_bounds)
     
@@ -458,86 +512,138 @@ print(pl_warnings)
 
 ### Sensitivity vs. Specificity
 
-We repeat the procedure for different initialisations of added white noise to get a false and true positive **rate**.
 
 ```{r AUC}
-regime_bounds_trans = regime_lists[["transition"]]$regime_bounds %>%
-  dplyr::filter(
-    regime1 == !!desired_regime1 &
-      regime2 == !!desired_regime2
-  ) %>%
-  dplyr::mutate(transition_end_idx = na.omit(unique(regime2_start_idx)) - 1) %>%
-  ungroup() %>%
-  dplyr::mutate(
-    transition_start_idx = transition_end_idx - transition_steps + 1,
-    baseline_end_idx = transition_start_idx - 1,
-    baseline_start_idx = baseline_end_idx - baseline_steps + 1,
-    par_change_start_idx = ifelse(
-      trans_or_null == "transition",
-      pars_template$pre_steps + pars_template$default_baseline_steps,
-      NA
-    ),
-    par_change_end_idx = ifelse(
-      trans_or_null == "transition",
-      pars_template$pre_steps + pars_template$default_baseline_steps + transition_steps,
-      NA
-    )
-  )
-
-forloop = get_forloop(noise_iter=1:10, 
-            trans_or_null = c("transition", "null"),
-            noise_sigma = c(0,.02, .04))
-
-results <- foreach(for_par = forloop) %do% {
-    trans_or_null = for_par$trans_or_null
-    noise_iter = for_par$noise_iter
-    noise_sigma = for_par$noise_sigma
-    
-      GLV = GLVs[[trans_or_null]]
-      df = GLVs[[trans_or_null]]$df
-      regime_list = regime_lists[[trans_or_null]]    
-  
-      # Noisy data
-      noisy_df = df %>%
-      add_obs_noise(GLV$X_names, noise_mean = 0, noise_sigma = noise_sigma, noise_constant = 0, seed_nr = noise_iter)
-    
-      # EWS
-      split_df_EWS = run_bifEWS(noisy_df, GLV_trans$X_names, uni_metrics, multi_metrics, EWS_args = list())
-  
-      # Warnings
-      baseline_idx = round(seq(regime_bounds_trans$baseline_start_idx, regime_bounds_trans$baseline_end_idx)) # Count baseline back
-      transition_idx = round(seq(regime_bounds_trans$transition_start_idx, regime_bounds_trans$transition_end_idx))
-  
-      # Compute at which critical sigma value a warning occurs
-      split_df_EWS_CI = get_warnings(split_df_EWS,
-                                baseline_idx,
-                                transition_idx,
-                                    sigmas_crit = sigmas_crit,
-                                    nr_consecutive_warnings = 1)
-      warning_df = split_df_EWS_CI$warning_df %>%
-      rowwise() %>%
-      dplyr::mutate(warning_signal = sum(nr_warnings != 0), no_warning_signal = sum(nr_warnings == 0)) %>% ungroup()
-
-      # True positive or false positive depending on transition or null model
-    if (trans_or_null == "transition"){
-      warning_df = warning_df %>%
-        dplyr::rename(nr_tp = warning_signal, nr_fn = no_warning_signal) %>%
-        dplyr::mutate(nr_fp = NA, nr_tn = NA)
-    } else if (trans_or_null == "null"){
-      warning_df = warning_df %>%
-        dplyr::rename(nr_tn = no_warning_signal, nr_fp = warning_signal) %>%
-      dplyr::mutate(nr_tp = NA, nr_fn = NA)
-    }
-      
-     return(warning_df %>% dplyr::bind_cols(as.data.frame(for_par)))
-  }
 
 
-results
 ```
 
 
 ## 
+
+```{r}
+GLV <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/PD_2to4/nr1_T2000_ts0.010_Xsigma0.00000_transition_25transSteps.RDS")
+GLV <- readRDS("C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/s0.92000-s0.98500-by0.00010/PD_2to4/nr1_T2000_ts0.010_Xsigma0.00000_transition_50transSteps.RDS")
+df = GLV$df
+
+split_df = noisy_df %>% as.data.frame() %>% group_by(.data$bifpar_idx) %>% group_split()
+df_ = split_df[[14]] 
+df_ %>% head
+
+C0 = GLV$model_pars$C0
+s = GLV$bifpar_list[[14]]$s
+C = C0 * s
+diag(C) = diag(C0)
+# C %*% state
+
+df1 = df_ %>% arrange(.data$time_idx) %>% select(all_of(X_names)) %>% as.matrix()
+
+stats::cor(df1[,1:2])
+stats::cor(df1[1:(nrow(df1)-1),1], df1[2:nrow(df1),2])
+stats::cor(df1[1:(nrow(df1)-1),2], df1[2:nrow(df1),1])
+library(lmtest)
+lmtest::grangertest(X1 ~ X2, order = 1, data = as.data.frame(df1))
+lmtest::grangertest(X2 ~ X1, order = 1, data = as.data.frame(df1))
+
+lmtest::grangertest(X2 ~ X3, order = 1, data = as.data.frame(df1))
+lmtest::grangertest(X3 ~ X2, order = 1, data = as.data.frame(df1))
+
+full_mi <- function(x){
+  # Discretize per column
+  x_discr <- infotheo::discretize(x, disc="equalfreq",
+                             nbins = 100)
+
+  # Mutual information between all combinations of variables
+  D = expand.grid(a = 1:ncol(x), b = 1:ncol(x)) %>% as.data.frame() %>% dplyr::filter(a != b)
+  MI_df = plyr::laply(1:nrow(D), function(idx){infotheo::mutinformation(x_discr[,D[idx,"a"]], x_discr[,D[idx,"b"]], method="emp") }) %>% as.matrix() %>% t() %>% magrittr::set_colnames(paste0("MI_", apply(D, 1, paste0, collapse = ""))) %>% as.data.frame()
+  MI_df$multi =  infotheo::multiinformation(x_discr,method = "emp")
+  MI_df$inter =  infotheo::interinformation(x_discr,method = "emp")
+  return(MI_df)
+}
+
+full_conn <- function(x){
+ stats::cor(x) %>% as.data.frame()%>% unlist %>%as.data.frame(row.names = names(.))%>%t()%>%as.data.frame()
+}
+
+lagged_conn <- function(x){
+  D = expand.grid(a = 1:ncol(x), b = 1:ncol(x)) %>% as.data.frame() %>% dplyr::filter(a != b)
+  conn_df = plyr::laply(1:nrow(D), function(idx){stats::cor(x[1:(nrow(x)-1),D[idx,"a"]], x[2:nrow(x),D[idx,"b"]])}) %>% as.matrix() %>% t() %>% magrittr::set_colnames(paste0("r_", apply(D, 1, paste0, collapse = ""))) %>% as.data.frame()
+  
+ return(conn_df)
+}
+
+var_coeff <- function(x){
+  var_mod = vars::VAR(x, p = 1, type = "none")
+purrr::map(var_mod$varresult, function(x){as.data.frame(x$coefficients)}) %>%
+  do.call(rbind, .) %>% as.data.frame() %>% t() %>% as.data.frame() %>% return()
+
+}
+uni_metrics = c("autocorrelation"= get_autocorr)
+multi_metrics = c(
+  # "full_conn"=full_conn,
+                  "VAR" = var_coeff,
+                  # "mutual_info" = full_mi,
+                  # "lagged_conn"=lagged_conn,
+                  "meanAbsCrossCorr" = get_conn,
+                  "largestLambdaCovMatrix" = eigenvalue,
+                  "spatial_variance" = spatial_variance,
+                  "spatial_skewness" = spatial_skewness,
+                  "spatial_kurtosis" = spatial_kurtosis)
+split_df_EWS = split_df %>%
+    lapply(function(df_){run_EWS(df_ %>% arrange(.data$time_idx) %>% select(all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, EWS_args = list())} %>%
+             mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
+    do.call(rbind, .) %>% as.data.frame()
+
+
+# split_df_EWS = run_bifEWS(df, X_names, uni_metrics, multi_metrics, EWS_args = list())
+pl_EWS <- split_df_EWS %>%
+  tidyr::spread(metric, value) %>%
+  dplyr::mutate(VAR_X1.X2.l1_ = VAR_X1.X2.l1 / VAR_X1.X1.l1,
+                VAR_X1.X3.l1_ = VAR_X1.X3.l1 / VAR_X1.X1.l1,
+                VAR_X1.X4.l1_ = VAR_X1.X4.l1 / VAR_X1.X1.l1
+                ) %>% tidyr::gather(metric, value, -c(bifpar_idx)) %>%
+  ggplot() +
+  geom_point(aes(x=bifpar_idx, y = value), size = .25) +
+  geom_line(aes(x=bifpar_idx, y = value), linewidth = .25) +
+  ggh4x::facet_wrap2(. ~ metric, ncol = 4, scales = "free_y",
+                     # labeller = label_func
+                     ) +
+  # Baseline
+  geom_vline(aes(xintercept = 50 + 50), col = 'purple', linewidth = 1) +
+  # Transition
+  geom_vline(aes(xintercept = 50 + 50 + 25), col = 'purple', linewidth = 1)
+print(style_plot(pl_EWS))
+
+
+```
+
+
+
+## Lyapunov Exponent
+```{r}
+# Generate data with changing bifurcation parameter
+
+timestep = .01
+nr_timesteps = 20000
+bifpar_list = get_bifurcation_range(bifpar_start = .85, bifpar_end = .85, pre_steps = 0,
+                                  baseline_steps = 0, transition_steps = 1, post_steps = 0)
+
+GLV = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
+               bifpar_list = bifpar_list,
+               timestep = timestep, nr_timesteps = nr_timesteps,
+               do_downsample = FALSE,
+               # downsample_pars = downsample_pars,
+               X_names = X_names)
+df = GLV$df
+head(df)
+
+# Lyapunov exponent (https://en.wikipedia.org/wiki/Lyapunov_exponent)
+df_X = df %>% select(all_of(X_names)) %>% slice(10000:10100) %>% as.matrix()
+nrow(df_X)
+LAMBDA = (1 / (2* nrow(df_X))) * log(df_X %*% t(df_X) )
+eigen(LAMBDA)
+```
+
 
 
 ```{r}
@@ -587,6 +693,52 @@ fig <- fig %>% layout(scene = list(xaxis = list(title = 'X1'),
 fig
 
 ```
+
+
+```{r echo=TRUE}
+
+fig1 <- plot_ly(df %>% filter(bifpar_idx==100), scene = 'scene1',
+               type="scatter3d", mode = "markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "red", size = 1)) %>% 
+  layout(margin = list(t=150,r=150,b=150,l=150), 
+         scene = list(xaxis = list(title = 'X1'),
+                                   yaxis = list(title = 'X2'),
+                                   zaxis = list(title = 'X3')))
+fig2 <- plot_ly(df %>% filter(bifpar_idx==147), scene = 'scene2',
+               type="scatter3d", mode = "markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "orange", size = 1)) %>% 
+  layout(margin = list(t=150,r=150,b=150,l=150), 
+         scene = list(xaxis = list(title = 'X1'),
+                                   yaxis = list(title = 'X2'),
+                                   zaxis = list(title = 'X3')))
+fig3 <- plot_ly(df %>% filter(bifpar_idx==175), scene = 'scene3',
+               type="scatter3d", mode = "markers",
+               x = ~X1, y = ~X2, z = ~X3,
+               marker = list(color = "blue", size = 1)) %>% 
+  layout(margin = list(t=150,r=150,b=150,l=150), 
+         scene = list(xaxis = list(title = 'X1'),
+                                   yaxis = list(title = 'X2'),
+                                   zaxis = list(title = 'X3')))
+# subplot and define scene
+fig <- plotly::subplot(fig1, fig2, fig3, nrows = 1) 
+# fig <- fig %>% layout(title = "3D Subplots",
+#          scene = list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3')),
+#          scene2 = list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3')),
+#          scene3 =list(xaxis = list(title = 'X1'),
+#                                    yaxis = list(title = 'X2'),
+#                                    zaxis = list(title = 'X3'))
+#         )
+fig
+
+```
+
+
 
 
 
@@ -694,14 +846,3 @@ fig5
 
         
 ```
-
-
-These warning signs become more clear when you look in time, in phase space, or in network structure.
-
-
-** in phase space:
-
-Boundary crisis in time:
-
-
-** in network structure:

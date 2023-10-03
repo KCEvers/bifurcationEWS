@@ -9,7 +9,8 @@ add_obs_noise(
   X_names,
   noise_mean = 0,
   noise_sigma = 0.01,
-  noise_constant = 0
+  noise_constant = 0,
+  seed_nr = NULL
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ add_obs_noise(
 \item{noise_sigma}{Standard deviation of white noise}
 
 \item{noise_constant}{Constant to add to observed timeseries}
+
+\item{seed_nr}{Seed number for generating noise}
 }
 \value{
 Noisy dataframe

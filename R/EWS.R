@@ -182,11 +182,94 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx, sigmas_crit
   warning_df = winEWS_df %>%
     filter(.data$bifpar_idx %in% transition_idx) %>%
     group_by(.data$metric) %>%
-    group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score_sd, crit_values= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup()
+    group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score_sd, crit_values= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
+    rowwise() %>%
+    dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>% ungroup()
 
   return(list(winEWS_df = winEWS_df,
               warning_df = warning_df))
 }
+
+
+#' Convert warnings to Receiver Operating Curve (ROC)
+#'
+#' @param EWS_warnings Dataframe with warnings
+#' @param grouping_vars Names of grouping variables
+#'
+#' @return Dataframe with true positive rate, true negative rate, false positive rate, and false negative rate per critical value
+#' @export
+#' @importFrom dplyr mutate mutate_at select summarise rowwise ungroup group_by_at .data
+#'
+#' @examples
+warnings_to_ROC <- function(EWS_warnings, grouping_vars){
+
+  default_grouping_vars <- c("crit_value", "metric")
+  grouping_vars = c(default_grouping_vars, grouping_vars)
+
+  # Add number of true positives, false negatives, true negatives, and false positives
+  EWS_warnings = EWS_warnings %>%
+    rowwise() %>%
+    mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>% ungroup() %>%
+    mutate(nr_tp = ifelse(.data$trans_or_null == "transition", .data$warning_signal,
+                                 ifelse(.data$trans_or_null == "null", NA, "?")),
+                  nr_fn = ifelse(.data$trans_or_null == "transition", .data$no_warning_signal,
+                                 ifelse(.data$trans_or_null == "null", NA, "?")),
+                  nr_tn = ifelse(.data$trans_or_null == "transition", NA,
+                                 ifelse(.data$trans_or_null == "null", .data$no_warning_signal, "?")),
+                  nr_fp = ifelse(.data$trans_or_null == "transition", NA,
+                                 ifelse(.data$trans_or_null == "null", .data$warning_signal, "?"))
+    )  #%>%
+  # select(all_of(grouping_vars), nr_tp, nr_fn, nr_tn, nr_fp)
+
+  # Compute false/true positive/negative rate
+  EWS_warnings_ROC = EWS_warnings %>%
+    mutate_at(c("crit_value", "nr_tp", "nr_fp", "nr_tn", "nr_fn"), ~as.numeric(as.character(.))) %>%
+    group_by_at(grouping_vars) %>%
+    summarise(acc = sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE)) * 100,
+                     sum_tp = sum(.data$nr_tp, na.rm = TRUE),
+                     sum_fp = sum(.data$nr_fp, na.rm = TRUE),
+                     sum_tn = sum(.data$nr_tn, na.rm = TRUE),
+                     sum_fn = sum(.data$nr_fn, na.rm = TRUE),
+                     fnr = ifelse(sum(.data$nr_fn, na.rm = TRUE) == 0, 0, sum(.data$nr_fn, na.rm = TRUE) / (sum(.data$nr_fn, na.rm = TRUE) + sum(.data$nr_tp, na.rm = TRUE))), # miss rate
+                     tnr = ifelse(sum(.data$nr_tn, na.rm = TRUE) == 0, 0, sum(.data$nr_tn, na.rm = TRUE) / (sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE))), # specificity
+                     fpr = ifelse(sum(.data$nr_fp, na.rm = TRUE) == 0, 0, sum(.data$nr_fp, na.rm = TRUE) / (sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE))), # false alarm
+                     tpr = ifelse(sum(.data$nr_tp, na.rm = TRUE) == 0, 0, sum(.data$nr_tp, na.rm = TRUE) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE))),  # sensitivity
+                     .groups = 'drop')
+
+  return(EWS_warnings_ROC)
+}
+
+
+
+#' Integrate area under receiver operator curve (ROC) to Area Under the Curve (AUC)
+#'
+#' @param EWS_warnings_ROC Dataframe with true positive rate, true negative rate, false positive rate, and false negative rate per critical value
+#' @param grouping_vars Names of grouping variables
+#' @param nbins Number of bins to divide AUC into
+#'
+#' @return
+#' @export
+#' @importFrom dplyr summarise group_by_at .data
+#'
+#' @examples
+ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars, nbins = 10){
+
+  default_grouping_vars <- c("metric")
+  grouping_vars = c(default_grouping_vars, grouping_vars)
+  breaks_AUC = seq(0, 1, length.out = nbins + 1)
+  labels_AUC = plyr::laply(1:nbins, function(i){latex2exp::TeX(sprintf("$%.2f > AUC <= %.2f$", breaks_AUC[i], breaks_AUC[i+1]), output = 'character')})
+
+  # Add number of true positives, false negatives, true negatives, and false positives
+  EWS_warnings_AUC = EWS_warnings_ROC %>%
+    group_by_at(grouping_vars) %>%
+    summarise(AUC = get_AUC(.data$fpr, .data$tpr), .groups = 'drop') %>%
+    dplyr::mutate(AUC_class = cut(.data$AUC,
+                                  breaks = breaks_AUC,
+                                  labels = labels_AUC))
+
+  return(EWS_warnings_AUC)
+}
+
 
 
 
