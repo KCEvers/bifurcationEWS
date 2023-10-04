@@ -542,11 +542,10 @@ periods_to_regimes <- function(peaks_df, periods,
   # Sometimes, the chaotic regime does not consistently touch the basin boundary, but switches about every bifurcation index
   regimes_B = regimes_A %>% rowwise() %>%
     # By excluding those regimes that already satisfy the minimum length, we group together 'stray' regimes of short length
-    # mutate(regime_mixed = ifelse(.data$length_region < min_length_regime &
-    #
-    #                                any(pmatch(c("Chaotic or Transitioning (X1,X2,X3,X4)", "Chaotic or Transitioning (X1,X2,X3,X4) (Touching Basin-Boundary)", "Period"), .data$regime)),
-    #                              "Chaotic or Transitioning (X1,X2,X3,X4) (Mixed: (Not) Touching Basin-Boundary and Periodic)", NA))
-  mutate(regime_mixed = ifelse(.data$length_region < min_length_regime & .data$regime %in% c("Chaotic or Transitioning (X1,X2,X3,X4)", "Chaotic or Transitioning (X1,X2,X3,X4) (Touching Basin-Boundary)"), "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)", NA))
+    mutate(regime_mixed = ifelse(.data$length_region < min_length_regime &
+                                   any(pmatch(c("Chaotic or Transitioning (X1,X2,X3,X4)", "Chaotic or Transitioning (X1,X2,X3,X4) (Touching Basin-Boundary)", "Period"), .data$regime)),
+                                 "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)", NA))
+  # mutate(regime_mixed = ifelse(.data$length_region < min_length_regime & .data$regime %in% c("Chaotic or Transitioning (X1,X2,X3,X4)", "Chaotic or Transitioning (X1,X2,X3,X4) (Touching Basin-Boundary)"), "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)", NA))
 
   if (all(is.na(regimes_B$regime_mixed))){
     regimes_C = data.frame()
