@@ -6,8 +6,9 @@
 \usage{
 plot_3D_landscape(
   df,
-  s_idx = 1,
-  s = 0.6,
+  bifpar_name = "s",
+  bifpar_idx = 1,
+  bifpar_value = 0.6,
   plot_idx = 1,
   colors = c("red"),
   size_marker = 1,
@@ -18,9 +19,11 @@ plot_3D_landscape(
 \arguments{
 \item{df}{Dataframe}
 
-\item{s_idx}{Index of bifurcation parameter}
+\item{bifpar_name}{Name of bifurcation parameter}
 
-\item{s}{Value of bifurcation parameter}
+\item{bifpar_idx}{Index of bifurcation parameter}
+
+\item{bifpar_value}{Value of bifurcation parameter}
 
 \item{plot_idx}{Index of subplot}
 

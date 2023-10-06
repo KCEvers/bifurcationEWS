@@ -209,7 +209,8 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
   # Add number of true positives, false negatives, true negatives, and false positives
   EWS_warnings = EWS_warnings %>%
     rowwise() %>%
-    mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>% ungroup() %>%
+    mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>%
+    ungroup() %>% rowwise() %>%
     mutate(nr_tp = ifelse(.data$trans_or_null == "transition", .data$warning_signal,
                                  ifelse(.data$trans_or_null == "null", NA, "?")),
                   nr_fn = ifelse(.data$trans_or_null == "transition", .data$no_warning_signal,
@@ -263,9 +264,10 @@ ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars, nbins = 10){
   EWS_warnings_AUC = EWS_warnings_ROC %>%
     group_by_at(grouping_vars) %>%
     summarise(AUC = get_AUC(.data$fpr, .data$tpr), .groups = 'drop') %>%
+    rowwise() %>%
     dplyr::mutate(AUC_class = cut(.data$AUC,
                                   breaks = breaks_AUC,
-                                  labels = labels_AUC))
+                                  labels = labels_AUC)) %>% ungroup()
 
   return(EWS_warnings_AUC)
 }

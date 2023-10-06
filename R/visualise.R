@@ -1,8 +1,9 @@
 #' Plot 3D landscape
 #'
 #' @param df Dataframe
-#' @param s_idx Index of bifurcation parameter
-#' @param s Value of bifurcation parameter
+#' @param bifpar_idx Index of bifurcation parameter
+#' @param bifpar_value Value of bifurcation parameter
+#' @param bifpar_name Name of bifurcation parameter
 #' @param plot_idx Index of subplot
 #' @param colors Vector of colors
 #' @param size_marker Size of marker
@@ -13,13 +14,14 @@
 #' @export
 #'
 #' @examples
-plot_3D_landscape <- function(df,
-                      s_idx = 1, s = .6,
+plot_3D_landscape <- function(df, bifpar_name = "s",
+                      bifpar_idx = 1, bifpar_value = .6,
                       plot_idx = 1,
                       colors = c("red"), size_marker = 1,
                       size_line =.1,
                       plot_mode = c("markers", "lines+markers")[2]){
-    name1 = sprintf("idx: %d, s = %.4f", s_idx, s)
+
+    name1 = sprintf("idx: %d, %s = %.4f", bifpar_idx, bifpar_name, bifpar_value)
     color = colors[plot_idx]
     scene_name = sprintf('scene%d', plot_idx)
     fig1 <- plotly::plot_ly(df, scene = scene_name, name = name1,
@@ -37,7 +39,7 @@ plot_3D_landscape <- function(df,
 #'
 #' @inheritParams plot_3D_landscape
 #' @param bifpar_idxs Bifurcation parameter indices to plot
-#' @param bifpar_list List of bifurcation parameters to index
+#' @param bifpar_values Values of bifurcation parameter
 #' @param nrows Number of rows
 #' @param ncols Number of columns
 #' @param x1_range Range of x1-axis
@@ -51,7 +53,8 @@ plot_3D_landscape <- function(df,
 #' @examples
 plot_3D_landscape_trans <- function(df,
                                    bifpar_idxs,
-                                   bifpar_list,
+                                   bifpar_values,
+                                   bifpar_name = "s",
                                    nrows = NULL,
                                    ncols = NULL,
                                    x1_range = c(0,1), x2_range = c(0,1), x3_range = c(0,1),
@@ -90,9 +93,10 @@ plot_3D_landscape_trans <- function(df,
       group_by(bifpar_idx) %>%
       mutate(plot_idx = which(bifpar_idxs == unique(bifpar_idx))) %>%
       group_map(~ plot_3D_landscape(.x,
-                                           s_idx = unique(.y$bifpar_idx),
-                                           s = unlist(purrr::map(bifpar_list[unique(.y$bifpar_idx)], "s")),
-                                           plot_idx = unique(.x$plot_idx),
+                                           bifpar_idx = unique(.y$bifpar_idx),
+                                    # s = unlist(purrr::map(bifpar_list[unique(.y$bifpar_idx)], "s")),
+                                    bifpar_value = bifpar_values[unique(.y$bifpar_idx)],
+                                    plot_idx = unique(.x$plot_idx),
                                            colors=colors,
                                  size_marker = size_marker,
                                  size_line =size_line,

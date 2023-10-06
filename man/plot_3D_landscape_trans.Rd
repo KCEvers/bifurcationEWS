@@ -7,7 +7,8 @@
 plot_3D_landscape_trans(
   df,
   bifpar_idxs,
-  bifpar_list,
+  bifpar_values,
+  bifpar_name = "s",
   nrows = NULL,
   ncols = NULL,
   x1_range = c(0, 1),
@@ -23,7 +24,9 @@ plot_3D_landscape_trans(
 
 \item{bifpar_idxs}{Bifurcation parameter indices to plot}
 
-\item{bifpar_list}{List of bifurcation parameters to index}
+\item{bifpar_values}{Values of bifurcation parameter}
+
+\item{bifpar_name}{Name of bifurcation parameter}
 
 \item{nrows}{Number of rows}
 
