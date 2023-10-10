@@ -309,7 +309,8 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx, sigmas_crit
     arrange(.data$bifpar_idx, .by_group = TRUE) %>%
     group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score, sigma_crits= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
     rowwise() %>%
-    dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>% ungroup()
+    dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0)) %>% ungroup()
+  # dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>% ungroup()
 
   return(list(winEWS_df = EWS_z_scores,
               warning_df = warning_df))
@@ -333,22 +334,23 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
 
   # Add number of true positives, false negatives, true negatives, and false positives
   EWS_warnings = EWS_warnings %>%
-    rowwise() %>%
-    mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>%
-    ungroup() %>% rowwise() %>%
-    mutate(nr_tp = ifelse(.data$trans_or_null == "transition", .data$warning_signal,
+    # rowwise() %>%
+    # mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>%
+    # ungroup() %>% rowwise() %>%
+    mutate(nr_tp = ifelse(.data$trans_or_null == "transition", (.data$warning_signal == 1)*1,
                                  ifelse(.data$trans_or_null == "null", NA, "?")),
-                  nr_fn = ifelse(.data$trans_or_null == "transition", .data$no_warning_signal,
+                  nr_fn = ifelse(.data$trans_or_null == "transition", (.data$warning_signal == 0)*1,
                                  ifelse(.data$trans_or_null == "null", NA, "?")),
                   nr_tn = ifelse(.data$trans_or_null == "transition", NA,
-                                 ifelse(.data$trans_or_null == "null", .data$no_warning_signal, "?")),
+                                 ifelse(.data$trans_or_null == "null",(.data$warning_signal == 0)*1, "?")),
                   nr_fp = ifelse(.data$trans_or_null == "transition", NA,
-                                 ifelse(.data$trans_or_null == "null", .data$warning_signal, "?"))
+                                 ifelse(.data$trans_or_null == "null", (.data$warning_signal == 1)*1, "?"))
     )  #%>%
   # select(all_of(grouping_vars), nr_tp, nr_fn, nr_tn, nr_fp)
 
   # Compute false/true positive/negative rate
   EWS_warnings_ROC = EWS_warnings %>%
+    # mutate_at(c("sigma_crit"), ~as.numeric(as.character(.))) %>%
     mutate_at(c("sigma_crit", "nr_tp", "nr_fp", "nr_tn", "nr_fn"), ~as.numeric(as.character(.))) %>%
     group_by_at(grouping_vars) %>%
     summarise(acc = sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE)) * 100,
