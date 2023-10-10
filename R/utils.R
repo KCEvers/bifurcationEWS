@@ -146,69 +146,6 @@ add_obs_noise <- function(df, X_names, noise_mean = 0, noise_sigma = .01, noise_
 }
 
 
-#' Style plot
-#'
-#' @param pl Original plot
-#' @param col_pal Named colours
-#' @param fs Font sizes
-#'
-#' @return Styled plot
-#' @importFrom ggplot2 theme_bw element_text element_rect unit margin theme
-#' @export
-#'
-#' @examples
-style_plot <- function(pl,
-                       col_pal = c(
-                         col_facet_labels = scales::viridis_pal(option = "rocket", direction =
-                                                                  -1)(20)[17]),
-                       fs = c(
-                         "family" = "serif",
-                         "strip.text.x" = 12,
-                         "strip.text.y" = 12,
-                         "plot.title" = 20,
-                         "plot.subtitle" = 16,
-                         "axis.text" = 8,
-                         "axis.title" = 16,
-                         "legend.text" = 12,
-                         "legend.title" = 14,
-                         "legend.spacing.y" = .075
-                       )) {
-  pl <- pl + theme_bw() +
-    theme(
-      text = element_text(family = fs["family"]),
-      # Change font
-      plot.title = element_text(size = fs["plot.title"]),
-      plot.subtitle = element_text(size = fs["plot.subtitle"]),
-      axis.text = element_text(size = fs["axis.text"]),
-      axis.title = element_text(size = fs["axis.title"]),
-      legend.text = element_text(size = fs["legend.text"]),
-      legend.title = element_text(size = fs["legend.title"]),
-      # # Increase font size facet labels
-      strip.text.y = element_text(
-        size = as.numeric(fs["strip.text.y"]) + 2,
-        margin = margin(0.1, 0.1, 0.1, 0.1, "cm")
-      ),
-      strip.text.x = element_text(
-        size = as.numeric(fs["strip.text.x"]) + 2,
-        margin = margin(0.1, 0.1, 0.1, 0.1, "cm")
-      )
-      # panel.spacing.x = unit(0.2, "cm"),
-      # panel.spacing.y = unit(0.2, "cm") # Distance between facets
-    ) +
-    theme(strip.background = element_rect(fill = col_pal["col_facet_labels"], color = col_pal["col_facet_labels"])) + # Change facet rectangle colour
-    theme(strip.text = element_text(colour = 'white')) +
-    # theme(legend.position = "none") + # Remove group legend
-    theme(plot.title = element_text(hjust = 0.5),
-          plot.subtitle = element_text(hjust = 0.5)) +
-    theme(plot.margin = unit(c(0, 0, 0, 0), "pt")) +
-    theme(legend.title.align = 0.5,
-          # Text label alignment. Number from 0 (left) to 1 (right)
-          legend.text.align = 0.5)
-
-  return(pl)
-}
-
-
 
 
 #' Utility function to save plots
@@ -498,7 +435,8 @@ get_forloop <- function(...){
 add_par_as_cols = function(df, for_par){
   df2 = cbind(
     df,
-    as.data.frame(t(for_par))[rep(1, nrow(df)), ] %>%
+    # as.data.frame(t(for_par))[rep(1, nrow(df)), ] %>%
+    as.data.frame(for_par)[rep(1, nrow(df)), ] %>%
       magrittr::set_rownames(NULL))
   df2 <- df2[, !duplicated(colnames(df2))]
   return(df2)

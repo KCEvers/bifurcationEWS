@@ -11,12 +11,23 @@ plot_3D_landscape_trans(
   bifpar_name = "s",
   nrows = NULL,
   ncols = NULL,
-  x1_range = c(0, 1),
-  x2_range = c(0, 1),
-  x3_range = c(0, 1),
+  x_range = c(0, 1),
+  y_range = c(0, 1),
+  z_range = c(0, 1),
+  xaxis_title = NULL,
+  yaxis_title = NULL,
+  zaxis_title = NULL,
+  xvar = "X1",
+  yvar = "X2",
+  zvar = "X3",
+  showticklabels = TRUE,
+  showlegend = TRUE,
   size_marker = 1,
   size_line = 0.1,
-  plot_mode = c("markers", "lines+markers")[2]
+  plot_mode = c("markers", "lines+markers")[2],
+  colors = NULL,
+  camera = list(eye = list(x = 2, y = 2, z = 2)),
+  alternating_height = FALSE
 )
 }
 \arguments{
@@ -32,17 +43,39 @@ plot_3D_landscape_trans(
 
 \item{ncols}{Number of columns}
 
-\item{x1_range}{Range of x1-axis}
+\item{x_range}{Range of X-axis}
 
-\item{x2_range}{Range of x2-axis}
+\item{y_range}{Range of Y-axis}
 
-\item{x3_range}{Range of x3-axis}
+\item{z_range}{Range of Z-axis}
+
+\item{xaxis_title}{Title of X-axis}
+
+\item{yaxis_title}{Title of Y-axis}
+
+\item{zaxis_title}{Title of Z-axis}
+
+\item{xvar}{Name of variable to plot on X-axis}
+
+\item{yvar}{Name of variable to plot on Y-axis}
+
+\item{zvar}{Name of variable to plot on Z-axis}
+
+\item{showticklabels}{Logical indicating whether to show axis tick labels}
+
+\item{showlegend}{Logical indicating whether to show the legend}
 
 \item{size_marker}{Size of marker}
 
 \item{size_line}{Linewidth}
 
 \item{plot_mode}{Plotting mode}
+
+\item{colors}{List or single string of plotting colors}
+
+\item{camera}{List of camera settings}
+
+\item{alternating_height}{Logical indicating whether the subplots should be plotted on a grid with alternating height; only works for an uneven number of subplots and nrows = 1}
 }
 \value{
 Plotly object

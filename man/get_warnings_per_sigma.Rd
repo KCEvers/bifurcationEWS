@@ -8,7 +8,7 @@ get_warnings_per_sigma(
   y,
   bifpar_idx,
   z_score,
-  crit_values,
+  sigmas_crit,
   nr_consecutive_warnings = 1
 )
 }
@@ -19,7 +19,7 @@ get_warnings_per_sigma(
 
 \item{z_score}{Z-score}
 
-\item{crit_values}{Sequence of critical values of sigma}
+\item{sigmas_crit}{Sequence of critical values of sigma}
 
 \item{nr_consecutive_warnings}{Number of consecutive warnings to look for}
 }

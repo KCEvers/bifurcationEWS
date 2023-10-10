@@ -6,11 +6,14 @@
 \usage{
 plot_3D_landscape(
   df,
+  xvar = "X1",
+  yvar = "X2",
+  zvar = "X3",
   bifpar_name = "s",
   bifpar_idx = 1,
   bifpar_value = 0.6,
   plot_idx = 1,
-  colors = c("red"),
+  color = c("red"),
   size_marker = 1,
   size_line = 0.1,
   plot_mode = c("markers", "lines+markers")[2]
@@ -18,6 +21,12 @@ plot_3D_landscape(
 }
 \arguments{
 \item{df}{Dataframe}
+
+\item{xvar}{Name of variable to plot on X-axis}
+
+\item{yvar}{Name of variable to plot on Y-axis}
+
+\item{zvar}{Name of variable to plot on Z-axis}
 
 \item{bifpar_name}{Name of bifurcation parameter}
 
@@ -27,7 +36,7 @@ plot_3D_landscape(
 
 \item{plot_idx}{Index of subplot}
 
-\item{colors}{Vector of colors}
+\item{color}{Plotting colour}
 
 \item{size_marker}{Size of marker}
 

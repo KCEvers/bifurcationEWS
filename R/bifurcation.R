@@ -408,7 +408,8 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
   regime_idx = which(regimes$length_region >= min_length_regime)
 
   if (rlang::is_empty(regime_idx)){
-    return(data.frame(regime1 = NA,
+    return(data.frame(regime_switch_type = NA,
+                      regime1 = NA,
                       regime2 = NA,
                       regime1_start_idx = NA,
                       regime1_halfway_idx = NA,
