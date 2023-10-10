@@ -277,7 +277,8 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
 #' @export
 #'
 #' @examples
-get_warnings <- function(split_df_EWS, baseline_idx, transition_idx, sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1){
+get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
+                         sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
   # EWS_df_CI = split_df_EWS %>% arrange(.data$bifpar_idx) %>% group_by(.data$metric) %>%
   #   filter(.data$bifpar_idx %in% baseline_idx) %>%
@@ -307,7 +308,7 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx, sigmas_crit
     filter(.data$bifpar_idx %in% transition_idx) %>%
     group_by(.data$metric) %>%
     arrange(.data$bifpar_idx, .by_group = TRUE) %>%
-    group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score, sigma_crits= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
+    group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score, sigmas_crit= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
     rowwise() %>%
     dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0)) %>% ungroup()
   # dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>% ungroup()
@@ -566,5 +567,6 @@ get_Smax = function(x, fs, nr_timesteps){
   #      yscale='log',
   #      main = "PSD estimate using FFT")
 
-  return(data.frame(Smax = pw$freq[which.max(pw$spec)], Fmax = max(pw$spec)))
+  # return(data.frame(Smax = pw$freq[which.max(pw$spec)], Fmax = max(pw$spec)))
+  return(data.frame(Smax = max(pw$spec), Fmax = pw$freq[which.max(pw$spec)]))
 }
