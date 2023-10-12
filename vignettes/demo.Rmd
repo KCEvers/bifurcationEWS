@@ -386,8 +386,8 @@ uni_metrics = c(
   "variance" = var,
   "autocorrelation" = get_autocorr,
   "skewness" = moments::skewness,
-  "kurtosis" = moments::kurtosis
-  # "Smax" = get_Smax
+  "kurtosis" = moments::kurtosis,
+  "Smax" = get_Smax
 )
 multi_metrics = c(
   "meanAbsCrossCorr" = get_conn,
@@ -397,8 +397,12 @@ multi_metrics = c(
   "spatial_kurtosis" = spatial_kurtosis
   # "RQA" = runRQA
 )
-
-split_df_EWS = run_bifEWS(GLV_trans$noisy_df, GLV_trans$X_names, uni_metrics, multi_metrics, EWS_args = list())
+EWS_args=list()
+EWS_args=list("Smax" = list(
+    fs = 1 / GLV_trans$timestep / GLV_trans$downsample_pars$win_size,
+    nr_timesteps = GLV_trans$nr_timesteps
+  ))
+split_df_EWS = run_bifEWS(GLV_trans$noisy_df, GLV_trans$X_names, uni_metrics, multi_metrics, EWS_args = EWS_args)
 pl_EWS <- split_df_EWS %>% ggplot() +
     geom_line(aes(x = bifpar_idx, y = value), linewidth = .45, alpha = .5, color ='grey50') +
           geom_point(aes(x = bifpar_idx, y = value), size = .6, color ='grey20') +
@@ -407,7 +411,7 @@ pl_EWS <- split_df_EWS %>% ggplot() +
                      )
 print(style_plot(pl_EWS))
 
-
+split_df_EWS %>% dplyr::filter(metric == "Smax_Smax_var1")
 ```
 
 

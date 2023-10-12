@@ -200,7 +200,9 @@ get_warnings_raw <- function(split_df_EWS, baseline_idx, transition_idx, sigma_c
     dplyr::mutate_at(c("ymin", "ymax", "warning_signal", "value_no_warning",
                        "value_warning_on_time", "value_warning_baseline", "value_warning_too_late"), ~suppressWarnings(as.numeric(as.character(.)))) %>%
                          mutate(baseline_start_idx = first(baseline_idx),
-                                baseline_end_idx = last(baseline_end_idx),                             transition_start_idx = first(transition_start_idx),                            transition_end_idx = last(transition_end_idx))
+                                baseline_end_idx = last(baseline_idx),
+                                transition_start_idx = first(transition_idx),
+                                transition_end_idx = last(transition_idx))
 
   return(winEWS_df)
 }
