@@ -133,7 +133,7 @@ peaks_df = peaks_bifdiag(GLV_Chaos1$df, GLV_Chaos1$X_names)
 
 # peaks_df_ = peaks_df %>% dplyr::filter(variable == "X1", bifpar_idx > 1)
 pl_peaks = peaks_df %>% ggplot() + geom_point(aes(x = bifpar_idx, y = X), size = .1) +
-  labs(x = 'Bifurcation parameter', y = "X1", title = "Transient bifurcation diagram") +
+  labs(x = 'Bifurcation parameter', y = "X", title = "Transient bifurcation diagram") +
   ggh4x::facet_grid2(variable ~ .)
 
 print(style_plot(pl_peaks))
@@ -382,20 +382,20 @@ print(style_plot(pl_noisy))
 ### Computing windowed EWS
 ```{r Windowed EWS}
 uni_metrics = c(
-  "mean" = mean,
-  "variance" = var,
-  "autocorrelation" = get_autocorr,
-  "skewness" = moments::skewness,
-  "kurtosis" = moments::kurtosis,
-  "Smax" = get_Smax
+  # "mean" = mean,
+  # "variance" = var,
+  # "autocorrelation" = get_autocorr,
+  # "skewness" = moments::skewness,
+  # "kurtosis" = moments::kurtosis,
+  # "Smax" = get_Smax
 )
 multi_metrics = c(
-  "meanAbsCrossCorr" = get_conn,
-  "largestLambdaCovMatrix" = eigenvalue,
-  "spatial_variance" = spatial_variance,
-  "spatial_skewness" = spatial_skewness,
-  "spatial_kurtosis" = spatial_kurtosis
-  # "RQA" = runRQA
+  # "meanAbsCrossCorr" = get_conn,
+  # "largestLambdaCovMatrix" = eigenvalue,
+  # "spatial_variance" = spatial_variance,
+  # "spatial_skewness" = spatial_skewness,
+  # "spatial_kurtosis" = spatial_kurtosis
+  "RQA" = runRQA
 )
 EWS_args=list()
 EWS_args=list("Smax" = list(

@@ -23,6 +23,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
   #   as.data.frame() %>% cbind(metric = names(uni_metrics))  %>% tidyr::pivot_longer(!.data$metric) %>%
   #   dplyr::mutate(metric = paste0(.data$metric, "_", .data$name)) %>% dplyr::select(-.data$name)
 
+  if (length(uni_metrics) > 0){
   uni_EWS = plyr::ldply(names(uni_metrics), function(j){
     plyr::ldply(1:ncol(x), function(i){
       if (j %in% names(EWS_args)){
@@ -47,7 +48,11 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
     })
     # apply(x, 2, uni_metric)
   })
+  } else {
+  uni_EWS = data.frame()
+  }
 
+  if (length(multi_metrics) > 0){
   multi_EWS = plyr::ldply(names(multi_metrics), function(j){
     # do.call(multi_metrics[[j]], utils::modifyList(list(x = x), EWS_args[j]))
 
@@ -71,6 +76,9 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 
     return(multi_df)
   })
+  } else {
+    multi_EWS = data.frame()
+  }
   # %>%
   #   do.call(rbind, .) %>% magrittr::set_rownames(NULL) %>%
   #   as.data.frame() %>% cbind(metric = names(multi_metrics)) %>%
@@ -92,7 +100,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 #' @export
 #'
 #' @examples
-run_bifEWS <- function(df, X_names, uni_metrics, multi_metrics,
+run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax), multi_metrics = c("RQA" = runRQA),
                        EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100),
                                        "RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05))){
 
@@ -376,33 +384,53 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
 #'
 #' @param EWS_warnings_ROC Dataframe with true positive rate, true negative rate, false positive rate, and false negative rate per critical value
 #' @param grouping_vars Names of grouping variables
-#' @param nbins Number of bins to divide AUC into
 #'
 #' @return
 #' @export
 #' @importFrom dplyr summarise group_by_at .data
 #'
 #' @examples
-ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars, nbins = 10){
+ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars){
 
   default_grouping_vars <- c("metric")
   grouping_vars = c(default_grouping_vars, grouping_vars)
-  breaks_AUC = seq(0, 1, length.out = nbins + 1)
-  labels_AUC = plyr::laply(1:nbins, function(i){latex2exp::TeX(sprintf("$%.2f > AUC <= %.2f$", breaks_AUC[i], breaks_AUC[i+1]), output = 'character')})
 
   # Add number of true positives, false negatives, true negatives, and false positives
   EWS_warnings_AUC = EWS_warnings_ROC %>%
     group_by_at(grouping_vars) %>%
-    summarise(AUC = get_AUC(.data$fpr, .data$tpr), .groups = 'drop') %>%
-    rowwise() %>%
-    dplyr::mutate(AUC_class = cut(.data$AUC,
-                                  breaks = breaks_AUC,
-                                  labels = labels_AUC)) %>% ungroup()
+    summarise(AUC = get_AUC(.data$fpr, .data$tpr), .groups = 'drop')
 
   return(EWS_warnings_AUC)
 }
 
 
+#' Label AUC
+#'
+#' @param AUC Vector with Area Under the Curve
+#' @param nbins Number of bins to divide AUC into
+#'
+#' @return Labelled AUC
+#' @export
+#'
+#' @examples
+get_AUC_class <- function(AUC, nbins = 10){
+  breaks_AUC = seq(0, 1, length.out = nbins + 1)
+  labels_AUC = plyr::laply(1:nbins,
+                           function(i){
+                             if (i==nbins){
+                               comp_oper = "<="
+                             } else {
+                               comp_oper = "<"
+                             }
+                             latex2exp::TeX(sprintf("$%.2f >= AUC %s %.2f$", breaks_AUC[i], comp_oper, breaks_AUC[i+1]), output = 'character')})
+
+  return(factor(cut(AUC,
+      breaks = breaks_AUC,
+      labels = labels_AUC,
+      include.lowest=TRUE, # Don't exclude AUC = 1
+      right = FALSE # Brackets NOT closed on the right but closed on the left
+      ), levels = labels_AUC))
+}
 
 
 #' Get Area Under the Curve (AUC)

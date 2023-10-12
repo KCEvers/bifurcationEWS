@@ -433,11 +433,15 @@ get_forloop <- function(...){
 #'
 #' @examples
 add_par_as_cols = function(df, for_par){
-  df2 = cbind(
-    df,
-    # as.data.frame(t(for_par))[rep(1, nrow(df)), ] %>%
-    as.data.frame(for_par)[rep(1, nrow(df)), ] %>%
-      magrittr::set_rownames(NULL))
-  df2 <- df2[, !duplicated(colnames(df2))]
-  return(df2)
+  # df2 = cbind(
+  #   df,
+  #   # as.data.frame(t(for_par))[rep(1, nrow(df)), ] %>%
+  #   as.data.frame(for_par)[rep(1, nrow(df)), ] %>%
+  #     magrittr::set_rownames(NULL))
+  #
+  # df2 <- df2[, !duplicated(colnames(df2))]
+
+  # Remove any entries that are already in df
+  df2 = dplyr::bind_cols(df, for_par[setdiff( names(for_par), names(df))])
+    return(df2)
 }

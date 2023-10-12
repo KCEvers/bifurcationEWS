@@ -335,8 +335,6 @@ rp_measures_KCE <- function(RM,
                                       # recurrenceTimes = recurrenceTimes,
                                       matrices  = matrices))
 
-
-
   if(matrices){
     tab <- out$crqaMeasures
   } else {
