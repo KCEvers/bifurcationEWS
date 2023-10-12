@@ -542,30 +542,26 @@ periods_to_regimes <- function(peaks_df, periods,
     ungroup() %>% rename(regime = .data$period_bifpar)
 
   # Sometimes, the chaotic regime does not consistently touch the basin boundary, but switches about every bifurcation index. Merge regimes that are too short to form their own regime but have chaos in them.
-
-  mixture_regime = ifelse(nrow(regimes_A %>% dplyr::filter(.data$length_region < min_length_regime, grepl("Basin-Boundary", .data$regime, fixed = TRUE))) > 0,
-                          "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)",
-                          "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4)")
-
-
-  # left off here
-  # Boundary-Crisis: Chaotic or Transitioning to Mixed-Periodic
+#
+#   mixture_regime = ifelse(nrow(regimes_A %>% dplyr::filter(.data$length_region < min_length_regime, grepl("Basin-Boundary", .data$regime, fixed = TRUE))) > 0,
+#                           "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)",
+#                           "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4)")
 
   regimes_B = regimes_A %>% rowwise() %>%
     # By excluding those regimes that already satisfy the minimum length, we group together 'stray' regimes of short length
     mutate(regime_mixed = ifelse(.data$length_region < min_length_regime &
                                    grepl("Chaotic or Transitioning (X1,X2,X3,X4)", .data$regime, fixed = TRUE) | (grepl("Chaotic or Transitioning", .data$regime, fixed = TRUE) & grepl("Period", .data$regime, fixed = TRUE)),
-                                !!mixture_regime, NA))
+                                 "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4)", NA))
 
   # mutate(regime_mixed = ifelse(.data$length_region < min_length_regime &
                                                                                                                                                                   # any(pmatch(c("Chaotic or Transitioning (X1,X2,X3,X4)", "Chaotic or Transitioning (X1,X2,X3,X4) (Touching Basin-Boundary)", "Period"), .data$regime)),
                                                                                                                                                                 # "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)", NA))
-  # mutate(regime_mixed = ifelse(.data$length_region < min_length_regime & .data$regime %in% c("Chaotic or Transitioning (X1,X2,X3,X4)", "Chaotic or Transitioning (X1,X2,X3,X4) (Touching Basin-Boundary)"), "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)", NA))
+
 
   if (all(is.na(regimes_B$regime_mixed))){
     regimes_C = data.frame()
   } else {
-  regimes_C = regimes_B %>%
+  regimes_C_ = regimes_B %>%
     filter(!is.na(.data$regime_mixed)) %>% select(-.data$regime) %>%
     # Turn regime of start to end_bifpar_idx into separate rows per bifpar_idx
     tibble::rownames_to_column() %>%
@@ -579,6 +575,14 @@ periods_to_regimes <- function(peaks_df, periods,
     group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
     arrange(.data$start_bifpar_idx) %>%
     ungroup() %>% rename(regime = .data$regime_mixed)
+
+  # If there's any member of the regime that touches the basin boundary, update
+  regimes_C = regimes_C_ %>% rowwise() %>%
+    mutate(regime = ifelse(any(seq(.data$start_bifpar_idx, .data$end_bifpar_idx) %in% basin_bound$bifpar_idx),
+                                  paste0(.data$regime, " (Not) Touching Basin-Boundary)"),
+                                  .data$regime)
+    )
+
   }
   # Merge
   regimes = bind_rows(
@@ -630,6 +634,7 @@ find_regimes <- function(GLV,
   # thresh_expansion = .1
   # peaks_df=regime_list$peaks_df
   # period_per_var=regime_list$period_per_var
+  # GLV = regime_list
 
   # Get dataframe with peaks
   peaks_df = peaks_bifdiag(GLV$df, GLV$X_names) %>% filter(.data$bifpar_idx >= 5) # Skip initial settling in points
@@ -741,7 +746,8 @@ find_regimes <- function(GLV,
 #                                          thresh_expansion = .1)
 
   # Find regime boundaries
-  regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime, X_names = GLV$X_names)
+  regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime,
+                                      X_names = GLV$X_names)
 
   # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
   regime_bounds =  merge(regime_bounds_,
