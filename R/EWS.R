@@ -409,7 +409,7 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
 #' @param EWS_warnings_ROC Dataframe with true positive rate, true negative rate, false positive rate, and false negative rate per critical value
 #' @param grouping_vars Names of grouping variables
 #'
-#' @return
+#' @return AUC dataframe
 #' @export
 #' @importFrom dplyr summarise group_by_at .data
 #'

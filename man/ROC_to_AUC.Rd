@@ -4,14 +4,15 @@
 \alias{ROC_to_AUC}
 \title{Integrate area under receiver operator curve (ROC) to Area Under the Curve (AUC)}
 \usage{
-ROC_to_AUC(EWS_warnings_ROC, grouping_vars, nbins = 10)
+ROC_to_AUC(EWS_warnings_ROC, grouping_vars)
 }
 \arguments{
 \item{EWS_warnings_ROC}{Dataframe with true positive rate, true negative rate, false positive rate, and false negative rate per critical value}
 
 \item{grouping_vars}{Names of grouping variables}
-
-\item{nbins}{Number of bins to divide AUC into}
+}
+\value{
+AUC dataframe
 }
 \description{
 Integrate area under receiver operator curve (ROC) to Area Under the Curve (AUC)

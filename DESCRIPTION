@@ -19,6 +19,7 @@ Imports:
     cowplot,
     deSolve,
     dplyr,
+    foreach,
     ggh4x,
     ggplot2,
     grDevices,
