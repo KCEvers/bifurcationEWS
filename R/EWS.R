@@ -97,6 +97,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 #'
 #' @return Dataframe with EWS
 #' @importFrom dplyr .data arrange group_by group_split all_of select mutate
+#' @importFrom foreach foreach `%do%`
 #' @export
 #'
 #' @examples
@@ -106,9 +107,32 @@ run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax), multi_me
 
   # Split dataframe per bifurcation parameter
   split_df = df %>% as.data.frame() %>% group_by(.data$bifpar_idx) %>% group_split()
-  split_df_EWS = split_df %>%
-    lapply(function(df_){run_EWS(df_ %>% arrange(.data$time_idx) %>% select(all_of(X_names)) %>% as.matrix(), uni_metrics, multi_metrics, EWS_args = EWS_args)} %>% mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
-    do.call(rbind, .) %>% as.data.frame()
+  # split_df_EWS = split_df %>%
+  #   lapply(function(df_){run_EWS(df_ %>% arrange(.data$time_idx) %>%
+  #                                  select(all_of(X_names)) %>% as.matrix(),
+  #                                uni_metrics, multi_metrics, EWS_args = EWS_args)} %>%
+  #            mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
+  #   do.call(rbind, .) %>% as.data.frame()
+
+  # Save each separately and combine after forloop to save memory
+  tmps = lapply(seq_along(split_df), function(x){tempfile(fileext = ".RDS")})
+  foreach(df_ = split_df,
+                          tmp = tmps,
+                          .combine = function(...){NULL}
+          ) %do% {
+                            EWS_df = run_EWS(df_ %>% arrange(.data$time_idx) %>%
+                                      select(all_of(X_names)) %>% as.matrix(),
+                                    uni_metrics, multi_metrics, EWS_args = EWS_args) %>%
+                              mutate(bifpar_idx = unique(df_$bifpar_idx))
+
+                            saveRDS(EWS_df, tmp)
+                            return(NULL)
+                          }
+
+  split_df_EWS = foreach(tmp = tmps, .combine = 'rbind') %do% {
+    return(readRDS(tmp))
+  }
+  lapply(tmps, unlink)
 
   return(split_df_EWS)
 }
