@@ -7,10 +7,11 @@
 run_bifEWS(
   df,
   X_names,
-  uni_metrics = c(Smax = get_Smax),
+  uni_metrics = c(spec = get_specEWS),
   multi_metrics = c(RQA = runRQA),
   EWS_args = list(Smax = list(fs = 1, nr_timesteps = 100), RQA = list(emDim = 1, emLag =
-    1, theiler = 1, distNorm = "max", targetValue = 0.05))
+    1, theiler = 1, distNorm = "max", targetValue = 0.05)),
+  save_intermediate = FALSE
 )
 }
 \arguments{
@@ -23,6 +24,8 @@ run_bifEWS(
 \item{multi_metrics}{List of multivariate EWS}
 
 \item{EWS_args}{List of parameters to pass to EWS functions, empty list if no parameters need to be passed}
+
+\item{save_intermediate}{Logical; should intermediate results be saved and combined at the end or should they be kept in memory?}
 }
 \value{
 Dataframe with EWS
