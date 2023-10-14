@@ -101,7 +101,8 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 #' @export
 #'
 #' @examples
-run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax), multi_metrics = c("RQA" = runRQA),
+run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
+                       multi_metrics = c("RQA" = runRQA),
                        EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100),
                                        "RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05))){
 
@@ -623,4 +624,59 @@ get_Smax = function(x, fs, nr_timesteps){
 
   # return(data.frame(Smax = pw$freq[which.max(pw$spec)], Fmax = max(pw$spec)))
   return(data.frame(Smax = max(pw$spec), Fmax = pw$freq[which.max(pw$spec)]))
+}
+
+
+#' Hurst exponent
+#'
+#' @inheritParams get_Smax
+#'
+#' @return Fitted linear slope of scale vs. detrended fluctuation (log-log)
+#' @export
+#'
+#' @examples
+get_Hurst_exp <- function(x, fs, nr_timesteps){
+
+  if (stats::var(x) == 0){
+    Hurst_exp = 0
+  } else {
+  DFA = casnet::fd_dfa(
+    stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
+    fs = fs, doPlot = FALSE, silent = TRUE
+  )
+  Hurst_exp = unname(DFA$fullRange$sap)
+  }
+  return(Hurst_exp)
+}
+
+
+#' Spectral ratio of spectral density at low to high frequency
+#'
+#' @inheritParams get_Smax
+#' @param low Low frequency
+#' @param high High frequency
+#'
+#' @return Spectral ratio of spectral density at low frequency to spectral density at high frequency
+#' @export
+#'
+#' @examples
+get_spectral_ratio_exp <- function(x, fs, nr_timesteps, low = 0.05, high = .5){
+
+  if (stats::var(x) == 0){
+    spec_ratio = 0
+    spectral_exp = 0
+  } else {
+    spectfft <- stats::spec.ar(stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
+                             # n.freq=100,
+                             plot=FALSE,order=1)
+    freq = spectfft$freq[-1]
+    spec = spectfft$spec[-1]
+    spec_low = spec[which.min(abs(freq - low))]
+    spec_high = spec[which.min(abs(freq - high))]
+    lmfit <- stats::lm(log2(spec) ~ log2(freq), na.action=stats::na.omit)
+    spec_ratio = spec_low/spec_high
+    spectral_exp = unname(lmfit$coefficients[2])
+  }
+  return(data.frame(spec_ratio=spec_ratio, spectral_exp=spectral_exp))
+
 }
