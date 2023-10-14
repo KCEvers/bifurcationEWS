@@ -641,8 +641,8 @@ get_specEWS = function(x, fs, nr_timesteps, low = 0.05, high = .5, bw = .05){
   spectral_exp = unname(lmfit$coefficients[2])
 }
   return(data.frame(Smax=Smax,Fmax=Fmax,
-                    spec_ratio_LF_HF=spec_ratio_LF_HF,
-                    spec_ratio_LF_HF_bw=spec_ratio_LF_HF_bw,
+                    ratio_LF_HF=spec_ratio_LF_HF,
+                    ratio_LF_HF_bw=spec_ratio_LF_HF_bw,
                     spectral_exp=spectral_exp))
 }
 
