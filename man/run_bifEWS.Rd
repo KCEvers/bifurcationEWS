@@ -7,7 +7,7 @@
 run_bifEWS(
   df,
   X_names,
-  uni_metrics = c(spec = get_specEWS),
+  uni_metrics = c(Smax = get_Welch_specEWS),
   multi_metrics = c(RQA = runRQA),
   EWS_args = list(Smax = list(fs = 1, nr_timesteps = 100), RQA = list(emDim = 1, emLag =
     1, theiler = 1, distNorm = "max", targetValue = 0.05)),

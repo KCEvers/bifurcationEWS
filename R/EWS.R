@@ -102,7 +102,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 #' @export
 #'
 #' @examples
-run_bifEWS <- function(df, X_names, uni_metrics = c("spec" = get_specEWS),
+run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Welch_specEWS),
                        multi_metrics = c("RQA" = runRQA),
                        EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100),
                                        "RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05)),
@@ -573,6 +573,18 @@ spatial_kurtosis <- function(x) {
 
 ## Univariate EWS Metrics
 
+#' Coefficient of Variation (COV)
+#'
+#' @param x Timeseries
+#'
+#' @return COV
+#' @export
+#'
+#' @examples
+get_COV <- function(x){
+  return(mean(x, na.rm = TRUE) / sd(x, na.rm=TRUE))
+}
+
 #' Skewness
 #'
 #' @param x Vector
@@ -593,6 +605,8 @@ skewness <- function(x){moments::skewness(x)}
 #' @examples
 kurtosis <- function(x){moments::kurtosis(x)}
 
+
+
 #' Lag-1 Autocorrelation
 #'
 #' @param x Vector
@@ -608,56 +622,57 @@ get_autocorr <- function(x) {
 
 
 
-#' Get EWS from spectral density
+#' Spectral EWS from Welch's PSD
 #'
 #' @param x Signal
 #' @param fs Sampling frequency
 #' @param nr_timesteps Number of timesteps
 #' @param low Low frequency
 #' @param high High frequency
-#' @param bw Width around low and high frequency for estimating spectral ratio
+#' @param low_perc Percentage of low frequencies to sum for spectral ratio
+#' @param high_perc Percentage of high frequencies to sum for spectral ratio
+#' @param max_f Maximum frequency length to fit spectral slope to
 #'
-#' @return Dataframe with spectral EWS
+#' @return Spectral EWS from Welch's PSD
 #' @export
 #'
 #' @examples
-get_specEWS = function(x, fs, nr_timesteps, low = 0.05, high = .5, bw = .05){
+get_Welch_specEWS = function(x, fs, nr_timesteps, low = 0.005, high = .5,
+                    low_perc = .01, high_perc = .1,
+                    max_f = 50){
 
   if (stats::var(x) == 0){
     Smax = 0
-    Fmax=0
-    spec_ratio_LF_HF=0
-    spec_ratio_LF_HF_bw=0
-    spectral_exp=0
+    spectral_exp = 0
+    spec_ratio_LF_HF = 0
+    spec_ratio_LF_HF_perc = 0
   } else {
-   lx <- fs * nr_timesteps
+  lx <- fs * nr_timesteps
   pw <- gsignal::pwelch(x, window = lx, fs = fs,
                         # Remove mean so that the spectral peak isn't at zero
                         detrend = c("long-mean", "short-mean", "long-linear", "short-linear", "none")[1],
                         range = "half")
-  freq = pw$freq[-1]
-  spec = pw$spec[-1]
   Smax = max(pw$spec)
-  Fmax = pw$freq[which.max(pw$spec)]
+
+  # Fit slope to spectral density; Remove spectral density corresponding to f = 0
+  lmfit <- stats::lm(log2(pw$spec[2:max_freq]) ~ log2(pw$freq[2:max_freq]),
+                     na.action=stats::na.omit)
+  spectral_exp = unname(lmfit$coefficients[2])
 
   # Spectral ratio of spectral density at low to high frequency
   spec_ratio_LF_HF = spec[which.min(abs(freq - low))] / spec[which.min(abs(freq - high))]
-  spec_ratio_LF_HF_bw = sum(spec[which.min(abs(freq - (low - bw))):which.min(abs(freq - low))]) / sum(spec[which.min(abs(freq - (high - bw))):which.min(abs(freq - high))])
-
-  # Fit linear regression to log-log plot of frequency vs. spectral density
-  lmfit <- stats::lm(log2(spec) ~ log2(freq), na.action=stats::na.omit)
-  spectral_exp = unname(lmfit$coefficients[2])
-}
-  return(data.frame(Smax=Smax,Fmax=Fmax,
-                    ratio_LF_HF=spec_ratio_LF_HF,
-                    ratio_LF_HF_bw=spec_ratio_LF_HF_bw,
-                    spectral_exp=spectral_exp))
+  spec_ratio_LF_HF_perc = sum(spec[2:round(low_perc * length(spec))]) / sum(spec[(length(spec) - round(high_perc * length(spec)) + 2):length(spec)])
+  }
+  return(data.frame(Smax=Smax,
+                    spectral_ratio_LF_HF=spec_ratio_LF_HF,
+                    spectral_ratio_LF_HF_perc=spec_ratio_LF_HF_perc,
+                    spectral_exp = spectral_exp))
 }
 
 
 #' Hurst exponent
 #'
-#' @inheritParams get_specEWS
+#' @inheritParams get_Welch_specEWS
 #'
 #' @return Fitted linear slope of scale vs. detrended fluctuation (log-log)
 #' @export
@@ -677,3 +692,28 @@ get_Hurst_exp <- function(x, fs, nr_timesteps){
   return(Hurst_exp)
 }
 
+
+
+#' Spectral exponent
+#'
+#' @inheritParams get_Welch_specEWS
+#'
+#' @return Slope of power spectral density
+#' @export
+#'
+#' @examples
+get_spectral_exp <- function(x, fs, nr_timesteps){
+
+  if (stats::var(x) == 0){
+    Hurst_exp = 0
+  } else {
+    PSD = casnet::fd_psd(
+      stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
+      fs = fs,
+      fitMethod = c("lowest25","Wijnants","Hurvich-Deo")[2],
+      doPlot = FALSE, silent = TRUE
+    )
+    spectral_exp = unname(PSD$fullRange$sap)
+  }
+  return(spectral_exp)
+}
