@@ -653,9 +653,11 @@ get_Welch_specEWS = function(x, fs, nr_timesteps, low = 0.005, high = .5,
                         detrend = c("long-mean", "short-mean", "long-linear", "short-linear", "none")[1],
                         range = "half")
   Smax = max(pw$spec)
+  freq = pw$freq[-1]
+  spec = pw$spec[-1]
 
   # Fit slope to spectral density; Remove spectral density corresponding to f = 0
-  lmfit <- stats::lm(log2(pw$spec[2:max_freq]) ~ log2(pw$freq[2:max_freq]),
+  lmfit <- stats::lm(log2(spec[1:max_f]) ~ log2(freq[1:max_f]),
                      na.action=stats::na.omit)
   spectral_exp = unname(lmfit$coefficients[2])
 
