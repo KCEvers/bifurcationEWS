@@ -410,6 +410,31 @@ get_fs <- function(timestep = 0.01, sample_interval = 25){
   return(1/sample_interval * (1/timestep))
 }
 
+#' Update downsampling parameters with new sampling frequency
+#'
+#' @param downsample_pars List of parameters for downsampling
+#' @param timestep Timestep
+#' @param new_fs New sampling frequency
+#'
+#' @return List of updated parameters for downsampling
+#' @export
+#'
+#' @examples
+new_downsample_pars <- function(downsample_pars, timestep = 0.01, new_fs = 5){
+  old_sample_interval = downsample_pars$win_size
+  new_sample_interval = 1/new_fs * (1/timestep)
+
+  if (old_sample_interval > new_sample_interval){
+    return("The old sample frequency is smaller than the new sample frequency; you cannot upsample with this function!")
+  }
+  new_win_size = new_sample_interval / old_sample_interval
+  downsample_pars$win_size = new_win_size
+  if (downsample_pars$type == "average"){
+    downsample_pars$which_X = downsample_pars$win_size
+  }
+  return(downsample_pars)
+}
+
 #' Utility function for foreach loop to save memory
 #'
 #' @param ... All outputs from foreach loop

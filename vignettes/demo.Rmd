@@ -93,7 +93,7 @@ bifpar_pars = list(
   bifpar_start = .96, bifpar_end = .97,
 #   #bifpar_start = .965, bifpar_end = .985,
                                     pre_steps = 0,
-                                  baseline_steps = 0, transition_steps = 101, post_steps = 0)
+                                  baseline_steps = 0, transition_steps = 1, post_steps = 0)
 bifpar_list=do.call(get_bifurcation_range, bifpar_pars)
 
 GLV_Chaos1 = bifurcation_ts(model = GLV_model, model_pars = pars$model_pars,
