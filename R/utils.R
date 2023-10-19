@@ -381,11 +381,11 @@ format_pars <- function(pars){
   pars_add = with(pars, {
 
     if (!is.null(pars[["data_idx"]])){
-      file_ID = sprintf("nr%d_T%d_ts%.3f_Xsigma%.5f",
-                      data_idx, nr_timesteps, timestep, X_sigma)
+      file_ID = sprintf("nr%d_T%d_ts%.3f_fs%.2f_Xsigma%.5f",
+                      data_idx, nr_timesteps, timestep, 1/downsample_pars$win_size, X_sigma)
     } else {
-      file_ID = sprintf("T%d_ts%.3f_Xsigma%.5f",
-                        nr_timesteps, timestep, X_sigma)
+      file_ID = sprintf("T%d_ts%.3f_fs%.2f_Xsigma%.5f",
+                        nr_timesteps, timestep, 1/downsample_pars$win_size, X_sigma)
 
     }
     # pars_ID
