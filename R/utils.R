@@ -382,10 +382,10 @@ format_pars <- function(pars){
 
     if (!is.null(pars[["data_idx"]])){
       file_ID = sprintf("nr%d_T%d_ts%.3f_fs%.2f_Xsigma%.5f",
-                      data_idx, nr_timesteps, timestep, 1/downsample_pars$win_size, X_sigma)
+                      data_idx, nr_timesteps, get_fs(timestep, downsample_pars$win_size), X_sigma)
     } else {
       file_ID = sprintf("T%d_ts%.3f_fs%.2f_Xsigma%.5f",
-                        nr_timesteps, timestep, 1/downsample_pars$win_size, X_sigma)
+                        nr_timesteps, timestep, get_fs(timestep, downsample_pars$win_size), X_sigma)
 
     }
     # pars_ID
@@ -397,6 +397,18 @@ format_pars <- function(pars){
 }
 
 
+#' Compute sampling frequency
+#'
+#' @param timestep Timestep
+#' @param sample_interval Interval between samples
+#'
+#' @return Sampling frequency
+#' @export
+#'
+#' @examples
+get_fs <- function(timestep = 0.01, sample_interval = 25){
+  return(1/sample_interval * (1/timestep))
+}
 
 #' Utility function for foreach loop to save memory
 #'
