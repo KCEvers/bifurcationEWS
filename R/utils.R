@@ -55,11 +55,11 @@
 # LazyDataCompression:xz
 # to the description file.
 
+
 #' Reduce size of dataframe by downsampling
 #'
 #' @param df Dataframe
 #' @param X_names Names of columns in df containing observational timeseries to be downsampled
-#' @param type Type of downsampling. "average" averages data points in each window; "one_sample" picks one sample in each window.
 #' @param win_size Number of data points to be averaged or sampled from in each step
 #' @param which_X Time point(s) in window to select
 #' @param seed_nr Seed number for random sampling of data point per window
@@ -69,42 +69,38 @@
 #' @export
 #'
 #' @examples
-downsample <- function(df, X_names, type = c("average", "one_sample")[1],
-                       win_size = 10,
-                       which_X = c(10, "first", "middle", "last", "random")[1],
-                       seed_nr = 123
+downsample <- function(df, X_names,
+                           win_size = 10,
+                           which_X = c("all", "first", "middle", "last", "random", 3)[1],
+                           seed_nr = NULL
 ){
-  set.seed(seed_nr)
+  if (is.numeric(seed_nr)){
+    set.seed(seed_nr)
+  }
   df = df %>% as.data.frame()
 
-  if (type == "average"){
+  # Select one sample every win_size with the option of choosing which sample
+  slice_func = dplyr::slice
+
+  if (which_X == "all"){
     # Compute average every X samples with possibility of random samples drawn in every X
     slice_func = dplyr::slice_sample
-
-    which_X = as.numeric(which_X)
-    if (!is.na(which_X)){
-      n = which_X
-    } else {
-      return("which_X must be a number!")
-    }
-
+    n = win_size
+  } else if (which_X == "first"){
+      n = 1
+  } else if (which_X == "middle"){
+    n = ceiling(win_size/2)
+  } else if (which_X == "last"){
+    n = win_size
+  } else if (which_X == "random"){
+    n = 1
+    slice_func = dplyr::slice_sample
+  } else if (!is.na(as.numeric(which_X))){
+    n = as.numeric(which_X)
+    slice_func = dplyr::slice_sample
     if (n > win_size){
-      n = win_size
       print("The number of samples per win_size cannot be more than the win_size itself. Setting the number of samples to the win_size.")
-    }
-  } else if (type == "one_sample"){
-    # Select one sample every win_size with the option of choosing which sample
-    slice_func = dplyr::slice
-
-    if (which_X == "first"){
-      n = 1
-    } else if (which_X == "middle"){
-      n = ceiling(win_size/2)
-    } else if (which_X == "last"){
       n = win_size
-    } else if (which_X == "random"){
-      n = 1
-      slice_func = dplyr::slice_sample
     }
   }
 
@@ -382,10 +378,10 @@ format_pars <- function(pars){
 
     if (!is.null(pars[["data_idx"]])){
       file_ID = sprintf("nr%d_T%d_ts%.3f_fs%.2f_Xsigma%.5f",
-                      data_idx, nr_timesteps, timestep, get_fs(timestep, downsample_pars$win_size), X_sigma)
+                      data_idx, nr_timesteps, timestep, fs, X_sigma)
     } else {
       file_ID = sprintf("T%d_ts%.3f_fs%.2f_Xsigma%.5f",
-                        nr_timesteps, timestep, get_fs(timestep, downsample_pars$win_size), X_sigma)
+                        nr_timesteps, timestep, fs, X_sigma)
 
     }
     # pars_ID
@@ -397,42 +393,31 @@ format_pars <- function(pars){
 }
 
 
-#' Compute sampling frequency
+
+#' Solve for sampling parameters
 #'
+#' @param fs Sampling frequency
+#' @param sample_interval Sampling interval
 #' @param timestep Timestep
-#' @param sample_interval Interval between samples
 #'
-#' @return Sampling frequency
+#' @return List of sampling parameters
 #' @export
 #'
 #' @examples
-get_fs <- function(timestep = 0.01, sample_interval = 25){
-  return(1/sample_interval * (1/timestep))
-}
+solve_sampling_par <- function(fs = NULL, sample_interval = NULL, timestep = NULL){
 
-#' Update downsampling parameters with new sampling frequency
-#'
-#' @param downsample_pars List of parameters for downsampling
-#' @param timestep Timestep
-#' @param new_fs New sampling frequency
-#'
-#' @return List of updated parameters for downsampling
-#' @export
-#'
-#' @examples
-new_downsample_pars <- function(downsample_pars, timestep = 0.01, new_fs = 5){
-  old_sample_interval = downsample_pars$win_size
-  new_sample_interval = 1/new_fs * (1/timestep)
-
-  if (old_sample_interval > new_sample_interval){
-    return("The old sample frequency is smaller than the new sample frequency; you cannot upsample with this function!")
+  if(sum(is.null(fs) & is.null(sample_interval) & is.null(timestep)) > 1){
+    message("Need at least two parameters!")
+    return()
   }
-  new_win_size = new_sample_interval / old_sample_interval
-  downsample_pars$win_size = new_win_size
-  if (downsample_pars$type == "average"){
-    downsample_pars$which_X = downsample_pars$win_size
+  if (is.null(fs)){
+    fs = (1/sample_interval) * (1/timestep)
+  } else if (is.null(sample_interval)){
+    sample_interval = (1/timestep) / fs
+  } else if (is.null(timestep)){
+    timestep = 1 / (fs * sample_interval)
   }
-  return(downsample_pars)
+  return(list(fs = fs, sample_interval = sample_interval, timestep = timestep))
 }
 
 #' Utility function for foreach loop to save memory

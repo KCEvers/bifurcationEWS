@@ -20,8 +20,8 @@ bifurcation_ts(
     is.nan))
  },
   do_downsample = TRUE,
-  downsample_pars = list(type = c("average", "one_sample")[1], win_size = 50, which_X =
-    c(50, "first", "middle", "last", "random")[1], seed = 123),
+  fs = 50,
+  which_X = "all",
   silent = FALSE,
   max_iter = 1,
   seed_change = function(seed_nr) {
@@ -54,7 +54,9 @@ bifurcation_ts(
 
 \item{do_downsample}{Reduce dataframe size by downsampling?}
 
-\item{downsample_pars}{List of parameters for downsampling}
+\item{fs}{Sampling frequency for downsampling if do_downsample = TRUE}
+
+\item{which_X}{Time point(s) in downsampling window to select if do_downsample = TRUE}
 
 \item{silent}{Don't output progress if TRUE}
 

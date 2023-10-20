@@ -7,18 +7,15 @@
 downsample(
   df,
   X_names,
-  type = c("average", "one_sample")[1],
   win_size = 10,
-  which_X = c(10, "first", "middle", "last", "random")[1],
-  seed_nr = 123
+  which_X = c("all", "first", "middle", "last", "random", 3)[1],
+  seed_nr = NULL
 )
 }
 \arguments{
 \item{df}{Dataframe}
 
 \item{X_names}{Names of columns in df containing observational timeseries to be downsampled}
-
-\item{type}{Type of downsampling. "average" averages data points in each window; "one_sample" picks one sample in each window.}
 
 \item{win_size}{Number of data points to be averaged or sampled from in each step}
 

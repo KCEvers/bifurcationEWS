@@ -12,7 +12,8 @@
 #' @param deSolve_method Method of generating ODE passed to deSolve::ode
 #' @param stopifregime End generating timeseries if this function is satisfied
 #' @param do_downsample Reduce dataframe size by downsampling?
-#' @param downsample_pars List of parameters for downsampling
+#' @param fs Sampling frequency for downsampling if do_downsample = TRUE
+#' @param which_X Time point(s) in downsampling window to select if do_downsample = TRUE
 #' @param silent Don't output progress if TRUE
 #' @param max_iter Maximum number of tries to restart from a new initial condition and not hit undesirable regime
 #' @param seed_change Function to update seed number when restarting after hitting undesirable regime
@@ -31,10 +32,8 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
                            stopifregime = function(out){any(apply(out, 2, is.infinite)) | any(apply(out, 2, is.nan))},
 
                            do_downsample = TRUE,
-                           downsample_pars = list(type = c("average", "one_sample")[1],
-                                                  win_size = 50,
-                                                  which_X = c(50, "first", "middle", "last", "random")[1],
-                                                  seed = 123),
+                           fs = 50,
+                           which_X = "all",
                            silent = FALSE,
                            max_iter = 1,
                            seed_change = function(seed_nr){seed_nr + 1}){
@@ -106,11 +105,18 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       }
 
       if (do_downsample){
-        out = downsample(out, X_names, type = downsample_pars$type,
-                         win_size = downsample_pars$win_size,
-                         which_X = downsample_pars$which_X,
-                         seed_nr = downsample_pars$seed_nr)
+        # out = downsample(out, X_names,
+        #                  win_size = downsample_pars$win_size,
+        #                  which_X = downsample_pars$which_X,
+        #                  seed_nr = downsample_pars$seed_nr)
+
+        # out = do.call(downsample, utils::modifyList(downsample_pars,
+                                                    # list(df = out, X_names = X_names)))
+        out = downsample(out, X_names,
+                         win_size = solve_sampling_par(fs = fs, timestep = timestep)$sample_interval,
+                         which_X = which_X)
       }
+
       # Save intermediate result for efficiency
       tmp <- tempfile(fileext = ".RDS")
       saveRDS(out, tmp)
@@ -159,7 +165,10 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
               bifpar_list = bifpar_list,
               bifpar_pars = bifpar_pars,
               do_downsample = do_downsample,
-              downsample_pars = downsample_pars))
+              # downsample_pars = downsample_pars
+              fs = fs,
+              which_X = which_X
+              ))
   } else {
     message("Simulation NOT successful!")
     return()
