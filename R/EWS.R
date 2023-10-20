@@ -102,7 +102,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 #' @export
 #'
 #' @examples
-run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Welch_specEWS),
+run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
                        multi_metrics = c("RQA" = runRQA),
                        EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100),
                                        "RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05)),
@@ -582,7 +582,7 @@ spatial_kurtosis <- function(x) {
 #'
 #' @examples
 get_COV <- function(x){
-  return(mean(x, na.rm = TRUE) / sd(x, na.rm=TRUE))
+  return(mean(x, na.rm = TRUE) / stats::sd(x, na.rm=TRUE))
 }
 
 #' Skewness
@@ -622,30 +622,23 @@ get_autocorr <- function(x) {
 
 
 
-#' Spectral EWS from Welch's PSD
+#' Compute Maximum Spectral Density (Bury, 2021)
 #'
 #' @param x Signal
 #' @param fs Sampling frequency
 #' @param nr_timesteps Number of timesteps
-#' @param low Low frequency
-#' @param high High frequency
-#' @param low_perc Percentage of low frequencies to sum for spectral ratio
-#' @param high_perc Percentage of high frequencies to sum for spectral ratio
-#' @param max_f Maximum frequency length to fit spectral slope to
 #'
 #' @return Spectral EWS from Welch's PSD
 #' @export
 #'
 #' @examples
-get_Welch_specEWS = function(x, fs, nr_timesteps, low = 0.005, high = .5,
-                    low_perc = .01, high_perc = .1,
-                    max_f = 50){
+get_Smax = function(x, fs, nr_timesteps){
 
   if (stats::var(x) == 0){
     Smax = 0
-    spectral_exp = 0
-    spec_ratio_LF_HF = 0
-    spec_ratio_LF_HF_perc = 0
+    # spectral_exp = 0
+    # spec_ratio_LF_HF = 0
+    # spec_ratio_LF_HF_perc = 0
   } else {
   lx <- fs * nr_timesteps
   pw <- gsignal::pwelch(x, window = lx, fs = fs,
@@ -653,40 +646,63 @@ get_Welch_specEWS = function(x, fs, nr_timesteps, low = 0.005, high = .5,
                         detrend = c("long-mean", "short-mean", "long-linear", "short-linear", "none")[1],
                         range = "half")
   Smax = max(pw$spec)
-  freq = pw$freq[-1]
-  spec = pw$spec[-1]
-
-  # Fit slope to spectral density; Remove spectral density corresponding to f = 0
-  lmfit <- stats::lm(log2(spec[1:max_f]) ~ log2(freq[1:max_f]),
-                     na.action=stats::na.omit)
-  spectral_exp = unname(lmfit$coefficients[2])
-
-  # Spectral ratio of spectral density at low to high frequency
-  spec_ratio_LF_HF = spec[which.min(abs(freq - low))] / spec[which.min(abs(freq - high))]
-  spec_ratio_LF_HF_perc = sum(spec[2:round(low_perc * length(spec))]) / sum(spec[(length(spec) - round(high_perc * length(spec)) + 2):length(spec)])
   }
-  return(data.frame(Smax=Smax,
-                    spectral_ratio_LF_HF=spec_ratio_LF_HF,
-                    spectral_ratio_LF_HF_perc=spec_ratio_LF_HF_perc,
-                    spectral_exp = spectral_exp))
+  return(Smax)
+  # freq = pw$freq[-1]
+  # spec = pw$spec[-1]
+  #
+  # # # Fit slope to spectral density; Remove spectral density corresponding to f = 0
+  # # if (spectral_exp_method == "Wijnants2013"){
+  # #   idx_min = 1
+  # #   idx_max = 50
+  # # } else if (spectral_exp_method == "Prettyman2020"){
+  # #   f_min = 10**(-2)
+  # #   f_max = 10**(-1)
+  # #   idx_min = which.min(abs(freq - f_min))
+  # #   idx_max = which.min(abs(freq - f_max))
+  # # }
+  # # lmfit <- stats::lm(log2(spec[idx_min:idx_max]) ~ log2(freq[idx_min:idx_max]),
+  # #                    na.action=stats::na.omit)
+  # # spectral_exp = unname(lmfit$coefficients[2])
+  #
+  # # Spectral ratio of spectral density at low to high frequency
+  # spec_ratio_LF_HF = spec[which.min(abs(freq - low))] / spec[which.min(abs(freq - high))]
+  # # spec_ratio_LF_HF_perc = sum(spec[2:round(low_perc * length(spec))]) / sum(spec[(length(spec) - round(high_perc * length(spec)) + 2):length(spec)])
+  # }
+  # return(data.frame(Smax=Smax,
+  #                   spectral_ratio_LF_HF=spec_ratio_LF_HF#,
+  #                   # spectral_ratio_LF_HF_perc=spec_ratio_LF_HF_perc,
+  #                   # spectral_exp = spectral_exp
+  #                   ))
 }
 
 
 #' Hurst exponent
 #'
-#' @inheritParams get_Welch_specEWS
+#'
+#' @inheritParams get_Smax
+#' @param scaleMin Minimum scale (in data points) to use for log-log regression
+#' @param scaleMax Maximum scale (in data points) to use for log-log regression
+#' @param polyOrderSegment The DFA order, the order of polynomial trend to remove from the bin
 #'
 #' @return Fitted linear slope of scale vs. detrended fluctuation (log-log)
 #' @export
 #'
 #' @examples
-get_Hurst_exp <- function(x, fs, nr_timesteps){
+get_Hurst_exp <- function(x, fs, nr_timesteps, scaleMin = 10, scaleMax = 100,
+                          polyOrderSegment = 2){
 
   if (stats::var(x) == 0){
     Hurst_exp = 0
   } else {
   DFA = casnet::fd_dfa(
     stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
+    removeTrend = c("no", "poly", "adaptive", "bridge")[1], # Prettyman (2020)
+    # polyOrder = 2, # Prettyman (2020)
+    removeTrendSegment = c("no", "poly", "adaptive", "bridge")[2], # Prettyman (2020)
+    polyOrderSegment = polyOrderSegment, # Prettyman (2020)
+    scaleMin = scaleMin, # Prettyman (2020)
+    scaleMax = scaleMax, # Prettyman (2020)
     fs = fs, doPlot = FALSE, silent = TRUE
   )
   Hurst_exp = unname(DFA$fullRange$sap)
@@ -696,26 +712,72 @@ get_Hurst_exp <- function(x, fs, nr_timesteps){
 
 
 
-#' Spectral exponent
+#' Compute Spectral Exponent (Prettyman, 2020)
 #'
-#' @inheritParams get_Welch_specEWS
+#' @inheritParams get_Smax
+#' @param f_min Low frequency
+#' @param f_max High frequency
 #'
 #' @return Slope of power spectral density
 #' @export
 #'
 #' @examples
-get_spectral_exp <- function(x, fs, nr_timesteps){
+get_spectral_exp <- function(x, fs, nr_timesteps,
+                             f_min = 10**(-2),
+                             f_max = 10**(-1)){
 
   if (stats::var(x) == 0){
-    Hurst_exp = 0
+    pse_value = 0
   } else {
-    PSD = casnet::fd_psd(
-      stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
-      fs = fs,
-      fitMethod = c("lowest25","Wijnants","Hurvich-Deo")[2],
-      doPlot = FALSE, silent = TRUE
-    )
-    spectral_exp = unname(PSD$fullRange$sap)
+    N = length(x)
+    xdft = stats::fft(x)
+    xdft = xdft[1:floor(N/2)+1] # Only keep positive frequencies
+    psdx = (1/(fs*N)) * abs(xdft)**2
+    psdx[2:(length(psdx)-1)] = 2*psdx[2:(length(psdx)-1)] # Don't multiply zero frequency by 2
+    freq = seq(0, fs/2, length.out=length(psdx)) # Up until Nyquist frequency = fs / 2
+    # freq = seq(0, fs/2, by=fs/N) # Up until Nyquist frequency = fs / 2
+    # plot(freq, psdx, log = 'xy')
+    # abline(v=f_min, col='red')
+    # abline(v=f_max, col='red')
+    logf = log10(freq)
+    logp = log10(psdx)
+
+    idx_min = which.min(abs(freq - f_min))
+    idx_max = which.min(abs(freq - f_max))
+    pfit = stats::lm(logp[idx_min:idx_max] ~ logf[idx_min:idx_max], # Fit linear regression
+              na.action=stats::na.omit)
+    pse_value = -unname(pfit$coefficients[2])
   }
-  return(spectral_exp)
+  return(pse_value)
+}
+
+
+#' Compute Spectral Ratio (Biggs, 2009)
+#'
+#' @inheritParams get_Smax
+#' @inheritParams get_spectral_exp
+#' @param n.freq Number of points to estimate frequency at
+#'
+#' @return Spectral ratio of spectral density estimated at specified low frequency to spectral density at specified high frequency
+#' @export
+#'
+#' @examples
+get_spectral_ratio <- function(x, fs, nr_timesteps, f_min = 0.005, f_max = .5, n.freq = 5000){
+
+  if (stats::var(x) == 0){
+    spectral_ratio = 0
+  } else {
+    ARSPEC=stats::spec.ar(
+      stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
+      n.freq=n.freq,
+      # order=1, # Order as decided by AIC
+      plot=FALSE
+    )
+    freq = ARSPEC$freq[-1]
+    spec = ARSPEC$spec[-1]
+    idx_min = which.min(abs(freq - f_min))
+    idx_max = which.min(abs(freq - f_max))
+    spectral_ratio = spec[idx_min] / spec[idx_max]
+  }
+    return(spectral_ratio)
 }

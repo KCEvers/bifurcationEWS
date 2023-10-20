@@ -2,9 +2,9 @@
 % Please edit documentation in R/EWS.R
 \name{get_spectral_exp}
 \alias{get_spectral_exp}
-\title{Spectral exponent}
+\title{Compute Spectral Exponent (Prettyman, 2020)}
 \usage{
-get_spectral_exp(x, fs, nr_timesteps)
+get_spectral_exp(x, fs, nr_timesteps, f_min = 10^(-2), f_max = 10^(-1))
 }
 \arguments{
 \item{x}{Signal}
@@ -12,10 +12,14 @@ get_spectral_exp(x, fs, nr_timesteps)
 \item{fs}{Sampling frequency}
 
 \item{nr_timesteps}{Number of timesteps}
+
+\item{f_min}{Low frequency}
+
+\item{f_max}{High frequency}
 }
 \value{
 Slope of power spectral density
 }
 \description{
-Spectral exponent
+Compute Spectral Exponent (Prettyman, 2020)
 }

@@ -4,7 +4,14 @@
 \alias{get_Hurst_exp}
 \title{Hurst exponent}
 \usage{
-get_Hurst_exp(x, fs, nr_timesteps)
+get_Hurst_exp(
+  x,
+  fs,
+  nr_timesteps,
+  scaleMin = 10,
+  scaleMax = 100,
+  polyOrderSegment = 2
+)
 }
 \arguments{
 \item{x}{Signal}
@@ -12,6 +19,12 @@ get_Hurst_exp(x, fs, nr_timesteps)
 \item{fs}{Sampling frequency}
 
 \item{nr_timesteps}{Number of timesteps}
+
+\item{scaleMin}{Minimum scale (in data points) to use for log-log regression}
+
+\item{scaleMax}{Maximum scale (in data points) to use for log-log regression}
+
+\item{polyOrderSegment}{The DFA order, the order of polynomial trend to remove from the bin}
 }
 \value{
 Fitted linear slope of scale vs. detrended fluctuation (log-log)
