@@ -364,8 +364,11 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
 
     # Check for chaos expansion or reduction
     both_chaotic =  grepl("Chaotic", regime_df$regime[1], fixed = TRUE)& grepl("Chaotic", regime_df$regime[2], fixed = TRUE)
-    chaos_exp = grepl("Basin-Boundary", regime_df$regime[2], fixed = TRUE) & !grepl("Basin-Boundary", regime_df$regime[1], fixed = TRUE) & both_chaotic
-    chaos_red = grepl("Basin-Boundary", regime_df$regime[1], fixed = TRUE) & !grepl("Basin-Boundary", regime_df$regime[2], fixed = TRUE) & both_chaotic
+    type_chaos = grepl("Basin-Boundary", regime_df$regime, fixed = TRUE) | grepl("Merged-Band", regime_df$regime, fixed = TRUE)
+    chaos_exp = !type_chaos[1] & type_chaos[2] & both_chaotic
+    chaos_red = type_chaos[1] & !type_chaos[2] & both_chaotic
+    # chaos_exp = grepl("Basin-Boundary", regime_df$regime[2], fixed = TRUE) & !grepl("Basin-Boundary", regime_df$regime[1], fixed = TRUE) & both_chaotic
+    # chaos_red = grepl("Basin-Boundary", regime_df$regime[1], fixed = TRUE) & !grepl("Basin-Boundary", regime_df$regime[2], fixed = TRUE) & both_chaotic
 
     if (length(unique(regime_df_$regime)) == 1){
       return("Same-Chaos")
@@ -496,6 +499,35 @@ smooth_periods <- function(periods, nr_smooth, min_length_regime){
 }
 
 
+#' Get bifurcation diagram band properties
+#'
+#' @param x Peak vector
+#' @inheritParams periods_to_regimes
+#' @param step_size Step size in histogram
+#'
+#' @return Band properties
+#' @export
+#'
+#' @examples
+get_bands = function(x, min_edge = 0, max_edge = 1, step_size = .05){
+  # hist(x, breaks = seq(min_x, max_x, by = step_size))
+  HIST = hist(x, breaks = seq(min_edge, max_edge, by = step_size), plot = F)
+
+  dist_bins = diff(which(HIST$density > 0))
+  dist_bins = dist_bins[dist_bins > 1]
+  if (length(dist_bins) == 0){
+    dist_bins = 0
+  }
+  HIST_df = data.frame(nr_bins = sum(HIST$density > 0),
+                       max_dist_bands = max(dist_bins) * step_size,
+                       total_dist_separate_bands = sum(dist_bins * step_size),
+                       occupied_bins_in_band = sum(HIST$density > 0) / (diff(range(which(HIST$density > 0))) + 1),
+                       min_band = HIST$mids[dplyr::first(which(HIST$density > 0))],
+                       max_band = HIST$mids[dplyr::last(which(HIST$density > 0))]
+  )
+  return(HIST_df)
+}
+
 
 #' Update periodicities with basin boundaries
 #'
@@ -506,6 +538,7 @@ smooth_periods <- function(periods, nr_smooth, min_length_regime){
 #' @param variable_name Column name in dataframe to assess for hitting basin boundaries
 #' @param min_edge Minimum basin boundary
 #' @param max_edge Maximum basin boundary
+#' @param thresh_full_band Percentage of bins that need to be occupied to qualify it as a fully filled banned
 #'
 #' @return Updated dataframe
 #' @export
@@ -515,7 +548,9 @@ smooth_periods <- function(periods, nr_smooth, min_length_regime){
 periods_to_regimes <- function(peaks_df, periods,
                                X_names,
                                min_length_regime,
-                               variable_name = "X1", min_edge = 0, max_edge = 1){
+                               variable_name = "X1", min_edge = 0, max_edge = 1,
+                               thresh_full_band = .8
+){
 
   # If there are no minima and maxima (i.e. only nodes), no chaotic regimes can be found
   if (!all(c("minpeak", "maxpeak") %in% peaks_df$minmax)){
@@ -529,20 +564,36 @@ periods_to_regimes <- function(peaks_df, periods,
       tidyr::pivot_wider(names_from = "minmax", values_from = c("max", "min")) %>%
       select(.data$bifpar_idx, .data$variable, .data$max_maxpeak,.data$min_minpeak)
 
-    # Basin-Boundary
+  # Basin-Boundary
   basin_bound =  minmax_peaks_df %>%
     filter(.data$variable == !!variable_name) %>% select(-.data$variable) %>%
     filter(.data$max_maxpeak == !!max_edge & .data$min_minpeak == !!min_edge) %>%
     arrange(.data$bifpar_idx)
+
+  # Merged bands
+  bifpar_idx_chaotic = periods %>% filter(grepl("Chaotic", .data$period_bifpar, fixed = TRUE)) %>% pull(.data$bifpar_idx) %>% unique()
+  merged_band_df = peaks_df %>%
+    select(.data$bifpar_idx, .data$variable, .data$minmax, .data$X) %>%
+    dplyr::filter(.data$variable == !!variable_name) %>%
+    group_by(.data$bifpar_idx, .data$variable, .data$minmax) %>%
+    group_modify(~ get_bands(x = .x$X, min_edge = min_edge, max_edge = max_edge)) %>% ungroup() %>%
+    dplyr::filter(.data$occupied_bins_in_band >= thresh_full_band) %>%
+    filter(.data$bifpar_idx %in% bifpar_idx_chaotic) %>%
+    ungroup()
 
   # Update which periods touch the basin-boundary
   updated_periods = periods %>% ungroup() %>% rowwise() %>%
     mutate(period_bifpar = ifelse(.data$bifpar_idx %in% basin_bound$bifpar_idx,
                                   paste0(.data$period_bifpar, " (Touching Basin-Boundary)"),
                                   .data$period_bifpar)
-    )
+    ) %>%
+    mutate(period_bifpar = ifelse(.data$bifpar_idx %in% merged_band_df$bifpar_idx,
+                                  paste0(.data$period_bifpar, " (Merged-Band)"),
+                                  .data$period_bifpar)
+    ) %>% ungroup()
 
   }
+
   # Find regimes (i.e. bifpar_idxs with consecutively the same periodicity)
   regimes_A = updated_periods %>%
     group_by_at(setdiff(colnames(.), "bifpar_idx")) %>%
@@ -551,20 +602,11 @@ periods_to_regimes <- function(peaks_df, periods,
     ungroup() %>% rename(regime = .data$period_bifpar)
 
   # Sometimes, the chaotic regime does not consistently touch the basin boundary, but switches about every bifurcation index. Merge regimes that are too short to form their own regime but have chaos in them.
-#
-#   mixture_regime = ifelse(nrow(regimes_A %>% dplyr::filter(.data$length_region < min_length_regime, grepl("Basin-Boundary", .data$regime, fixed = TRUE))) > 0,
-#                           "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)",
-#                           "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4)")
-
   regimes_B = regimes_A %>% rowwise() %>%
     # By excluding those regimes that already satisfy the minimum length, we group together 'stray' regimes of short length
     mutate(regime_mixed = ifelse(.data$length_region < min_length_regime &
                                    grepl("Chaotic or Transitioning (X1,X2,X3,X4)", .data$regime, fixed = TRUE) | (grepl("Chaotic or Transitioning", .data$regime, fixed = TRUE) & grepl("Period", .data$regime, fixed = TRUE)),
                                  "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4)", NA))
-
-  # mutate(regime_mixed = ifelse(.data$length_region < min_length_regime &
-                                                                                                                                                                  # any(pmatch(c("Chaotic or Transitioning (X1,X2,X3,X4)", "Chaotic or Transitioning (X1,X2,X3,X4) (Touching Basin-Boundary)", "Period"), .data$regime)),
-                                                                                                                                                                # "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4), (Not) Touching Basin-Boundary)", NA))
 
 
   if (all(is.na(regimes_B$regime_mixed))){

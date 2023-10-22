@@ -11,7 +11,8 @@ run_bifEWS(
   multi_metrics = c(RQA = runRQA),
   EWS_args = list(Smax = list(fs = 1, nr_timesteps = 100), RQA = list(emDim = 1, emLag =
     1, theiler = 1, distNorm = "max", targetValue = 0.05)),
-  save_intermediate = FALSE
+  save_intermediate = FALSE,
+  do_parallel = FALSE
 )
 }
 \arguments{
@@ -26,6 +27,8 @@ run_bifEWS(
 \item{EWS_args}{List of parameters to pass to EWS functions, empty list if no parameters need to be passed}
 
 \item{save_intermediate}{Logical; should intermediate results be saved and combined at the end or should they be kept in memory?}
+
+\item{do_parallel}{Logical; should the analysis be run in parallel?}
 }
 \value{
 Dataframe with EWS

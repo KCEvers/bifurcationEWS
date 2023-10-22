@@ -11,7 +11,8 @@ periods_to_regimes(
   min_length_regime,
   variable_name = "X1",
   min_edge = 0,
-  max_edge = 1
+  max_edge = 1,
+  thresh_full_band = 0.8
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ periods_to_regimes(
 \item{min_edge}{Minimum basin boundary}
 
 \item{max_edge}{Maximum basin boundary}
+
+\item{thresh_full_band}{Percentage of bins that need to be occupied to qualify it as a fully filled banned}
 }
 \value{
 Updated dataframe

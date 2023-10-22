@@ -95,10 +95,11 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 #' @param multi_metrics List of multivariate EWS
 #' @param EWS_args List of parameters to pass to EWS functions, empty list if no parameters need to be passed
 #' @param save_intermediate Logical; should intermediate results be saved and combined at the end or should they be kept in memory?
+#' @param do_parallel Logical; should the analysis be run in parallel?
 #'
 #' @return Dataframe with EWS
 #' @importFrom dplyr .data arrange group_by group_split all_of select mutate
-#' @importFrom foreach foreach `%do%`
+#' @importFrom foreach foreach `%do%` `%dopar%`
 #' @export
 #'
 #' @examples
@@ -106,7 +107,11 @@ run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
                        multi_metrics = c("RQA" = runRQA),
                        EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100),
                                        "RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05)),
-                       save_intermediate = FALSE){
+                       save_intermediate = FALSE, do_parallel = FALSE){
+
+  if (do_parallel){
+    save_intermediate = TRUE
+  }
 
   # Split dataframe per bifurcation parameter
   split_df = df %>% as.data.frame() %>% group_by(.data$bifpar_idx) %>% group_split()
@@ -116,14 +121,17 @@ run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
     split_df_EWS = split_df %>%
       lapply(function(df_){run_EWS(df_ %>% arrange(.data$time_idx) %>%
                                      select(all_of(X_names)) %>% as.matrix(),
-                                   uni_metrics, multi_metrics, EWS_args = EWS_args)} %>%
-               mutate(bifpar_idx = unique(df_$bifpar_idx))) %>%
+                                   uni_metrics, multi_metrics, EWS_args = EWS_args) %>%
+          mutate(bifpar_idx = unique(df_$bifpar_idx))
+        }) %>%
       do.call(rbind, .) %>% as.data.frame()
 
   } else if (save_intermediate){
     # Save each separately and combine after forloop to save memory
     tmps = lapply(seq_along(split_df), function(x){tempfile(fileext = ".RDS")})
-    foreach(df_ = split_df,
+
+    if (!do_parallel){
+      foreach(df_ = split_df,
                             tmp = tmps,
                             .combine = function(...){NULL}
             ) %do% {
@@ -134,7 +142,23 @@ run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
 
                               saveRDS(EWS_df, tmp)
                               return(NULL)
-                            }
+            }
+
+    } else if (do_parallel){
+    foreach(df_ = split_df,
+            tmp = tmps,
+            .packages = c("bifurcationEWS", "dplyr"),
+            .combine = function(...){NULL}
+    ) %dopar% {
+      EWS_df = run_EWS(df_ %>% arrange(.data$time_idx) %>%
+                         select(all_of(X_names)) %>% as.matrix(),
+                       uni_metrics, multi_metrics, EWS_args = EWS_args) %>%
+        mutate(bifpar_idx = unique(df_$bifpar_idx))
+
+      saveRDS(EWS_df, tmp)
+      return(NULL)
+    }
+    }
 
     # Compile results
     split_df_EWS = foreach(tmp = tmps, .combine = 'rbind') %do% {
