@@ -538,7 +538,6 @@ get_bands = function(x, min_edge = 0, max_edge = 1, step_size = .05){
 #' @param variable_name Column name in dataframe to assess for hitting basin boundaries
 #' @param min_edge Minimum basin boundary
 #' @param max_edge Maximum basin boundary
-#' @param thresh_full_band Percentage of bins that need to be occupied to qualify it as a fully filled banned
 #'
 #' @return Updated dataframe
 #' @export
@@ -653,6 +652,7 @@ periods_to_regimes <- function(peaks_df, periods,
 #' @param thresh_node Threshold under which timeseries is classified as node
 #' @param thresh_coord_spread Threshold for distance in peak and trough coordinates that determines whether a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning
 #' @param thresh_peak_idx_spread Same as thresh_coord_spread but for peak and trough indices
+#' @param thresh_full_band Percentage of bins that need to be occupied to qualify it as a fully filled banned
 #' @param min_length_regime Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime
 #' @param max_k Maximum cluster size to look for
 #' @param nr_smooth Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing
@@ -667,6 +667,7 @@ find_regimes <- function(GLV,
                          thresh_node = .001,
                          thresh_coord_spread = .025,
                          thresh_peak_idx_spread=2,
+                         thresh_full_band = .9,
                          min_length_regime = 5,
                          nr_smooth = 0,
                          factor_k = .1,
@@ -683,6 +684,7 @@ find_regimes <- function(GLV,
   # min_edge = 0
   # max_edge = 1
   # thresh_expansion = .1
+  # thresh_full_band = .9
   # peaks_df=regime_list$peaks_df
   # period_per_var=regime_list$period_per_var
   # GLV = regime_list
@@ -753,7 +755,7 @@ find_regimes <- function(GLV,
   regimes = periods_to_regimes(peaks_df, periods,
                                  X_names = GLV$X_names,
                                min_length_regime=min_length_regime,
-                                 variable_name = "X1", min_edge = 0, max_edge = 1)
+                                 variable_name = "X1", min_edge = 0, max_edge = 1, thresh_full_band = thresh_full_band)
 # #   # Get basin boundaries (when system hits edges of basin)
 # #   basin_bound = find_basin_boundary(peaks_df, variable_name = "X1", min_edge = 0, max_edge = 1)
 #
@@ -816,6 +818,7 @@ find_regimes <- function(GLV,
                                             regime_bounds = regime_bounds,
                                             thresh_coord_spread = thresh_coord_spread,
                                             thresh_peak_idx_spread=thresh_peak_idx_spread,
+                                            thresh_full_band=thresh_full_band,
                                             min_length_regime = min_length_regime,
                                             max_k = max_k,
                                             nr_smooth = nr_smooth,
