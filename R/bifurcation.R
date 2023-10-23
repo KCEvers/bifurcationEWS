@@ -575,7 +575,9 @@ periods_to_regimes <- function(peaks_df, periods,
     select(.data$bifpar_idx, .data$variable, .data$minmax, .data$X) %>%
     dplyr::filter(.data$variable == !!variable_name) %>%
     group_by(.data$bifpar_idx, .data$variable, .data$minmax) %>%
-    group_modify(~ get_bands(x = .x$X, min_edge = min_edge, max_edge = max_edge)) %>% ungroup() %>%
+    group_modify(~ get_bands(x = .x$X, min_edge = min_edge, max_edge = max_edge,
+                             # Step size dependent on how many data points there are
+                             step_size = (max_edge - min_edge)/length(.x$X)  )) %>% ungroup() %>%
     dplyr::filter(.data$occupied_bins_in_band >= thresh_full_band) %>%
     filter(.data$bifpar_idx %in% bifpar_idx_chaotic) %>%
     ungroup()
@@ -688,6 +690,7 @@ find_regimes <- function(GLV,
   # peaks_df=regime_list$peaks_df
   # period_per_var=regime_list$period_per_var
   # GLV = regime_list
+  # X_names = GLV$X_names
 
   # Get dataframe with peaks
   peaks_df = peaks_bifdiag(GLV$df, GLV$X_names) %>% filter(.data$bifpar_idx >= 5) # Skip initial settling in points
