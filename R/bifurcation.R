@@ -359,10 +359,15 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
   } else {    # Regime switches involving chaotic behaviour
 
     # Check for mixed periodicity
-    regime_df_ = regime_df %>% rowwise() %>% mutate(nr_periods = ifelse( any(is.na(across(all_of(X_names)))) | any(grepl("Chaotic", across(all_of(X_names)))), NA, length(unique(across(all_of(X_names)))))) %>%
-      mutate(broad_regime = ifelse(is.na(.data$nr_periods), "Chaotic or Transitioning", ifelse(.data$nr_periods == 1, .data$period, "Mixed-Periodic")))
+    # regime_df_ = regime_df %>% rowwise() %>% mutate(nr_periods = ifelse( any(is.na(across(all_of(X_names)))) | any(grepl("Chaotic", across(all_of(X_names)))), NA, length(unique(across(all_of(X_names)))))) %>%
+    #   mutate(broad_regime = ifelse(is.na(.data$nr_periods), "Chaotic or Transitioning", ifelse(.data$nr_periods == 1, .data$period, "Mixed-Periodic")))
+    #
+  regime_df_ = regime_df %>% rowwise() %>%
+      tidyr::unite("z", X_names, sep = ";") %>%
+      dplyr::mutate(nr_periods = length(unique(stringr::str_split("z", ";")))) %>%
+      mutate(broad_regime = ifelse(is.na(.data$nr_periods), "Chaotic or Transitioning", ifelse(.data$nr_periods == 1, .data$regime, "Mixed-Periodic")))
 
-    # Check for chaos expansion or reduction
+     # Check for chaos expansion or reduction
     both_chaotic =  grepl("Chaotic", regime_df$regime[1], fixed = TRUE)& grepl("Chaotic", regime_df$regime[2], fixed = TRUE)
     type_chaos = grepl("Basin-Boundary", regime_df$regime, fixed = TRUE) | grepl("Merged-Band", regime_df$regime, fixed = TRUE)
     chaos_exp = !type_chaos[1] & type_chaos[2] & both_chaotic
@@ -511,7 +516,7 @@ smooth_periods <- function(periods, nr_smooth, min_length_regime){
 #' @examples
 get_bands = function(x, min_edge = 0, max_edge = 1, step_size = .05){
   # hist(x, breaks = seq(min_x, max_x, by = step_size))
-  HIST = hist(x, breaks = seq(min_edge, max_edge, by = step_size), plot = F)
+  HIST = graphics::hist(x, breaks = seq(min_edge, max_edge, by = step_size), plot = F)
 
   dist_bins = diff(which(HIST$density > 0))
   dist_bins = dist_bins[dist_bins > 1]
@@ -817,7 +822,6 @@ find_regimes <- function(GLV,
                                             period_per_var = period_per_var,
                                             periods = periods,
                                             regimes = regimes,
-                                            # broad_regimes = broad_regimes,
                                             regime_bounds = regime_bounds,
                                             thresh_coord_spread = thresh_coord_spread,
                                             thresh_peak_idx_spread=thresh_peak_idx_spread,

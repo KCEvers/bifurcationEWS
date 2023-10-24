@@ -9,6 +9,7 @@ find_regimes(
   thresh_node = 0.001,
   thresh_coord_spread = 0.025,
   thresh_peak_idx_spread = 2,
+  thresh_full_band = 0.9,
   min_length_regime = 5,
   nr_smooth = 0,
   factor_k = 0.1,
@@ -23,6 +24,8 @@ find_regimes(
 \item{thresh_coord_spread}{Threshold for distance in peak and trough coordinates that determines whether a cluster (i.e. period length) fits; if exceeded, denoted as chaotic or transitioning}
 
 \item{thresh_peak_idx_spread}{Same as thresh_coord_spread but for peak and trough indices}
+
+\item{thresh_full_band}{Percentage of bins that need to be occupied to qualify it as a fully filled banned}
 
 \item{min_length_regime}{Minimum number of consecutive steps in the bifurcation parameter that have the same periodicity to qualify as a regime}
 
