@@ -305,6 +305,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
   # Regime switches involving only periodic regimes
   # if (!grepl("Chaotic", from_regime$regime, fixed = TRUE) & !grepl("Chaotic", to_regime$regime, fixed = TRUE)){
   if (all(!grepl("Chaotic", regime_df$regime)) & all(!grepl("None", regime_df$regime)) & !any(regime_df %>% select(all_of(X_names)) %>%is.na()) ){
+
   period_switch = regime_df %>%
     mutate_at(X_names, ~ as.numeric(stringr::str_replace(., "Period-", ""))) %>%
     select(all_of(X_names)) %>% as.matrix()
@@ -361,7 +362,7 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
     # Check for mixed periodicity
   regime_df_ = regime_df %>% rowwise() %>%
       tidyr::unite("z", X_names, sep = ";") %>%
-      dplyr::mutate(nr_periods = length(unique(stringr::str_split("z", ";")))) %>%
+      dplyr::mutate(nr_periods = ifelse( all(grepl("Period", stringr::str_split("z", ";"), fixed = T)), NA, length(unique(stringr::str_split("z", ";"))))) %>%
       mutate(broad_regime = ifelse(is.na(.data$nr_periods), "Chaotic", ifelse(.data$nr_periods == 1, .data$regime, "Mixed-Periodic")))
 
      # Check for chaos expansion or reduction
@@ -594,8 +595,11 @@ periods_to_regimes <- function(peaks_df, periods,
                                    grepl_mixed_regime = function(regime){grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE)})
 
   regimes = combine_mixed_regimes(regimes_, X_names, min_length_regime,
-                                   name_mixed_regime = "Mixture: Periodic and Chaotic or Transitioning",
-                                   grepl_mixed_regime = function(regime){grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | (grepl("Chaotic or Transitioning", regime, fixed = TRUE) & grepl("Period", regime, fixed = TRUE))})
+                                   name_mixed_regime = "Mixture: Periodic and All Chaotic Types",
+                                  # grepl_mixed_regime = function(regime){grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | (grepl("Chaotic", regime, fixed = TRUE) & grepl("Period", regime, fixed = TRUE)) |  (grepl("Chaotic", regime, fixed = TRUE) | grepl("Period", regime, fixed = TRUE))}
+                                  # grepl_mixed_regime = function(regime){(grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | grepl("Chaotic", regime, fixed = TRUE) | grepl("Period", regime, fixed = TRUE)) & !grepl("Merged-Band", regime, fixed=TRUE)  & !grepl("Basin-Boundary", regime, fixed=TRUE) }
+                                  grepl_mixed_regime = function(regime){(grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | grepl("Chaotic", regime, fixed = TRUE) | grepl("Period", regime, fixed = TRUE))  }
+  )
 
   return(regimes)
 
@@ -634,20 +638,32 @@ combine_mixed_regimes <- function(regimes_A, X_names, min_length_regime,
   if (all(is.na(regimes_B$regime_mixed))){
     regimes_C = data.frame()
   } else {
-    regimes_C = regimes_B %>%
-      filter(!is.na(.data$regime_mixed)) %>% select(-.data$regime) %>%
+    regimes_C_ = regimes_B %>%
+      filter(!is.na(.data$regime_mixed)) %>%
+      select(-.data$regime) %>%
       # Turn regime of start to end_bifpar_idx into separate rows per bifpar_idx
       tibble::rownames_to_column() %>%
       slice(rep(1:n(), each = .data$length_region)) %>%
       group_by(.data$rowname) %>%
       mutate(bifpar_idx = seq(unique(.data$start_bifpar_idx),
                               unique(.data$end_bifpar_idx))) %>% ungroup() %>%
+      dplyr::mutate_at(all_of(X_names), ~ "Mixture") %>%
       select(all_of(X_names), .data$bifpar_idx, .data$regime_mixed) %>%
       # Apply regular regime-finding
       group_by_at(setdiff(colnames(.), "bifpar_idx")) %>%
       group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
       arrange(.data$start_bifpar_idx) %>%
-      ungroup() %>% rename(regime = .data$regime_mixed)
+      ungroup() %>% rename(regime = .data$regime_mixed) %>%
+      filter(.data$length_region >= min_length_regime)
+
+    # Add back rows whose regimes were not long enough
+    added_bifpar_idx = plyr::llply(1:nrow(regimes_C_), function(idx){seq(regimes_C_$start_bifpar_idx[idx], regimes_C_$end_bifpar_idx[idx] )}) %>% unlist() %>% unique()
+    regimes_C = dplyr::bind_rows(regimes_C_,
+                                 regimes_B %>%
+                                   filter(!is.na(.data$regime_mixed)) %>%
+                                   select(-.data$regime_mixed) %>% rowwise() %>%
+                                   dplyr::filter(any(!(seq(.data$start_bifpar_idx, .data$end_bifpar_idx) %in% added_bifpar_idx))) %>% ungroup()
+      )
 
     # # If there's any member of the regime that touches the basin boundary, update
     # regimes_C = regimes_C_ %>% rowwise() %>%
@@ -708,6 +724,7 @@ find_regimes <- function(GLV,
   # thresh_expansion = .1
   # thresh_full_band = .9
   # peaks_df=regime_list$peaks_df
+  # k_spread = regime_list$k_spread
   # period_per_var=regime_list$period_per_var
   # GLV = regime_list
   # X_names = GLV$X_names
