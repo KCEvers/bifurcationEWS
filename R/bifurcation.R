@@ -595,10 +595,10 @@ periods_to_regimes <- function(peaks_df, periods,
                                    grepl_mixed_regime = function(regime){grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE)})
 
   regimes = combine_mixed_regimes(regimes_, X_names, min_length_regime,
-                                   name_mixed_regime = "Mixture: Periodic and All Chaotic Types",
+                                   name_mixed_regime = "Mixture: Periodic and Chaotic",
                                   # grepl_mixed_regime = function(regime){grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | (grepl("Chaotic", regime, fixed = TRUE) & grepl("Period", regime, fixed = TRUE)) |  (grepl("Chaotic", regime, fixed = TRUE) | grepl("Period", regime, fixed = TRUE))}
-                                  # grepl_mixed_regime = function(regime){(grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | grepl("Chaotic", regime, fixed = TRUE) | grepl("Period", regime, fixed = TRUE)) & !grepl("Merged-Band", regime, fixed=TRUE)  & !grepl("Basin-Boundary", regime, fixed=TRUE) }
-                                  grepl_mixed_regime = function(regime){(grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | grepl("Chaotic", regime, fixed = TRUE) | grepl("Period", regime, fixed = TRUE))  }
+                                  grepl_mixed_regime = function(regime){(grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | grepl("Chaotic", regime, fixed = TRUE) | grepl("Period", regime, fixed = TRUE)) & !grepl("Merged-Band", regime, fixed=TRUE)  & !grepl("Basin-Boundary", regime, fixed=TRUE) }
+                                  # grepl_mixed_regime = function(regime){(grepl("Chaotic or Transitioning (X1,X2,X3,X4)", regime, fixed = TRUE) | grepl("Chaotic", regime, fixed = TRUE) | grepl("Period", regime, fixed = TRUE))  }
   )
 
   return(regimes)
