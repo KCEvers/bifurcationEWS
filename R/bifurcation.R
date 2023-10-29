@@ -457,6 +457,11 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
 #' @examples
 smooth_periods <- function(periods, nr_smooth, min_length_regime){
 
+  min_length = periods %>% group_by(.data$variable) %>% dplyr::summarise(n = n(), .groups = 'drop') %>% pull(n) %>% min()
+  if (min_length < min_length_regime*2){
+    print("Warning: in smooth_periods(), min_length_regime is not long enough. Skipping smoothing...")
+    return(periods)
+  } else {
    # If a consistent regime shows one exception, smooth over.
   find_nr_surrounding_regimes <- function(x, min_length_regime, nr_smooth){
     # Split vector
@@ -484,7 +489,7 @@ smooth_periods <- function(periods, nr_smooth, min_length_regime){
     select(-c(.data$lag_p, .data$embedded_in_same_regime)) # %>% pull(.data$period_smooth) %>% as.logical() %>% which()
 
   return(periods_smooth)
-
+  }
 }
 
 
@@ -524,9 +529,6 @@ get_bands = function(x, min_edge = 0, max_edge = 1, step_size = .05){
 #' @param peaks_df Dataframe with peaks
 #' @param periods Dataframe with periodicities
 #' @param X_names Names of variables
-#' @param variable_name Column name in dataframe to assess for hitting basin boundaries
-#' @param min_edge Minimum basin boundary
-#' @param max_edge Maximum basin boundary
 #'
 #' @return Updated dataframe
 #' @export
@@ -700,6 +702,9 @@ combine_mixed_regimes <- function(regimes_A, X_names, min_length_regime,
 #' @param max_k Maximum cluster size to look for
 #' @param nr_smooth Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing
 #' @param factor_k Weighting of period length k; heavier weight means shorter k is preferred; factor_k = 0 means the optimal period length is chosen based solely on minimum spread
+#' @param variable_name Column name in dataframe to assess for hitting basin boundaries
+#' @param min_edge Minimum basin boundary
+#' @param max_edge Maximum basin boundary
 #'
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
 #' @importFrom dplyr arrange group_modify ungroup filter select group_by mutate rename bind_rows all_of slice_tail .data
@@ -714,6 +719,7 @@ find_regimes <- function(GLV,
                          min_length_regime = 5,
                          nr_smooth = 0,
                          factor_k = .1,
+                         variable_name = "X1", min_edge = 0, max_edge = 1,
                          max_k = NULL){
 #
 # max_k = NULL
@@ -800,8 +806,9 @@ find_regimes <- function(GLV,
   regimes = periods_to_regimes(peaks_df, periods,
                                  X_names = GLV$X_names,
                                min_length_regime=min_length_regime,
-                                 variable_name = "X1", min_edge = 0,
-                               max_edge = 1,
+                                 variable_name = variable_name,
+                               min_edge = min_edge,
+                               max_edge = max_edge,
                                thresh_full_band = thresh_full_band)
 
   # Find regime boundaries
@@ -828,6 +835,9 @@ find_regimes <- function(GLV,
                                             min_length_regime = min_length_regime,
                                             max_k = max_k,
                                             nr_smooth = nr_smooth,
+                                            variable_name = variable_name,
+                                            min_edge=min_edge,
+                                            max_edge=max_edge,
                                             factor_k = factor_k))
 
   return(regime_list)

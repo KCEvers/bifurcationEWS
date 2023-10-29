@@ -13,6 +13,9 @@ find_regimes(
   min_length_regime = 5,
   nr_smooth = 0,
   factor_k = 0.1,
+  variable_name = "X1",
+  min_edge = 0,
+  max_edge = 1,
   max_k = NULL
 )
 }
@@ -32,6 +35,12 @@ find_regimes(
 \item{nr_smooth}{Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing}
 
 \item{factor_k}{Weighting of period length k; heavier weight means shorter k is preferred; factor_k = 0 means the optimal period length is chosen based solely on minimum spread}
+
+\item{variable_name}{Column name in dataframe to assess for hitting basin boundaries}
+
+\item{min_edge}{Minimum basin boundary}
+
+\item{max_edge}{Maximum basin boundary}
 
 \item{max_k}{Maximum cluster size to look for}
 }
