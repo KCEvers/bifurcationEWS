@@ -16,7 +16,8 @@ find_regimes(
   variable_name = "X1",
   min_edge = 0,
   max_edge = 1,
-  max_k = NULL
+  max_k = NULL,
+  keep_nr_timesteps = c("all", 1000)
 )
 }
 \arguments{
@@ -43,6 +44,8 @@ find_regimes(
 \item{max_edge}{Maximum basin boundary}
 
 \item{max_k}{Maximum cluster size to look for}
+
+\item{keep_nr_timesteps}{Number of timesteps to keep for each bifurcation parameter value; number of timesteps to retain after discarding the transient. If "all", none are removed}
 }
 \value{
 List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries

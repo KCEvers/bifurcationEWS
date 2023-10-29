@@ -360,10 +360,13 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
   } else {    # Regime switches involving chaotic behaviour
 
     # Check for mixed periodicity
-  regime_df_ = regime_df %>% rowwise() %>%
+  regime_df_ = regime_df %>%
       tidyr::unite("z", X_names, sep = ";") %>%
-      dplyr::mutate(nr_periods = ifelse( all(grepl("Period", stringr::str_split("z", ";"), fixed = T)), NA, length(unique(stringr::str_split("z", ";"))))) %>%
-      mutate(broad_regime = ifelse(is.na(.data$nr_periods), "Chaotic", ifelse(.data$nr_periods == 1, .data$regime, "Mixed-Periodic")))
+    rowwise() %>%
+      dplyr::mutate(check1 = paste0(unlist(stringr::str_split(.data$z, ";")), collapse = ","),
+                    check2 = paste0(grepl("Period", unlist(stringr::str_split(.data$z, ";")), fixed = T), collapse = ","),
+        nr_periods = ifelse( !all(grepl("Period", unlist(stringr::str_split(.data$z, ";")), fixed = T)), NA, length(unique(unlist(stringr::str_split(.data$z, ";")))))) %>%
+      mutate(broad_regime = ifelse(is.na(.data$nr_periods), .data$regime, ifelse(.data$nr_periods == 1, .data$regime, "Mixed-Periodic"))) %>% ungroup()
 
      # Check for chaos expansion or reduction
     both_chaotic =  grepl("Chaotic", regime_df$regime[1], fixed = TRUE)& grepl("Chaotic", regime_df$regime[2], fixed = TRUE)
@@ -705,6 +708,7 @@ combine_mixed_regimes <- function(regimes_A, X_names, min_length_regime,
 #' @param variable_name Column name in dataframe to assess for hitting basin boundaries
 #' @param min_edge Minimum basin boundary
 #' @param max_edge Maximum basin boundary
+#' @param keep_nr_timesteps Number of timesteps to keep for each bifurcation parameter value; number of timesteps to retain after discarding the transient. If "all", none are removed
 #'
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
 #' @importFrom dplyr arrange group_modify ungroup filter select group_by mutate rename bind_rows all_of slice_tail .data
@@ -720,7 +724,8 @@ find_regimes <- function(GLV,
                          nr_smooth = 0,
                          factor_k = .1,
                          variable_name = "X1", min_edge = 0, max_edge = 1,
-                         max_k = NULL){
+                         max_k = NULL,
+                         keep_nr_timesteps = c("all", 1000)){
 #
 # max_k = NULL
 #  thresh_node = .001
@@ -741,7 +746,17 @@ find_regimes <- function(GLV,
 # X_names = GLV$X_names
 
   # Get dataframe with peaks
-  peaks_df = peaks_bifdiag(GLV$df, GLV$X_names) %>% filter(.data$bifpar_idx >= 5) # Skip initial settling in points
+  if (keep_nr_timesteps == "all"){
+    keep_nr_timesteps = GLV$df %>% dplyr::filter(bifpar_idx == 1) %>% nrow()
+  } else if (is.numeric(keep_nr_timesteps)){
+    keep_nr_timesteps = keep_nr_timesteps * GLV$fs
+  }
+  peaks_df = peaks_bifdiag(GLV$df %>%
+                             # Discard transient if desired
+                             dplyr::slice_tail(n = keep_nr_timesteps,
+                                                        by = "bifpar_idx"),
+                           GLV$X_names) %>%
+    filter(.data$bifpar_idx >= 5) # Skip initial settling in points
 
   # For each value of the bifurcation parameter, find the period length k which has a minimum spread
   print("Finding best fitting period length for all bifurcation parameter values")

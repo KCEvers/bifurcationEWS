@@ -780,17 +780,27 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
 #'
 #' @inheritParams get_Smax
 #' @inheritParams get_spectral_exp
+#' @param f_min_to_f_max List of low and high frequency to compare
 #' @param n.freq Number of points to estimate frequency at
 #'
 #' @return Spectral ratio of spectral density estimated at specified low frequency to spectral density at specified high frequency
 #' @export
 #'
 #' @examples
-get_spectral_ratio <- function(x, fs, nr_timesteps, f_min = 0.005, f_max = .5, n.freq = 5000){
+get_spectral_ratio <- function(x, fs, nr_timesteps,
+                               f_min_to_f_max = list(c(0.005, .5), c(.05, .5)),
+                               # f_min = 0.005, f_max = .5,
+                               n.freq = 5000){
 
+  col_names  = plyr::llply(1:length(f_min_to_f_max),
+                                               function(i){
+                                                 return(paste0("LF", f_min_to_f_max[[i]][1], "_HF", f_min_to_f_max[[i]][2]) )
+                                               }) %>% unlist()
   if (stats::var(x) == 0){
-    spectral_ratio = 0
+    return(matrix(0, nrow = 1, ncol = length(f_min_to_f_max)) %>% magrittr::set_colnames(col_names) %>% as.data.frame() )
+
   } else {
+
     ARSPEC=stats::spec.ar(
       stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
       n.freq=n.freq,
@@ -799,9 +809,17 @@ get_spectral_ratio <- function(x, fs, nr_timesteps, f_min = 0.005, f_max = .5, n
     )
     freq = ARSPEC$freq[-1]
     spec = ARSPEC$spec[-1]
-    idx_min = which.min(abs(freq - f_min))
-    idx_max = which.min(abs(freq - f_max))
-    spectral_ratio = spec[idx_min] / spec[idx_max]
+
+    spectral_ratio_df = plyr::llply(1:length(f_min_to_f_max),
+                                           function(i){
+      f_min = f_min_to_f_max[[i]][1]
+      f_max = f_min_to_f_max[[i]][2]
+      idx_min = which.min(abs(freq - f_min))
+      idx_max = which.min(abs(freq - f_max))
+      spectral_ratio = spec[idx_min] / spec[idx_max]
+      return(matrix(spectral_ratio) %>% magrittr::set_colnames(col_names[i]) %>% as.data.frame() )
+                                           }) %>% do.call(cbind, .) %>% as.data.frame()
+    return(spectral_ratio_df)
+
   }
-    return(spectral_ratio)
 }
