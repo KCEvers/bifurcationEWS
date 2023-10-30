@@ -656,7 +656,7 @@ get_autocorr <- function(x) {
 #' @export
 #'
 #' @examples
-get_Smax = function(x, fs, nr_timesteps){
+get_Smax_old = function(x, fs, nr_timesteps){
 
   if (stats::var(x) == 0){
     Smax = 0
@@ -664,12 +664,12 @@ get_Smax = function(x, fs, nr_timesteps){
     # spec_ratio_LF_HF = 0
     # spec_ratio_LF_HF_perc = 0
   } else {
-  lx <- fs * nr_timesteps
-  pw <- gsignal::pwelch(x, window = lx, fs = fs,
-                        # Remove mean so that the spectral peak isn't at zero
-                        detrend = c("long-mean", "short-mean", "long-linear", "short-linear", "none")[1],
-                        range = "half")
-  Smax = max(pw$spec)
+    lx <- fs * nr_timesteps
+    pw <- gsignal::pwelch(x, window = lx, fs = fs,
+                          # Remove mean so that the spectral peak isn't at zero
+                          detrend = c("long-mean", "short-mean", "long-linear", "short-linear", "none")[1],
+                          range = "half")
+    Smax = max(pw$spec)
   }
   return(Smax)
   # freq = pw$freq[-1]
@@ -698,6 +698,37 @@ get_Smax = function(x, fs, nr_timesteps){
   #                   # spectral_ratio_LF_HF_perc=spec_ratio_LF_HF_perc,
   #                   # spectral_exp = spectral_exp
   #                   ))
+}
+
+
+
+#' Compute Maximum Spectral Density (Bury, 2021)
+#'
+#' @param x Signal
+#' @param fs Sampling frequency
+#' @param nr_timesteps Number of timesteps
+#'
+#' @return Spectral EWS from Welch's PSD
+#' @export
+#'
+#' @examples
+get_Smax = function(x, fs, nr_timesteps){
+  x = as.matrix(x)
+  if (any(apply(x, 2, stats::var) == 0)){
+    Smax_df = matrix(0, ncol = ncol(x), nrow = 1) %>% magrittr::set_colnames(colnames(x)) %>% as.data.frame()
+
+    # spectral_exp = 0
+    # spec_ratio_LF_HF = 0
+    # spec_ratio_LF_HF_perc = 0
+  } else {
+    lx <- fs * nr_timesteps
+    pw <- gsignal::pwelch(x, window = lx, fs = fs,
+                          # Remove mean so that the spectral peak isn't at zero
+                          detrend = c("long-mean", "short-mean", "long-linear", "short-linear", "none")[1],
+                          range = "half")
+    Smax_df = as.data.frame(t(apply(pw$spec, 2, max)))
+  }
+  return(Smax_df)
 }
 
 

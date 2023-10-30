@@ -739,6 +739,7 @@ find_regimes <- function(GLV,
 # max_edge = 1
 # thresh_expansion = .1
 # thresh_full_band = .9
+# keep_nr_timesteps = "all"
 # peaks_df=regime_list$peaks_df
 # k_spread = regime_list$k_spread
 # period_per_var=regime_list$period_per_var
