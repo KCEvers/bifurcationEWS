@@ -902,14 +902,14 @@ max_dist <- function(vec, cluster_idx){
 find_dist_per_k <- function(ks, coord, peak_idx){
   # Compute mean maximum distance per cluster - essentially the spread of each cluster averaged per partitioning; for peak coordinates and peak indices
   coord_spread = lapply(ks, function(k){max_dist(vec = coord,
-                                                 cluster_idx = rep(1:k, length(coord))[1:length(coord)])}) %>%
+                                                 cluster_idx = rep(1:k, length.out = length(coord)))}) %>%
     do.call(rbind, .) %>%
     magrittr::set_colnames(paste0(colnames(.), "_coord")) %>%
     as.data.frame()
 
 
   peak_idx_spread = lapply(ks, function(k){max_dist(vec = diff(peak_idx),
-                                                    cluster_idx = rep(1:k, length(coord))[2:length(coord)])}) %>%
+                                                    cluster_idx = rep(1:k, length.out = length(coord)))}) %>%
     do.call(rbind, .) %>%
     magrittr::set_colnames(paste0(colnames(.), "_peak_idx")) %>%
     as.data.frame()

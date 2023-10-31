@@ -751,7 +751,7 @@ get_Hurst_exp <- function(x, fs, nr_timesteps, scaleMin = 10, scaleMax = 100,
     Hurst_exp = 0
   } else {
   DFA = casnet::fd_dfa(
-    stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
+    stats::ts(x, frequency = fs, end = nr_timesteps),
     removeTrend = c("no", "poly", "adaptive", "bridge")[1], # Prettyman (2020)
     # polyOrder = 2, # Prettyman (2020)
     removeTrendSegment = c("no", "poly", "adaptive", "bridge")[2], # Prettyman (2020)
@@ -833,7 +833,7 @@ get_spectral_ratio <- function(x, fs, nr_timesteps,
   } else {
 
     ARSPEC=stats::spec.ar(
-      stats::ts(x, frequency = fs, start = 1, end = nr_timesteps),
+      stats::ts(x, frequency = fs, end = nr_timesteps),
       n.freq=n.freq,
       # order=1, # Order as decided by AIC
       plot=FALSE
