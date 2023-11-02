@@ -733,7 +733,7 @@ find_regimes <- function(GLV,
 # thresh_peak_idx_spread=2
 # nr_smooth=0
 # factor_k = .1
-# min_length_regime = 5
+# min_length_regime = 10
 # variable_name = "X1"
 # min_edge = 0
 # max_edge = 1
