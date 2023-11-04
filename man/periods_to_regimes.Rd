@@ -12,7 +12,8 @@ periods_to_regimes(
   variable_name = "X1",
   min_edge = 0,
   max_edge = 1,
-  thresh_full_band = 0.8
+  thresh_full_band = 0.8,
+  nr_smooth = 0
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ periods_to_regimes(
 \item{max_edge}{Maximum basin boundary}
 
 \item{thresh_full_band}{Percentage of bins that need to be occupied to qualify it as a fully filled banned}
+
+\item{nr_smooth}{Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing}
 }
 \value{
 Updated dataframe

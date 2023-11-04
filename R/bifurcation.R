@@ -451,47 +451,53 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
 
 #' Smooth over exceptions in otherwise stable regime
 #'
-#' @param periods Dataframe with periodicity per bifurcation parameter
+#' @param rough_df Dataframe with periodicity per bifurcation parameter
+#' @param col_to_smooth Column to smooth over
+#' @param smooth_along_col Columns to smooth along too
 #' @inheritParams find_regimes
 #'
 #' @return Dataframe with smoothed periodicity
 #' @importFrom dplyr arrange mutate pull lag rowwise .data group_by ungroup rename
 #'
 #' @examples
-smooth_periods <- function(periods, nr_smooth, min_length_regime){
+smooth_df <- function(rough_df, col_to_smooth = "period", smooth_along_col = c(), nr_smooth = 0, min_length_regime = 10){
 
-  min_length = periods %>% group_by(.data$variable) %>% dplyr::summarise(n = n(), .groups = 'drop') %>% pull(n) %>% min()
+  min_length = rough_df %>% nrow() #dplyr::summarise(n = n(), .groups = 'drop') %>% pull(n) %>% min()
   if (min_length < min_length_regime*2){
-    print("Warning: in smooth_periods(), min_length_regime is not long enough. Skipping smoothing...")
-    return(periods)
+    print("Warning: in smooth_df(), min_length_regime is not long enough. Skipping smoothing...")
+    return(rough_df)
   } else {
    # If a consistent regime shows one exception, smooth over.
   find_nr_surrounding_regimes <- function(x, min_length_regime, nr_smooth){
     # Split vector
     m <- zoo::rollapply(x, min_length_regime*2 + nr_smooth, by = 1, FUN = c)
     # Find number of unique periods surrounding nr_smooth, excluding nr_smooth. Look back min_length_regime + nr_smooth - 1 steps (ignoring nr_smooth steps) and forward min_length_regime steps
-    c(rep(NA, min_length_regime + nr_smooth - 1), split(m, row(m)) %>% purrr::map(
+    c(rep(NA, min_length_regime + ceiling(nr_smooth/2) - 1), split(m, row(m)) %>% purrr::map(
       function(x){length(unique(x[-seq(min_length_regime + 1, min_length_regime + nr_smooth)]))}) %>%
-        unname %>% unlist, rep(NA, min_length_regime) ) %>% return()
+        unname %>% unlist, rep(NA, min_length_regime + (nr_smooth - ceiling(nr_smooth/2))) ) %>% return()
+  }
+  smooth_along <- function(x, to_smooth, nr_smooth){
+    x[to_smooth] = lag(x, n = nr_smooth)[to_smooth]
+    return(x)
   }
   # If a consistent regime shows one exception, smooth over.
-  periods_smooth = periods %>% group_by(.data$variable) %>% arrange(.data$bifpar_idx, .by_group = TRUE) %>%
-    mutate(lag_p = lag(.data$period, n = nr_smooth),
+  smooth_df = rough_df %>%
+    mutate(lag_p = lag(.data[[col_to_smooth]], n = nr_smooth),
            # Apply rolling function to check for each row whether the previous min_length_regime values were the same and the future min_length_regime values were the same. If they were, fill in leading value.
            embedded_in_same_regime =
              # zoo::rollapply(.data$period, min_length_regime*2 + nr_smooth, function(x){length(unique(x[-seq(min_length_regime + 1, min_length_regime + nr_smooth)]))}, by = 1, fill=NA, align = 'center')
-             find_nr_surrounding_regimes(.data$period, min_length_regime, nr_smooth) == 1 ) %>%
+             find_nr_surrounding_regimes(.data[[col_to_smooth]], min_length_regime, nr_smooth) == 1 ) %>%
     ungroup() %>% rowwise() %>%
-    rename(period_unsmooth = .data$period) %>%
-    mutate(
-      # check_ = (.data$embedded_in_same_regime == TRUE) & (.data$period != .data$lag_p),
-      # check1 = (.data$embedded_in_same_regime == TRUE),
-      # check2 =  (.data$period != .data$lag_p),
-      period = ifelse(is.na(.data$lag_p) | is.na(.data$embedded_in_same_regime), .data$period_unsmooth,
-                      ifelse((.data$embedded_in_same_regime == TRUE) & (.data$period_unsmooth != .data$lag_p), .data$lag_p, .data$period_unsmooth))) %>% ungroup() %>%
-    select(-c(.data$lag_p, .data$embedded_in_same_regime)) # %>% pull(.data$period_smooth) %>% as.logical() %>% which()
+    rename(rough = !!col_to_smooth) %>% #select(-col_to_smooth) %>%
+    mutate(to_smooth = ifelse(is.na(.data$lag_p) | is.na(.data$embedded_in_same_regime), F,
+           ifelse((.data$embedded_in_same_regime == TRUE) & (.data$rough != .data$lag_p), T, F)),
+      smooth = ifelse(.data$to_smooth, .data$lag_p, .data$rough)) %>% ungroup() %>%
+    mutate_at(smooth_along_col, ~smooth_along(., .data$to_smooth, nr_smooth)) %>%
+    select(-c(.data$lag_p, .data$embedded_in_same_regime, .data$to_smooth)) %>%
+    rename(!!col_to_smooth := .data$smooth)
 
-  return(periods_smooth)
+
+  return(smooth_df)
   }
 }
 
@@ -542,7 +548,7 @@ periods_to_regimes <- function(peaks_df, periods,
                                X_names,
                                min_length_regime,
                                variable_name = "X1", min_edge = 0, max_edge = 1,
-                               thresh_full_band = .8
+                               thresh_full_band = .8, nr_smooth = 0
 ){
 
   # If there are no minima and maxima (i.e. only nodes), no chaotic regimes can be found
@@ -595,15 +601,30 @@ periods_to_regimes <- function(peaks_df, periods,
     arrange(.data$start_bifpar_idx) %>%
     ungroup() %>% rename(regime = .data$period_bifpar)
 
-  regimes_ = combine_mixed_regimes(regimes_A, X_names, min_length_regime,
+  regimes1 = combine_mixed_regimes(regimes_A, X_names, min_length_regime,
                                    name_mixed_regime = "Mixture: Periodic and Chaotic",
                                    grepl_mixed_regime = function(regime){(grepl("Chaotic", regime, fixed = TRUE) & grepl("Period", regime, fixed = TRUE) & !grepl("Merged-Band", regime, fixed = TRUE) & !grepl("Basin-Boundary", regime, fixed = TRUE))  }
   )
 
-  regimes = combine_mixed_regimes(regimes_, X_names, min_length_regime,
+  regimes2 = combine_mixed_regimes(regimes1, X_names, min_length_regime,
                                    name_mixed_regime = "Mixture: Periodic and Chaotic (Merged-Band)",
                                    grepl_mixed_regime = function(regime){(((grepl("Chaotic", regime, fixed = TRUE) & grepl("Period", regime, fixed = TRUE)) | grepl("Chaotic or Transitioning (X1,X2,X3,X4)",regime,fixed=T)) & !grepl("Basin-Boundary", regime, fixed = TRUE))  }
   )
+
+
+  regimes = regimes2 %>%
+  tibble::rownames_to_column() %>%
+    slice(rep(1:n(), each = .data$length_region)) %>%
+    group_by(.data$rowname) %>%
+    mutate(bifpar_idx = seq(unique(.data$start_bifpar_idx),
+                            unique(.data$end_bifpar_idx))) %>% ungroup() %>%
+    smooth_df(col_to_smooth = "regime", smooth_along_col = X_names, nr_smooth = nr_smooth, min_length_regime=min_length_regime) %>%
+    select(all_of(X_names), .data$bifpar_idx, .data$regime) %>%
+    # Apply regular regime-finding
+    group_by_at(setdiff(colnames(.), "bifpar_idx")) %>%
+    group_modify( ~ find_consec_seq(.x$bifpar_idx)) %>%
+    arrange(.data$start_bifpar_idx) %>%
+    ungroup()
 
   return(regimes)
 
@@ -786,7 +807,9 @@ find_regimes <- function(GLV,
     #                        # "Chaotic or Transitioning",
     #                        paste0("Period-", .data$k)) %>%
     # Smooth over period abnormalities that form nr_smooth exceptions
-    smooth_periods(nr_smooth = nr_smooth, min_length_regime=min_length_regime)
+    group_by(.data$variable) %>%
+    arrange(.data$bifpar_idx, .by_group = TRUE) %>%
+    smooth_df(col_to_smooth = "period", smooth_along_col = c(), nr_smooth = nr_smooth, min_length_regime=min_length_regime) %>% ungroup()
 
   periods = period_per_var %>%
     select(.data$bifpar_idx, .data$period, .data$variable) %>%
@@ -825,7 +848,7 @@ find_regimes <- function(GLV,
                                  variable_name = variable_name,
                                min_edge = min_edge,
                                max_edge = max_edge,
-                               thresh_full_band = thresh_full_band)
+                               thresh_full_band = thresh_full_band, nr_smooth = nr_smooth)
 
   # Find regime boundaries
   regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime,
