@@ -421,7 +421,7 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
     # mutate_at(c("sigma_crit"), ~as.numeric(as.character(.))) %>%
     mutate_at(c("sigma_crit", "nr_tp", "nr_fp", "nr_tn", "nr_fn"), ~as.numeric(as.character(.))) %>%
     group_by_at(grouping_vars) %>%
-    summarise(acc = sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE)) * 100,
+    summarise(acc = sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE)),
                      sum_tp = sum(.data$nr_tp, na.rm = TRUE),
                      sum_fp = sum(.data$nr_fp, na.rm = TRUE),
                      sum_tn = sum(.data$nr_tn, na.rm = TRUE),
@@ -479,7 +479,7 @@ get_AUC_class <- function(AUC, nbins = 10){
                              } else {
                                comp_oper = "<"
                              }
-                             latex2exp::TeX(sprintf("$%.2f >= AUC %s %.2f$", breaks_AUC[i], comp_oper, breaks_AUC[i+1]), output = 'character')})
+                             latex2exp::TeX(sprintf("$%.2f <= AUC %s %.2f$", breaks_AUC[i], comp_oper, breaks_AUC[i+1]), output = 'character')})
 
   return(factor(cut(AUC,
       breaks = breaks_AUC,

@@ -121,28 +121,47 @@ plot_3D_landscape_trans <- function(df,
   if (length(size_line) < length(bifpar_idxs)){
     size_line = rep(size_line[1], length(bifpar_idxs))
   }
-
-    scenes = list(xaxis = list(title = xaxis_title,
-                               nticks = 3,
-                               # aspectmode='cube'
+   grid_color = "grey100"
+    scenes = list(xaxis = list(title=list(text=xaxis_title, standoff = 50,
+                                          font=list(size=5, family='Courier')),
+                               nticks = 2,
+                               zerolinecolor = grid_color,
+                               grid_width = .01,
+                               zerolinewidth = .75,
+                               gridcolor = grid_color,
+                               showgrid = F,zeroline = T,
+                               showticklabels=showticklabels,
+                               aspectmode='cube',
                                range = x_range
                               ),
-                  yaxis = list(title = yaxis_title,
-                               nticks = 3,
-                               # aspectmode='cube'
+                  yaxis = list(title=list(text=yaxis_title, standoff = 50,
+                                          font=list(size=5, family='Courier')),
+                               nticks = 2,
+                               zerolinecolor = grid_color,
+                               gridcolor = grid_color,
+                                grid_width = .01,
+                               showgrid = F,zeroline = T,
+                               zerolinewidth = .75, showticklabels=showticklabels,
+                               aspectmode='cube',
                                range = y_range
                                ),
-                  zaxis = list(title = zaxis_title,
-                               nticks = 3,
-                               # aspectmode='cube'
+                  zaxis = list(title=list(text=zaxis_title, standoff = 50,
+                                          font=list(size=5, family='Courier')),
+                               nticks = 2,
+                               zerolinecolor = grid_color,
+                               gridcolor =grid_color,
+                               grid_width = .01,
+                               showgrid = F, zeroline = T,
+                               zerolinewidth = .75, showticklabels=showticklabels,
+                               aspectmode='cube',
                                range = z_range
                               ),
                   camera = camera)
 
     plot_list = df %>%
       filter(.data$bifpar_idx %in% bifpar_idxs) %>%
-      mutate(plot_idx = which(bifpar_idxs == unique(.data$bifpar_idx))) %>%
       group_by(.data$bifpar_idx) %>%
+      mutate(plot_idx = which(bifpar_idxs == unique(.data$bifpar_idx))) %>%
       group_map(~ plot_3D_landscape(.x,
                                            bifpar_idx = unique(.y$bifpar_idx),
                                     bifpar_value = bifpar_values[unique(.x$plot_idx)],
@@ -180,9 +199,12 @@ plot_3D_landscape_trans <- function(df,
     # Merge plots
     fig <- plotly::subplot(plot_list,
                            nrows=nrows,
-                           # margin = .1,
+                           margin = 0,
                            shareX=TRUE, shareY=TRUE) %>%
       plotly::layout(
+     automargin=F,
+     # autosize = F,
+        margin = list(pad = 5, t = 5, b = 5, l = 5, r = 5),
         legend= list(itemsizing='constant'),
         showlegend = showlegend
       )
@@ -194,10 +216,12 @@ plot_3D_landscape_trans <- function(df,
         y = domains_rows[[plot_grid[plot_idx, "row_nr"]]] # y = vertical domain
       )
       scene_name = sprintf("scene%s", ifelse(plot_idx != 1, toString(plot_idx), ""))
-      fig$x$layout[[scene_name]] = utils::modifyList(scenes, list(domain=xy_domain,
-                                                                  xaxis = list(showticklabels=showticklabels),
-                                                                  yaxis = list(showticklabels=showticklabels),
-                                                                  zaxis = list(showticklabels=showticklabels)))
+      fig$x$layout[[scene_name]] = utils::modifyList(scenes, list(domain=xy_domain
+                                                                  # xaxis = list(showticklabels=showticklabels),
+                                                                  # yaxis = list(showticklabels=showticklabels),
+                                                                  # zaxis = list(showticklabels=showticklabels)
+                                                                  )
+                                                     )
     }
 
 

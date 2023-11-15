@@ -463,7 +463,7 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
 smooth_column <- function(rough_df, col_to_smooth = "period", smooth_along_col = c(), nr_smooth = 0, min_length_regime = 10){
 
   min_length = rough_df %>% nrow() #dplyr::summarise(n = n(), .groups = 'drop') %>% pull(n) %>% min()
-  if (min_length < min_length_regime*2){
+  if ((min_length < min_length_regime*2) | (nr_smooth == 0)){
     print("Warning: in smooth_column(), min_length_regime is not long enough. Skipping smoothing...")
     return(rough_df)
   } else {
@@ -502,6 +502,7 @@ smooth_column <- function(rough_df, col_to_smooth = "period", smooth_along_col =
 }
 
 
+
 #' Get bifurcation diagram band properties
 #'
 #' @param x Peak vector
@@ -530,7 +531,6 @@ get_bands = function(x, min_edge = 0, max_edge = 1, step_size = .05){
   )
   return(HIST_df)
 }
-
 
 #' Update periodicities with basin boundaries
 #'
