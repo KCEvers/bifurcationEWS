@@ -184,7 +184,7 @@ run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
 #' @examples
 get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigma_crit_step, nr_consecutive_warnings = 1){
 
-  if (all(is.na(z_score))){
+  if (all(is.na(z_score) | is.infinite(z_score))){
     sigmas_crit = sigma_crit_step
   } else {
     sigmas_crit =  seq(sigma_crit_step, sigma_crit_step * ceiling(max(abs(z_score))/sigma_crit_step), by=sigma_crit_step)
