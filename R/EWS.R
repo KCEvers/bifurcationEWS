@@ -445,7 +445,7 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
   EWS_warnings_ROC = complete_sigma_crit_ %>%
     mutate_at(c("sigma_crit", "nr_tp", "nr_fp", "nr_tn", "nr_fn"), ~as.numeric(as.character(.))) %>%
     group_by_at(grouping_vars) %>%
-    summarise(acc = sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE)),
+    summarise(acc = (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE)) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE)),
                      sum_tp = sum(.data$nr_tp, na.rm = TRUE),
                      sum_fp = sum(.data$nr_fp, na.rm = TRUE),
                      sum_tn = sum(.data$nr_tn, na.rm = TRUE),
@@ -479,7 +479,7 @@ ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars){
   # Add number of true positives, false negatives, true negatives, and false positives
   EWS_warnings_AUC = EWS_warnings_ROC %>%
     group_by_at(grouping_vars) %>%
-    summarise(AUC = get_AUC(.data$fpr, .data$tpr), .groups = 'drop')
+    summarise(AUC = get_AUC(.data$fpr, .data$tpr) %>% round(6), .groups = 'drop')
 
   return(EWS_warnings_AUC)
 }
@@ -499,11 +499,11 @@ get_AUC_class <- function(AUC, nbins = 10){
   labels_AUC = plyr::laply(1:nbins,
                            function(i){
                              if (i==nbins){
-                               comp_oper = "<="
+                               comp_oper = "\\leq"
                              } else {
                                comp_oper = "<"
                              }
-                             latex2exp::TeX(sprintf("$%.2f <= AUC %s %.2f$", breaks_AUC[i], comp_oper, breaks_AUC[i+1]), output = 'character')})
+                             latex2exp::TeX(sprintf("$%.2f \\leq AUC %s %.2f$", breaks_AUC[i], comp_oper, breaks_AUC[i+1]), output = 'character')})
 
   return(factor(cut(AUC,
       breaks = breaks_AUC,

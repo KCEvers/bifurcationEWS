@@ -1,3 +1,4 @@
+
 # Minimal outline building R package
 #
 # Create .R script
