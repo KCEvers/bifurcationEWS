@@ -8,7 +8,7 @@ get_warnings(
   split_df_EWS,
   baseline_idx,
   transition_idx,
-  sigmas_crit_step = 0.25,
+  sigma_crit_step = 0.25,
   nr_consecutive_warnings = 1
 )
 }
@@ -19,7 +19,7 @@ get_warnings(
 
 \item{transition_idx}{Indices of transition steps in bifurcation parameter}
 
-\item{sigmas_crit_step}{Step size in sequence of critical values of sigma}
+\item{sigma_crit_step}{Step size in sequence of critical values of sigma}
 
 \item{nr_consecutive_warnings}{Number of consecutive warnings to look for}
 }

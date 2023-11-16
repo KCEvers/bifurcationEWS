@@ -336,7 +336,7 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
 #' @param split_df_EWS Dataframe of EWS split into lists, with one entry per value of the bifurcation parameter
 #' @param baseline_idx Indices of baseline steps in bifurcation parameter
 #' @param transition_idx Indices of transition steps in bifurcation parameter
-#' @param sigmas_crit_step Step size in sequence of critical values of sigma
+#' @param sigma_crit_step Step size in sequence of critical values of sigma
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
 #' @return Dataframe with warnings per EWS metric
@@ -345,7 +345,7 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
 #'
 #' @examples
 get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
-                         sigmas_crit_step = .25,
+                         sigma_crit_step = .25,
                          # sigmas_crit= seq(.25, 6, by = .25),
                          nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
@@ -380,7 +380,7 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
     group_modify(~ get_warnings_per_sigma(y = .y,
                                           bifpar_idx = .x$bifpar_idx,
                                           z_score = .x$z_score,
-                                          sigmas_crit = seq(sigmas_crit_step, sigmas_crit_step * ceiling(max(abs(.x$z_score))/sigmas_crit_step), by=sigmas_crit_step),
+                                          sigmas_crit = seq(sigma_crit_step, sigma_crit_step * ceiling(max(abs(.x$z_score))/sigma_crit_step), by=sigma_crit_step),
                                           # sigmas_crit= sigmas_crit,
                                           nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
     rowwise() %>%
