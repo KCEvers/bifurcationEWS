@@ -173,17 +173,23 @@ run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
 
 #' Get warnings per critical value of sigma
 #'
+#' @inheritParams get_warnings
 #' @param y Vector with EWS
 #' @param bifpar_idx Bifurcation parameter index
 #' @param z_score Z-score
-#' @param sigmas_crit Sequence of critical values of sigma
-#' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
 #' @return Dataframe with warnings
 #' @export
 #'
 #' @examples
-get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigmas_crit, nr_consecutive_warnings = 1){
+get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigma_crit_step, nr_consecutive_warnings = 1){
+
+  if (all(is.na(z_score))){
+    sigmas_crit = sigma_crit_step
+  } else {
+    sigmas_crit =  seq(sigma_crit_step, sigma_crit_step * ceiling(max(abs(z_score))/sigma_crit_step), by=sigma_crit_step)
+  }
+
   lapply(sigmas_crit, function(sigma_crit){
 
     warnings_one_sigma = get_warnings_one_sigma(bifpar_idx, z_score, sigma_crit, nr_consecutive_warnings)
@@ -380,7 +386,7 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
     group_modify(~ get_warnings_per_sigma(y = .y,
                                           bifpar_idx = .x$bifpar_idx,
                                           z_score = .x$z_score,
-                                          sigmas_crit = seq(sigma_crit_step, sigma_crit_step * ceiling(max(abs(.x$z_score))/sigma_crit_step), by=sigma_crit_step),
+                                          sigma_crit_step = sigma_crit_step,
                                           # sigmas_crit= sigmas_crit,
                                           nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
     rowwise() %>%
