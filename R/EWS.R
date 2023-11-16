@@ -187,7 +187,7 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigma_crit_step, nr_c
   if (all(is.na(z_score) | is.infinite(z_score))){
     sigmas_crit = sigma_crit_step
   } else {
-    sigmas_crit =  seq(sigma_crit_step, sigma_crit_step * ceiling(max(abs(z_score))/sigma_crit_step), by=sigma_crit_step)
+    sigmas_crit =  seq(sigma_crit_step, sigma_crit_step * ceiling(max(abs(z_score), na.rm = T)/sigma_crit_step), by=sigma_crit_step)
   }
 
   lapply(sigmas_crit, function(sigma_crit){
