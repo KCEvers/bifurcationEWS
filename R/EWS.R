@@ -336,7 +336,7 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
 #' @param split_df_EWS Dataframe of EWS split into lists, with one entry per value of the bifurcation parameter
 #' @param baseline_idx Indices of baseline steps in bifurcation parameter
 #' @param transition_idx Indices of transition steps in bifurcation parameter
-#' @param sigmas_crit Sequence of critical values of sigma
+#' @param sigmas_crit_step Step size in sequence of critical values of sigma
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
 #'
 #' @return Dataframe with warnings per EWS metric
@@ -345,7 +345,9 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
 #'
 #' @examples
 get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
-                         sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1){
+                         sigmas_crit_step = .25,
+                         # sigmas_crit= seq(.25, 6, by = .25),
+                         nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
   # EWS_df_CI = split_df_EWS %>% arrange(.data$bifpar_idx) %>% group_by(.data$metric) %>%
   #   filter(.data$bifpar_idx %in% baseline_idx) %>%
@@ -375,7 +377,12 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
     filter(.data$bifpar_idx %in% transition_idx) %>%
     group_by(.data$metric) %>%
     arrange(.data$bifpar_idx, .by_group = TRUE) %>%
-    group_modify(~ get_warnings_per_sigma(y = .y, bifpar_idx = .x$bifpar_idx, z_score = .x$z_score, sigmas_crit= sigmas_crit, nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
+    group_modify(~ get_warnings_per_sigma(y = .y,
+                                          bifpar_idx = .x$bifpar_idx,
+                                          z_score = .x$z_score,
+                                          sigmas_crit = seq(sigmas_crit_step, sigmas_crit_step * ceiling(max(abs(.x$z_score))/sigmas_crit_step), by=sigmas_crit_step),
+                                          # sigmas_crit= sigmas_crit,
+                                          nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
     rowwise() %>%
     dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0)) %>% ungroup()
   # dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>% ungroup()
@@ -400,9 +407,22 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
   default_grouping_vars <- c("sigma_crit", "metric")
   grouping_vars = c(default_grouping_vars, grouping_vars)
 
+  # Make sure the same sigma_crit is present for each model
+  complete_sigma_crit = EWS_warnings %>% group_by_at(setdiff(grouping_vars, "sigma_crit")) %>%
+  tidyr::complete(.data$noise_iter, .data$data_idx, .data$trans_or_null, .data$sigma_crit,
+                  fill = list( first_warning_bifpar_idx=NA,
+                               score = NA, nr_warnings = 0,
+                               nr_patches = NA, warning_signal = 0)) %>% ungroup()
+
+  # complete_sigma_crit %>% group_by(trans_or_null, metric, regime_switch) %>%
+  # summarise(n = n(), .groups = 'drop') %>% as.data.frame() %>% head(n=100)
+  # complete_sigma_crit %>% group_by_at(c(setdiff(grouping_vars, "sigma_crit"), "trans_or_null")) %>%
+  # summarise(n = n(), .groups = 'drop') %>% as.data.frame() %>% head(n=100)
+
+
   # Add number of true positives, false negatives, true negatives, and false positives
-  EWS_warnings = EWS_warnings %>%
-    # rowwise() %>%
+  complete_sigma_crit_ = complete_sigma_crit %>%
+   # rowwise() %>%
     # mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>%
     # ungroup() %>% rowwise() %>%
     mutate(nr_tp = ifelse(.data$trans_or_null == "transition", (.data$warning_signal == 1)*1,
@@ -413,12 +433,10 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
                                  ifelse(.data$trans_or_null == "null",(.data$warning_signal == 0)*1, "?")),
                   nr_fp = ifelse(.data$trans_or_null == "transition", NA,
                                  ifelse(.data$trans_or_null == "null", (.data$warning_signal == 1)*1, "?"))
-    )  #%>%
-  # select(all_of(grouping_vars), nr_tp, nr_fn, nr_tn, nr_fp)
+    )
 
   # Compute false/true positive/negative rate
-  EWS_warnings_ROC = EWS_warnings %>%
-    # mutate_at(c("sigma_crit"), ~as.numeric(as.character(.))) %>%
+  EWS_warnings_ROC = complete_sigma_crit_ %>%
     mutate_at(c("sigma_crit", "nr_tp", "nr_fp", "nr_tn", "nr_fn"), ~as.numeric(as.character(.))) %>%
     group_by_at(grouping_vars) %>%
     summarise(acc = sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE)),

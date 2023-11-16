@@ -777,7 +777,7 @@ find_regimes <- function(GLV,
 
   # Get dataframe with peaks
   if (keep_nr_timesteps == "all"){
-    keep_nr_timesteps = GLV$df %>% dplyr::filter(bifpar_idx == 1) %>% nrow()
+    keep_nr_timesteps = GLV$df %>% dplyr::filter(.data$bifpar_idx == 1) %>% nrow()
   } else if (is.numeric(keep_nr_timesteps)){
     keep_nr_timesteps = keep_nr_timesteps * GLV$fs
   }
