@@ -9,6 +9,7 @@ get_warnings(
   baseline_idx,
   transition_idx,
   sigma_crit_step = 0.25,
+  thresh_max_sigma_crit = 500,
   nr_consecutive_warnings = 1
 )
 }
@@ -20,6 +21,8 @@ get_warnings(
 \item{transition_idx}{Indices of transition steps in bifurcation parameter}
 
 \item{sigma_crit_step}{Step size in sequence of critical values of sigma}
+
+\item{thresh_max_sigma_crit}{Maximum critical cut-off value to look for}
 
 \item{nr_consecutive_warnings}{Number of consecutive warnings to look for}
 }

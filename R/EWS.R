@@ -182,13 +182,18 @@ run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
 #' @export
 #'
 #' @examples
-get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigma_crit_step, nr_consecutive_warnings = 1){
+get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigma_crit_step,
+                                   thresh_max_sigma_crit = 500,
+                                   nr_consecutive_warnings = 1){
 
-  if (all(is.na(z_score) | is.infinite(z_score))){
-    sigmas_crit = sigma_crit_step
-  } else {
-    sigmas_crit =  seq(sigma_crit_step, sigma_crit_step * ceiling(max(abs(z_score), na.rm = T)/sigma_crit_step), by=sigma_crit_step)
+  # Get sequence of critical cut-off values
+  max_sigma_crit = sigma_crit_step * ceiling(max(abs(z_score), na.rm = T)/sigma_crit_step)
+  if (is.na(max_sigma_crit) | is.infinite(max_sigma_crit)){
+    max_sigma_crit = sigma_crit_step
+  } else if (max_sigma_crit > thresh_max_sigma_crit){
+    max_sigma_crit = thresh_max_sigma_crit
   }
+  sigmas_crit =  seq(sigma_crit_step, max_sigma_crit, by=sigma_crit_step)
 
   lapply(sigmas_crit, function(sigma_crit){
 
@@ -344,6 +349,7 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
 #' @param transition_idx Indices of transition steps in bifurcation parameter
 #' @param sigma_crit_step Step size in sequence of critical values of sigma
 #' @param nr_consecutive_warnings Number of consecutive warnings to look for
+#' @param thresh_max_sigma_crit Maximum critical cut-off value to look for
 #'
 #' @return Dataframe with warnings per EWS metric
 #' @importFrom dplyr arrange ungroup filter group_by mutate mutate_at summarise group_modify .data
@@ -352,6 +358,7 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
 #' @examples
 get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
                          sigma_crit_step = .25,
+                         thresh_max_sigma_crit = 500,
                          # sigmas_crit= seq(.25, 6, by = .25),
                          nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
@@ -387,6 +394,7 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
                                           bifpar_idx = .x$bifpar_idx,
                                           z_score = .x$z_score,
                                           sigma_crit_step = sigma_crit_step,
+                                          thresh_max_sigma_crit = thresh_max_sigma_crit,
                                           # sigmas_crit= sigmas_crit,
                                           nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
     rowwise() %>%
