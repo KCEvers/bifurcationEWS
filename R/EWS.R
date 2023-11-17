@@ -690,7 +690,7 @@ get_autocorr <- function(x) {
 #' @examples
 get_Smax_old = function(x, fs, nr_timesteps){
 
-  if (identical(all.equal(stats::var(x), 0), TRUE)){
+  if (identical(all.equal(sd(x), 0), TRUE)){
     Smax = 0
     # spectral_exp = 0
     # spec_ratio_LF_HF = 0
@@ -746,7 +746,7 @@ get_Smax_old = function(x, fs, nr_timesteps){
 #' @examples
 get_Smax = function(x, fs, nr_timesteps){
   x = as.matrix(x)
-  if (any(apply(x, 2, stats::var) == 0)){
+  if (any(apply(x, 2, sd) == 0)){
     Smax_df = matrix(0, ncol = ncol(x), nrow = 1) %>% magrittr::set_colnames(colnames(x)) %>% as.data.frame()
 
     # spectral_exp = 0
@@ -779,7 +779,7 @@ get_Smax = function(x, fs, nr_timesteps){
 get_Hurst_exp <- function(x, fs, nr_timesteps, scaleMin = 10, scaleMax = 100,
                           polyOrderSegment = 2){
 
-  if (identical(all.equal(stats::var(x), 0), TRUE)){
+  if (identical(all.equal(sd(x), 0), TRUE)){
     Hurst_exp = 0
   } else {
   DFA = casnet::fd_dfa(
@@ -813,7 +813,7 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
                              f_min = 10**(-2),
                              f_max = 10**(-1)){
 
-  if (identical(all.equal(stats::var(x), 0), TRUE)){
+  if (identical(all.equal(sd(x), 0), TRUE)){
     pse_value = 0
   } else {
     N = length(x)
@@ -859,7 +859,7 @@ get_spectral_ratio <- function(x, fs, nr_timesteps,
                                                function(i){
                                                  return(paste0("LF", f_min_to_f_max[[i]][1], "_HF", f_min_to_f_max[[i]][2]) )
                                                }) %>% unlist()
-  if (identical(all.equal(stats::var(x), 0), TRUE)){
+  if (identical(all.equal(sd(x), 0), TRUE)){
     return(matrix(0, nrow = 1, ncol = length(f_min_to_f_max)) %>% magrittr::set_colnames(col_names) %>% as.data.frame() )
 
   } else {
