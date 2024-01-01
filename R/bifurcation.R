@@ -532,7 +532,7 @@ get_bands = function(x, min_edge = 0, max_edge = 1, step_size = .05){
   return(HIST_df)
 }
 
-#' Update periodicities with basin boundaries
+#' Update periodicities with basin boundaries and merged bands
 #'
 #' @inheritParams find_regimes
 #' @param peaks_df Dataframe with peaks
@@ -860,7 +860,8 @@ find_regimes <- function(GLV,
                                thresh_full_band = thresh_full_band, nr_smooth = nr_smooth)
 
   # Find regime boundaries
-  regime_bounds_ = find_regime_bounds(regimes, min_length_regime = min_length_regime,
+  regime_bounds_ = find_regime_bounds(regimes,
+                                      min_length_regime = min_length_regime,
                                       X_names = GLV$X_names)
 
   # Add corresponding initial conditions - the timepoint right before the bifurcation parameter changed to the starting value of the first regime
@@ -870,6 +871,7 @@ find_regimes <- function(GLV,
                            rename(regime1_start_idx = .data$bifpar_idx),
                          all.x = TRUE)
 
+  # Compile
   regime_list = utils::modifyList(GLV, list(df = NULL,
                                             peaks_df = peaks_df,
                                             k_spread = k_spread,

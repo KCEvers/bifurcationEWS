@@ -2,7 +2,7 @@
 % Please edit documentation in R/bifurcation.R
 \name{periods_to_regimes}
 \alias{periods_to_regimes}
-\title{Update periodicities with basin boundaries}
+\title{Update periodicities with basin boundaries and merged bands}
 \usage{
 periods_to_regimes(
   peaks_df,
@@ -39,5 +39,5 @@ periods_to_regimes(
 Updated dataframe
 }
 \description{
-Update periodicities with basin boundaries
+Update periodicities with basin boundaries and merged bands
 }

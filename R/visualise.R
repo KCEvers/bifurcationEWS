@@ -224,6 +224,7 @@ plot_3D_landscape_trans <- function(df,
                                                      )
     }
 
+    # fig$x$layout$margin = c(t = 5, b = 5, l = 5, r = 5)
 
     # Save plotly image: follow instructions on save_image {plotly}
     # htmlwidgets::saveWidget(fig, "p1.html", selfcontained = T, libdir = "lib") #https://plotly-r.com/saving
