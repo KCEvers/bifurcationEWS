@@ -32,7 +32,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
                            stopifregime = function(out){any(apply(out, 2, is.infinite)) | any(apply(out, 2, is.nan))},
 
                            do_downsample = TRUE,
-                           fs = 50,
+                           fs = NULL,
                            which_X = "all",
                            silent = FALSE,
                            max_iter = 1,
@@ -48,6 +48,13 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
   }  else if (is.null(bifpar_list)){
     bifpar_list = utils::modifyList(list(pre_steps = 0, baseline_steps = 100, transition_steps = 0, post_steps = 0), bifpar_pars) %>%
       do.call(get_bifurcation_range, .)
+  }
+
+  if (is.null(fs)){
+    fs = 1/timestep
+  } else if (fs > 1/timestep){
+    message(sprintf("The specified sampling frequency fs = %.2fHz is impossibly high given the specified timestep = %.4fsec - you cannot sample more than 1/timestep = %.2f! Make sure the sampling frequency is equal to or lower than 1/timestep = %.2f", fs, timestep, 1/timestep, 1/timestep))
+    return()
   }
 
   # Initialize
@@ -737,6 +744,7 @@ combine_mixed_regimes <- function(regimes_A, X_names, min_length_regime,
 #' @param variable_name Column name in dataframe to assess for hitting basin boundaries
 #' @param min_edge Minimum basin boundary
 #' @param max_edge Maximum basin boundary
+#' @param remove_initial_bifpar_idx Remove a few initial steps in the bifurcation parameter where the system is still settling
 #' @param keep_nr_timesteps Number of timesteps to keep for each bifurcation parameter value; number of timesteps to retain after discarding the transient. If "all", none are removed
 #'
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
@@ -754,7 +762,8 @@ find_regimes <- function(GLV,
                          factor_k = .1,
                          variable_name = "X1", min_edge = 0, max_edge = 1,
                          max_k = NULL,
-                         keep_nr_timesteps = c("all", 1000)){
+                         remove_initial_bifpar_idx = 5,
+                         keep_nr_timesteps = c("all", 1000)[1]){
 #
 # max_k = NULL
 #  thresh_node = .001
@@ -786,7 +795,7 @@ find_regimes <- function(GLV,
                              dplyr::slice_tail(n = keep_nr_timesteps,
                                                         by = "bifpar_idx"),
                            GLV$X_names) %>%
-    filter(.data$bifpar_idx >= 5) # Skip initial settling in points
+    filter(.data$bifpar_idx >= remove_initial_bifpar_idx) # Skip initial settling in points
 
   # For each value of the bifurcation parameter, find the period length k which has a minimum spread
   print("Finding best fitting period length for all bifurcation parameter values")
@@ -943,7 +952,7 @@ find_dist_per_k <- function(ks, coord, peak_idx){
 
 
   peak_idx_spread = lapply(ks, function(k){max_dist(vec = diff(peak_idx),
-                                                    cluster_idx = rep(1:k, length.out = length(coord)))}) %>%
+                                                    cluster_idx = rep(1:k, length.out = length(diff(peak_idx))))}) %>%
     do.call(rbind, .) %>%
     magrittr::set_colnames(paste0(colnames(.), "_peak_idx")) %>%
     as.data.frame()

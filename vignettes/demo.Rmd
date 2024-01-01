@@ -87,13 +87,13 @@ What are some more complicated regimes that we can find in the model?
 #                                                   which_X = c(50, "first", "middle", "last", "random")[1],
 #                                                   seed = 123)
 timestep = .01
-nr_timesteps = 2000
+nr_timesteps = 1000
 bifpar_pars = list(
 #   bifpar_start = 1.4, bifpar_end = .6,
   bifpar_start = .96, bifpar_end = .97,
 #   #bifpar_start = .965, bifpar_end = .985,
                                     pre_steps = 0,
-                                  baseline_steps = 0, transition_steps = 1, post_steps = 0)
+                                  baseline_steps = 0, transition_steps = 50, post_steps = 0)
 bifpar_list=do.call(get_bifurcation_range, bifpar_pars)
 
 GLV_Chaos1 = bifurcation_ts(model = GLV_model, model_pars = pars$model_pars,
@@ -117,7 +117,7 @@ pl_ts = GLV_Chaos1$df %>%
     labs(x = 'Time', y = "X1", title = "Timeseries") 
 print(style_plot(pl_ts))
 
-bifpar_idxs = c(5, 20, 50, 65, 75, 100)
+bifpar_idxs = ceiling(round(length(bifpar_list) * seq(.2, 1, by = .2))) %>% unique
 landscape_GLV_Chaos1 = plot_3D_landscape_trans(GLV_Chaos1$df,
                                          bifpar_idxs = bifpar_idxs,
                                          bifpar_values = unlist(purrr::map(bifpar_list[bifpar_idxs], "s"))
@@ -152,9 +152,11 @@ regimes_full = find_regimes(GLV_Chaos1,
                              thresh_node = .001,
                              thresh_coord_spread = .025,
                              thresh_peak_idx_spread=2,
-                             min_length_regime =5,
+                             min_length_regime = 1,
                              nr_smooth = 0,
-                              factor_k = .1)
+                              factor_k = .1, 
+                            remove_initial_bifpar_idx = 1
+)
 
 print(regimes_full$regimes)
 print(regimes_full$regime_bounds)
@@ -171,7 +173,6 @@ pl_regimes = regimes_full$peaks_df %>% ggplot() +
       xintercept = regime2_start_idx,
       col = regime_switch_type), linewidth = 1.3, linetype = 'dashed') +
     geom_point(aes(x = bifpar_idx, y = X),col='grey30',alpha = .8, size = .25) +
-
     viridis::scale_color_viridis(
       discrete=TRUE,
       option = 'magma',

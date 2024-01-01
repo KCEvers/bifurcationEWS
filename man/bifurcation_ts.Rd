@@ -20,7 +20,7 @@ bifurcation_ts(
     is.nan))
  },
   do_downsample = TRUE,
-  fs = 50,
+  fs = NULL,
   which_X = "all",
   silent = FALSE,
   max_iter = 1,

@@ -17,7 +17,8 @@ find_regimes(
   min_edge = 0,
   max_edge = 1,
   max_k = NULL,
-  keep_nr_timesteps = c("all", 1000)
+  remove_initial_bifpar_idx = 5,
+  keep_nr_timesteps = c("all", 1000)[1]
 )
 }
 \arguments{
@@ -44,6 +45,8 @@ find_regimes(
 \item{max_edge}{Maximum basin boundary}
 
 \item{max_k}{Maximum cluster size to look for}
+
+\item{remove_initial_bifpar_idx}{Remove a few initial steps in the bifurcation parameter where the system is still settling}
 
 \item{keep_nr_timesteps}{Number of timesteps to keep for each bifurcation parameter value; number of timesteps to retain after discarding the transient. If "all", none are removed}
 }
