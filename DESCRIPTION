@@ -37,6 +37,7 @@ Imports:
     rgl,
     rlang,
     scales,
+    scico,
     stats,
     stringr,
     tibble,

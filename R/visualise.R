@@ -249,20 +249,25 @@ plot_3D_landscape_trans <- function(df,
 #' @examples
 style_plot <- function(pl,
                        col_pal = c(
-                         col_facet_labels = scales::viridis_pal(option = "rocket", direction =
-                                                                  -1)(20)[17]),
-                       fs = c(
-                         "family" = "serif",
-                         "strip.text.x" = 12,
-                         "strip.text.y" = 12,
-                         "plot.title" = 20,
-                         "plot.subtitle" = 16,
-                         "axis.text" = 8,
-                         "axis.title" = 16,
-                         "legend.text" = 12,
-                         "legend.title" = 14,
-                         "legend.spacing.y" = .075
-                       )) {
+                         col_facet_labels = "#3C1A42FF"
+                         #scales::viridis_pal(option = "rocket", direction = -1)(20)[17]
+                                                                  ),
+                       fs = c()) {
+  # Font parameters
+  fs_default = c(
+    "family" = "serif",
+    "strip.text.x" = 12,
+    "strip.text.y" = 12,
+    "plot.title" = 20,
+    "plot.subtitle" = 16,
+    "axis.text" = 8,
+    "axis.title" = 16,
+    "legend.text" = 12,
+    "legend.title" = 14,
+    "legend.spacing.y" = .075
+  )
+  fs = c(fs_default[setdiff(names(fs_default), names(fs))], fs)
+
   pl <- pl + theme_bw() +
     theme(
       text = element_text(family = fs["family"]),
@@ -299,4 +304,266 @@ style_plot <- function(pl,
 }
 
 
+
+#' Plot bifurcation diagram
+#'
+#' @param regime_list List with detected regimes, output of find_regimes()
+#' @param sel_variables Selected variables to plot
+#' @param filepath_image Filepath to save image to; if not specified, no plot is saved.
+#' @param col_palette_regimes Name of colour palette to colour regimes. Must be one of scico's palettes, see all options with scico::scico_palette_names()
+#' @param alpha_regime Transparancy of regime colours
+#' @param sz_point_peaks Point size of peaks
+#' @param resolution Image resolution
+#' @param factor_resolution Factor to multiply image size by to increase resolution
+#' @param reverse_x_axis Logical indicating whether the x-axis should be reversed
+#' @param nbreaks_x Number of ticks on the x-axis
+#'
+#' @return Styled bifurcation digram
+#' @importFrom ggplot2 coord_cartesian element_blank element_line geom_point geom_rect ggplot scale_x_continuous scale_x_reverse scale_y_continuous label_parsed guide_colorbar labs aes
+#' @export
+#'
+#' @examples
+plot_bifdiag = function(regime_list,
+                        sel_variables = NULL,
+                        filepath_image = NULL,
+                        col_palette_regimes = c("lapaz","batlowW")[2],
+                        alpha_regime = .99,
+                        sz_point_peaks = .0001,
+                        resolution = 200,
+                        factor_resolution = 3,
+                        reverse_x_axis = F, nbreaks_x = 8
+){
+
+  if (is.null(sel_variables)){
+    sel_variables = unique(regime_list$peaks_df$variable)
+  }
+
+
+  # Relabel variables
+  variable_labs <- list("X1" = latex2exp::TeX("$X_1$", output = 'character'),
+                        "X2" = latex2exp::TeX("$X_2$", output = 'character'),
+                        "X3" = latex2exp::TeX("$X_3$", output = 'character'),
+                        "X4" = latex2exp::TeX("$X_4$", output = 'character')
+  )
+
+  # Relabel regimes according to the order of periodicity
+  regimes_period_nr = regime_list$regimes %>%
+    rowwise() %>%
+    dplyr::mutate_at(regime_list$X_names, ~ifelse(grepl("Chaotic", .), NA,
+                                                   stringr::str_replace_all(., "Period-", "") %>%
+                                                     as.character() %>% as.numeric())
+    ) %>% ungroup() %>% tidyr::gather(.data$variable, .data$period, -setdiff(colnames(.), regime_list$X_names)) %>%
+    dplyr::filter(.data$variable %in% sel_variables) %>%
+    mutate(variable_name =
+             dplyr::recode(.data$variable, !!!variable_labs))
+
+  # Set up colour bar
+  na_colour = dplyr::last(scico::scico(100, palette = col_palette_regimes))
+  max_period_nr = max(regimes_period_nr %>% pull(.data$period), na.rm = TRUE)
+  if (max_period_nr == 1){
+    breaks_colourbar = c(1, 100)
+    labels_colourbar = c("Node", "Chaotic")
+  } else {
+    breaks_colourbar = c(1, 2**seq(1, max(c(ceiling(log2(round(max_period_nr, 0))), 1)), by = 1)) # Logarithmic sequence
+    labels_colourbar = c("Node", paste0("Period ", breaks_colourbar[-c(1,length(breaks_colourbar))]), "Chaotic")
+  }
+
+  # Set up plot
+  pl = regime_list$peaks_df %>%
+    dplyr::filter(.data$variable %in% sel_variables) %>%
+    mutate(variable_name =
+             dplyr::recode(.data$variable, !!!variable_labs)) %>%
+    ggplot()
+
+  # Plot regimes
+  pl <- pl +
+    geom_rect(
+      data = regimes_period_nr,
+      aes(xmin = .data$start_bifpar_idx, xmax=.data$end_bifpar_idx, ymin = -Inf,ymax=Inf,
+          fill = .data$period),
+      linewidth = 0 # Remove color
+    ) +
+    scico::scale_fill_scico(
+      palette = col_palette_regimes,
+      alpha = alpha_regime,
+      begin = .2, end = 1,
+      trans = "log2",
+      limits = range(breaks_colourbar),
+      breaks = breaks_colourbar,
+      labels = labels_colourbar,
+      na.value = na_colour,
+      direction = 1,
+      name = "",
+      guide = guide_colorbar(
+        barheight = 30, #14
+        barwidth = 3, #14
+        reverse = TRUE,
+        title.position = "top",
+        title.hjust = 0.5,
+        nbin = 20
+      ))
+
+
+  pl <- pl +
+    geom_point(aes(x = .data$bifpar_idx, y = .data$X),
+               col = "gray10",
+               size = sz_point_peaks) +
+    labs(y = "",
+         x = latex2exp::TeX("$s"),
+         title = "") +
+    ggh4x::facet_grid2(variable_name ~ .,
+                       labeller = label_parsed
+    )
+
+  # Set proper axis ranges
+  min_x = min(regime_list$peaks_df$bifpar_idx)
+  max_x = max(regime_list$peaks_df$bifpar_idx)
+  breaks_x = seq(1, length(regime_list$bifpar_list), length.out = nbreaks_x)
+  labels_x = unname(unlist(regime_list$bifpar_list[breaks_x]))
+  if (reverse_x_axis){
+    pl <- pl +
+      scale_x_reverse(breaks=rev(breaks_x), labels = labels_x) +
+      coord_cartesian(
+                      ylim = c(-0.035, 1.035), expand = FALSE, clip = 'on')
+
+  } else {
+    pl <- pl +
+      scale_x_continuous(breaks=breaks_x, labels = labels_x) +
+      coord_cartesian(
+                      ylim = c(-0.035, 1.035), expand = FALSE, clip = 'on')
+  }
+
+  pl <- pl +
+    scale_y_continuous(breaks = c(0, .25, .5, .75, 1))
+
+  factor_fs = 1 #ifelse(length(sel_variables) == 1, 2, 4)
+  fs = c(
+    "strip.text.x" = 12*factor_fs,
+    "strip.text.y" = 12*factor_fs,
+    "axis.text" = 8*factor_fs,
+    "axis.title" = 16*factor_fs,
+    "legend.text" = 12*factor_fs,
+    "legend.title" = 14*factor_fs
+  )
+
+  # Style plot
+  pl = style_plot(pl, fs = fs) +
+    # Remove background grid
+    theme(axis.line = element_line(color='black'),
+          plot.background = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank())
+
+  # Save plot
+  if (!is.null(filepath_image)){
+
+    save_plot(
+      pl,
+      filepath_image,
+      w = 10*factor_resolution,
+      h = 10+2.5*length(sel_variables)*factor_resolution,
+      resolution = resolution,
+      formats = ".eps")
+    print(filepath_image)
+  }
+  return(pl)
+
+}
+
+#' Utility function to save plots
+#'
+#' @param pl ggplot object
+#' @param filepath_image Filepath image needs to be saved to
+#' @param w Width
+#' @param h Height
+#' @param resolution Resolution
+#' @param formats File formats
+#'
+#' @return Success of saving file
+#' @export
+#'
+#' @examples
+save_plot <-
+  function(pl,
+           filepath_image,
+           w = 10,
+           h = 10,
+           resolution = 200,
+           formats = c("tiff", "png", "pdf", "eps")[1]) {
+    if (rlang::is_empty(filepath_image)) {
+      print(sprintf("Filepath to image is NULL!"))
+      return()
+    }
+    grDevices::graphics.off()
+
+    # Make sure there are no leading periods in the file formats
+    for (f_idx in 1:length(formats)) {
+      f = formats[f_idx]
+      f_ = if (stringr::str_sub(f, 1, 1) == ".")
+        sprintf("%s", stringr::str_sub(f, 2,-1))
+      else
+        f # Make sure file extension leads with a period
+      formats[f_idx] = f_
+    }
+
+    # Save plot in different formats
+    if ("tiff" %in% formats) {
+      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".tiff") %>%
+        grDevices::tiff(
+          width = w,
+          height = h,
+          bg = "white",
+          # pointsize = 1 / 300,
+          units = 'cm',
+          res = resolution
+        )
+      grid::grid.draw(pl) # Make plot
+      grDevices::dev.off()
+    }
+    if ("png" %in% formats) {
+      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".png") %>%
+        grDevices::png(
+          width = w,
+          height = h,
+          bg = "transparent",
+          units = 'cm',
+          res = resolution
+        )
+      grid::grid.draw(pl) # Make plot
+      grDevices::dev.off()
+    }
+
+    if ("pdf" %in% formats) {
+      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".pdf") %>%
+        grDevices::pdf(width = w,
+                       height = h,
+                       bg = "white")
+      grid::grid.draw(pl) # Make plot
+      grDevices::dev.off()
+    }
+    if ("svg" %in% formats) {
+      filepath_image %>% tools::file_path_sans_ext() %>% paste0(".svg") %>%
+        grDevices::svg(width = w,
+                       height = h,
+                       bg = "white")
+      grid::grid.draw(pl) # Make plot
+      grDevices::dev.off()
+    }
+    if ("eps" %in% formats){
+      # grDevices::setEPS()
+      # grDevices::postscript(filepath_image %>% tools::file_path_sans_ext() %>% paste0(".eps"), fonts = "serif")
+      # grid::grid.draw(pl) # Make plot
+      # grDevices::dev.off()
+      grDevices::cairo_ps(filepath_image %>% tools::file_path_sans_ext() %>% paste0(".eps"),
+                          width = w,
+                          height = h,
+                          bg = "white",pointsize = 2)
+      print(pl)
+      grDevices::dev.off()
+    }
+    grDevices::graphics.off()
+
+    return(file.exists(filepath_image))
+  }
 

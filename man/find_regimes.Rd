@@ -18,6 +18,7 @@ find_regimes(
   max_edge = 1,
   max_k = NULL,
   remove_initial_bifpar_idx = 5,
+  update_regimes = F,
   keep_nr_timesteps = c("all", 1000)[1]
 )
 }
@@ -47,6 +48,8 @@ find_regimes(
 \item{max_k}{Maximum cluster size to look for}
 
 \item{remove_initial_bifpar_idx}{Remove a few initial steps in the bifurcation parameter where the system is still settling}
+
+\item{update_regimes}{Logical; whether periods and regimes should be updated with newly passed parameter. If TRUE, the list passed to GLV should be the output of find_regimes()}
 
 \item{keep_nr_timesteps}{Number of timesteps to keep for each bifurcation parameter value; number of timesteps to retain after discarding the transient. If "all", none are removed}
 }

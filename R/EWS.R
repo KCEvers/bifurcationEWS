@@ -687,62 +687,6 @@ get_autocorr <- function(x) {
 #' @export
 #'
 #' @examples
-get_Smax_old = function(x, fs, nr_timesteps){
-
-  if (identical(all.equal(stats::sd(x), 0), TRUE)){
-    Smax = 0
-    # spectral_exp = 0
-    # spec_ratio_LF_HF = 0
-    # spec_ratio_LF_HF_perc = 0
-  } else {
-    lx <- fs * nr_timesteps
-    pw <- gsignal::pwelch(x, window = lx, fs = fs,
-                          # Remove mean so that the spectral peak isn't at zero
-                          detrend = c("long-mean", "short-mean", "long-linear", "short-linear", "none")[1],
-                          range = "half")
-    Smax = max(pw$spec)
-  }
-  return(Smax)
-  # freq = pw$freq[-1]
-  # spec = pw$spec[-1]
-  #
-  # # # Fit slope to spectral density; Remove spectral density corresponding to f = 0
-  # # if (spectral_exp_method == "Wijnants2013"){
-  # #   idx_min = 1
-  # #   idx_max = 50
-  # # } else if (spectral_exp_method == "Prettyman2020"){
-  # #   f_min = 10**(-2)
-  # #   f_max = 10**(-1)
-  # #   idx_min = which.min(abs(freq - f_min))
-  # #   idx_max = which.min(abs(freq - f_max))
-  # # }
-  # # lmfit <- stats::lm(log2(spec[idx_min:idx_max]) ~ log2(freq[idx_min:idx_max]),
-  # #                    na.action=stats::na.omit)
-  # # spectral_exp = unname(lmfit$coefficients[2])
-  #
-  # # Spectral ratio of spectral density at low to high frequency
-  # spec_ratio_LF_HF = spec[which.min(abs(freq - low))] / spec[which.min(abs(freq - high))]
-  # # spec_ratio_LF_HF_perc = sum(spec[2:round(low_perc * length(spec))]) / sum(spec[(length(spec) - round(high_perc * length(spec)) + 2):length(spec)])
-  # }
-  # return(data.frame(Smax=Smax,
-  #                   spectral_ratio_LF_HF=spec_ratio_LF_HF#,
-  #                   # spectral_ratio_LF_HF_perc=spec_ratio_LF_HF_perc,
-  #                   # spectral_exp = spectral_exp
-  #                   ))
-}
-
-
-
-#' Compute Maximum Spectral Density (Bury, 2021)
-#'
-#' @param x Signal
-#' @param fs Sampling frequency
-#' @param nr_timesteps Number of timesteps
-#'
-#' @return Spectral EWS from Welch's PSD
-#' @export
-#'
-#' @examples
 get_Smax = function(x, fs, nr_timesteps){
   x = as.matrix(x)
   if (any(apply(x, 2, stats::sd) == 0)){

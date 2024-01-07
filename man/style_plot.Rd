@@ -4,14 +4,7 @@
 \alias{style_plot}
 \title{Style plot}
 \usage{
-style_plot(
-  pl,
-  col_pal = c(col_facet_labels = (scales::viridis_pal(option = "rocket", direction =
-    -1))(20)[17]),
-  fs = c(family = "serif", strip.text.x = 12, strip.text.y = 12, plot.title = 20,
-    plot.subtitle = 16, axis.text = 8, axis.title = 16, legend.text = 12, legend.title =
-    14, legend.spacing.y = 0.075)
-)
+style_plot(pl, col_pal = c(col_facet_labels = "#3C1A42FF"), fs = c())
 }
 \arguments{
 \item{pl}{Original plot}
