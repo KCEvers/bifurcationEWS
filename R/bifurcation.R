@@ -756,8 +756,8 @@ combine_mixed_regimes <- function(regimes_A, X_names, min_length_regime,
 #' @param nr_smooth Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing
 #' @param factor_k Weighting of period length k; heavier weight means shorter k is preferred; factor_k = 0 means the optimal period length is chosen based solely on minimum spread
 #' @param variable_name Column name in dataframe to assess for hitting basin boundaries
-#' @param min_edge Minimum basin boundary
-#' @param max_edge Maximum basin boundary
+#' @param min_edge Minimum edge of basin boundary
+#' @param max_edge Maximum edge of basin boundary
 #' @param remove_initial_bifpar_idx Remove a few initial steps in the bifurcation parameter where the system is still settling
 #' @param update_regimes Logical; whether periods and regimes should be updated with newly passed parameter. If TRUE, the list passed to GLV should be the output of find_regimes()
 #' @param keep_nr_timesteps Number of timesteps to keep for each bifurcation parameter value; number of timesteps to retain after discarding the transient. If "all", none are removed
