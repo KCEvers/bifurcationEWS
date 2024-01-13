@@ -110,8 +110,12 @@ filepaths_data_cut = foreach(for_par = pars_template_adjust) %do% {
 }
 
 # # Finally, load cut data sets
-# filepaths_data_cut = list(c("transition" = , "null" = ""))
-#
+pars_template_adjust %>%
+  purrr::imap(., function(x, idx){
+    assign(sprintf("%s_trans", x[["GLV_string"]]), filepaths_data_cut[idx]["transition"]);
+    assign(sprintf("%s_null", x[["GLV_string"]]), filepaths_data_cut[idx]["null"])
+  })
+
 # assign("GLV_BC_trans", filepath_trans)
 #
 # assign("GLV_Hopf_forw_trans", readRDS(filepaths_data_cut[which(names(pars_template_adjust) == "Hopf")]["transition"]))

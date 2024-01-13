@@ -10,7 +10,6 @@ filepath_all_regime_bounds = format_path(format_pars(utils::modifyList(
 )))
 regime_bounds_df = readRDS(filepath_all_regime_bounds)
 
-<<<<<<< HEAD
 
 # Find selected regimes in full GLVs
 regime_switch_list = make_filter_regime_switches(pars_template$min_length_regime, pars_template$default_baseline_steps, pars_template$default_transition_steps)
@@ -19,289 +18,6 @@ selected_regime_bounds = apply_filter_regime_switches(regime_bounds_df, regime_s
 print("SELECTED")
 print(selected_regime_bounds %>% group_by(data_idx, regime_switch) %>% dplyr::summarise(n=n(), .groups = 'drop') %>% as.data.frame())
 
-
-=======
-get_regime_switch_list <- function(min_length_regime){
-
-  default_null_filter <- function(x){dplyr::filter(x,
-                                                   .data$regime1_length >= pars_template$default_baseline_steps + pars_template$default_transition_steps &
-                                                     is.na(.data$regime2_length)) }
-  default_trans_filter <- function(x){dplyr::filter(x,
-                                                    .data$regime1_length >= pars_template$default_baseline_steps
-                                                    # Regime 2 doesn't have to be exactly the transition length but it should be of sufficiently length to say it's transitioned
-                                                    & .data$regime2_length >= min_length_regime) }
-
-  regime_switch_list = list(
-    list(
-      "PD_1to1",
-      "Same-Period",
-      "Period-1 (X1,X2,X3,X4)",
-      "Period-1 (X1,X2,X3,X4)",
-      "Period-1 (X1,X2,X3,X4)",
-      default_null_filter, default_trans_filter
-    ),
-    list(
-      "PD_1to2",
-      "Period-Doubling",
-      "Period-1 (X1,X2,X3,X4)",
-      "Period-2 (X1,X2,X3,X4)",
-      "Period-1 (X1,X2,X3,X4)",
-      default_null_filter, default_trans_filter
-    ),
-    list(
-      "PD_2to4",
-      "Period-Doubling",
-      "Period-2 (X1,X2,X3,X4)",
-      "Period-4 (X1,X2,X3,X4)",
-      "Period-2 (X1,X2,X3,X4)",
-      default_null_filter, default_trans_filter
-    ),
-    list(
-      "PD_4to8",
-      "MultVar-Period-Increasing-or-Doubling",
-      "Period-4 (X2,X3,X4) AND Period-6 (X1)",
-      "Period-10 (X1) AND Period-8 (X2,X3,X4)",
-      "Period-4 (X2,X3,X4) AND Period-6 (X1)",
-      default_null_filter, default_trans_filter
-    ),
-    list(
-      "PD_8to16",
-      "Period-Doubling",
-      "Period-10 (X1) AND Period-8 (X2,X3,X4)",
-      c("Period-16", "Period-20 (X1)"),
-      "Period-10 (X1) AND Period-8 (X2,X3,X4)",
-      default_null_filter, default_trans_filter
-    ),
-    # list(
-    #   "PD_8to16",
-    #   "Period-Doubling",
-    #   "Period-10 (X1) AND Period-8 (X2,X3,X4)",
-    #   "Period-16 (X3) AND Period-20 (X1) AND Period-8 (X2,X4)",
-    #   "Period-10 (X1) AND Period-8 (X2,X3,X4)",
-    #   c()
-    # ),
-    list(
-      "PD_Mixed-Periodic_to_Chaotic1",
-      c("Mixed-Periodic to ", "Chaotic"),#"Mixed-Periodic to Mixture: Periodic and Chaotic",#"Mixed-Periodic to Chaotic or Transitioning",
-      c("Period", "X1", "X2", "X3", "X4"),#"Period-16 (X2,X3,X4) AND Period-20 (X1)",
-      "Chaotic",#"Chaotic or Transitioning",
-      c("Period", "X1", "X2", "X3", "X4"),#"Period-16 (X2,X3,X4) AND Period-20 (X1)",
-      default_null_filter,
-      # default_trans_filter
-      function(x){dplyr::filter(x, .data$regime1_length >= min_length_regime,
-                                .data$regime2_length >= min_length_regime)}
-
-      ),
-    list(
-      "SUBD_Chaotic_to_Mixed-Periodic1",
-      c("Chaotic", "to Mixed-Periodic"),#"Chaotic or Transitioning (X1,X2,X3,X4) (Merged-Band) to Period-6 (X2,X3,X4) AND Period-8 (X1)",#"Chaotic or Transitioning to Mixed-Periodic",
-      "Chaotic",
-      "Period-6 (X2,X3,X4) AND Period-8 (X1)",
-      "Chaotic",
-      # default_null_filter, default_trans_filter
-      function(x){x %>%
-          dplyr::group_by(.data$data_idx)  %>%
-          dplyr::filter(!(!grepl("Chaotic", .data$regime1) & .data$regime1_length >= min_length_regime))
-      },
-      function(x){x}
-
-      ),
-    #function(x){dplyr::filter(x, regime1_length > (min_length_regime * 5) & regime2_length > (min_length_regime * 5))}),
-    list(
-      "PH_16to8",
-      "Period-Halving",
-      "Period-16 (X2,X3,X4)", #"Period-16 (X2,X3,X4) AND Period-20 (X1)",
-      "Period-8 (X2,X3,X4)", #"Period-10 (X1) AND Period-8 (X2,X3,X4)",
-      "Period-16 (X2,X3,X4)", #Period-16 (X2,X3,X4) AND Period-20 (X1)",
-      default_null_filter,
-      # default_trans_filter
-      function(x){x}
-    ),
-    list(
-      "PH_8to4",
-      c("Period"), #MultVar-Period-Decreasing-or-Halving",
-      c("Period-8 (X2,X3,X4)"), #"Period-10 (X1) AND Period-8 (X2,X3,X4)",
-      c("Period-4 (X2,X3,X4)"), #"Period-4 (X2,X3,X4) AND Period-6 (X1)",
-      c("Period-8 (X2,X3,X4)"), #"Period-10 (X1) AND Period-8 (X2,X3,X4)",
-      default_null_filter,
-      # default_trans_filter
-      function(x){x}
-    ),
-    list(
-      "PH_4to2",
-      "Period-Halving",
-      "Period-4 (X1,X2,X3,X4)",
-      "Period-2 (X1,X2,X3,X4)",
-      "Period-4 (X1,X2,X3,X4)",
-      default_null_filter,
-      # default_trans_filter
-      function(x){x}
-      ),
-    list(
-      "PH_2to1",
-      "Period-Halving",
-      "Period-2 (X1,X2,X3,X4)",
-      "Period-1 (X1,X2,X3,X4)",
-      "Period-2 (X1,X2,X3,X4)",
-      default_null_filter,
-      # default_trans_filter
-      function(x){x}
-    ),
-    list(
-      "PH_Chaotic_to_Mixed-Periodic1",
-      c("Chaotic", "to Mixed-Periodic"),#"Mixture: Periodic and Chaotic (Merged-Band) to Mixed-Periodic",
-      "Chaotic",
-      c("Period", "X1", "X2", "X3", "X4"),#"Period-16 (X2,X3,X4) AND Period-20 (X1)",
-      "Chaotic",
-      # default_null_filter, default_trans_filter
-      function(x){x %>%
-          dplyr::group_by(.data$data_idx)  %>%
-          dplyr::filter(!any((grepl("Period", .data$regime1) & !(grepl("Chaotic", .data$regime1) | grepl("Mixture", .data$regime1))) | (grepl("Period", .data$regime2) & !(grepl("Chaotic", .data$regime2) | grepl("Mixture", .data$regime2))) ))
-        # dplyr::filter(!(!grepl("Chaotic", .data$regime1) & .data$regime1_length >= min_length_regime))
-      },
-      function(x){x}
-    ),
-    list(
-      "SUBD_Mixed-Periodic_to_Chaotic1",
-      c("Mixed-Periodic to", "Chaotic"),#"Mixed-Periodic to Chaotic or Transitioning",
-      "Period-6 (X2,X3,X4) AND Period-8 (X1)",
-      "Chaotic",
-      "Period-6 (X2,X3,X4) AND Period-8 (X1)",
-      default_null_filter,
-      # default_trans_filter
-function(x){
-  x %>% ungroup() %>%
-    # rowwise() %>% mutate(time_between =) %>% ungroup() %>%
-    filter( abs(.data$regime1_end_idx - .data$regime2_start_idx) <= min_length_regime)
-  # %>% select(-time_between)
-}
-    ),
-    list(
-      "Interior-Crisis-Merging",
-      "Chaos-Expansion",
-      "Chaotic",
-      c("Chaotic", "Merged-Band"),
-      "Chaotic",
-      function(x){x %>%
-          dplyr::group_by(.data$data_idx) %>%
-          dplyr::filter(!any(grepl("Merged-Band", .data$regime1, fixed=T) | grepl("Merged-Band", .data$regime2, fixed=T))) %>%
-          dplyr::filter(grepl("Chaotic", .data$regime1, fixed = T) & (grepl("Chaotic", .data$regime2, fixed = T) | grepl("None", .data$regime2, fixed = T)) ) %>% ungroup()
-      },
-      function(x){x %>% dplyr::group_by(.data$data_idx) %>%
-          dplyr::arrange(regime1_start_idx, .by_group = T) %>%
-          dplyr::slice_head(n=1) %>% ungroup()
-}
-      # default_trans_filter
-    ),
-    list(
-      "Interior-Crisis-Separation",
-      "Chaos-Reduction",
-      c("Chaotic", "Merged-Band"),
-      "Chaotic",
-      c("Chaotic", "Merged-Band"),
-      function(x){x %>%
-      dplyr::group_by(.data$data_idx) %>%
-      dplyr::filter(all((grepl("Merged-Band", .data$regime1, fixed=T) & (grepl("Merged-Band", .data$regime2, fixed=T) | grepl("None", .data$regime2, fixed=T))) | sum(.data$regime1_length, .data$regime2_length, na.rm=T) <= min_length_regime )) %>%
-      dplyr::filter(grepl("Chaotic", .data$regime1, fixed = T) & (grepl("Chaotic", .data$regime2, fixed = T) | grepl("None", .data$regime2, fixed = T)) ) %>% ungroup()
-      },
-      default_trans_filter
-    ),
-    list(
-      "Boundary-Crisis",
-      c("Chaotic", "to Period-1 (X1,X2,X3,X4)"),
-      "Chaotic", #"Boundary-Crisis",
-      "Period-1 (X1,X2,X3,X4)",
-      c("Chaotic"),# (Touching Basin-Boundary)",
-      function(x){x %>%
-          dplyr::group_by(.data$data_idx) %>%
-          dplyr::filter(all((grepl( "Mixture",.data$regime1, fixed = T)|grepl( "Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime1, fixed = T)) & (grepl( "None",.data$regime2, fixed = T)|grepl( "Mixture",.data$regime2, fixed = T)|grepl("Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime2, fixed = T)))) %>%
-          ungroup()
-      },
-      default_trans_filter
-      # function(x){x},
-    )
-    ) %>%
-    purrr::map(function(x) {
-      setNames(x,
-               c(
-                 "regime_switch", # The name of the regime switch we're denoting here
-                 "regime_switch_type",
-                 "regime1",
-                 "regime2",
-                 "regime1_null",
-                 "filter_func_null",
-                 "filter_func_transition"
-               ))
-    })
-   return(regime_switch_list)
-}
-
-select_regime_bounds = function(regime_bounds_df, regime_switch_list, trans_or_null = c(NA, "null", "transition")[1]) {
-  selected_regime_bounds = plyr::ldply(regime_switch_list, function(regime_switch_l) {
-
-    # print(names(regime_switch_l))
-    regime_switch = regime_switch_l[["regime_switch"]]
-    if (!is.na(trans_or_null)){
-      regime_switch_l[["filter_func"]] = regime_switch_l[[sprintf("filter_func_%s", trans_or_null)]]
-      if (trans_or_null == "null"){
-        regime_switch_l[["regime1"]] = regime_switch_l[["regime1_null"]]
-        regime_switch_l = regime_switch_l[names(regime_switch_l) %in% c("regime1", "filter_func")]
-        # regime_switch_l = regime_switch_l[names(regime_switch_l) %in% c("regime_switch", "regime1", "filter_func")]
-      }
-    }
-    sel_regime_bounds_df = regime_bounds_df
-    # Only get filter arguments that are columns in the regime boundary dataframe
-    filters = regime_switch_l[names(regime_switch_l) %in% colnames(regime_bounds_df)]
-
-    for (i in seq_along(filters)){
-      for (j in seq_along(filters[[i]])){
-      sel_regime_bounds_df = sel_regime_bounds_df %>%
-        dplyr::filter(grepl(filters[[i]][j], .data[[names(filters)[i]]], fixed = TRUE))
-      # print(head(sel_regime_bounds_df, n=1))
-      }
-    }
-
-    if (!is.null(regime_switch_l$filter_func)) {
-      sel_regime_bounds_df = sel_regime_bounds_df  %>%
-        dplyr::filter(trans_or_null == !!trans_or_null) %>% regime_switch_l$filter_func()
-    }
-
-    # If multiple matching regimes are found, return one with largest lengths of regime1 and regime 2
-    sel_regime_bounds_df = sel_regime_bounds_df %>%
-      rowwise() %>% mutate(mean_length = mean(c(.data$regime1_length, .data$regime2_length), na.rm=TRUE) ) %>%
-      group_by(.data$data_idx) %>%
-      dplyr::filter(.data$mean_length == max(.data$mean_length)) %>%
-      # Take first row in the rare case where there are multiple matches
-      dplyr::slice(1) %>%
-      select(-.data$mean_length) %>%
-      ungroup()
-
-    # print(head(sel_regime_bounds_df, n = 1))
-    # if (!is.na(trans_or_null)){
-      #  The returned data frame cannot contain the original grouping variables
-      # return(sel_regime_bounds_df)
-    # } else {
-     return(sel_regime_bounds_df %>% dplyr::mutate(regime_switch = regime_switch))
-    # }
-  })
-
-  if (nrow(selected_regime_bounds) > 0){
-    return(selected_regime_bounds %>% arrange(.data$data_idx, .data$regime1_start_idx, .data$regime_switch))
-} else {
-  return(data.frame())
-}
-}
-
-# Find selected regimes in full GLVs
-regime_switch_list = get_regime_switch_list(pars_template$min_length_regime)
-selected_regime_bounds = select_regime_bounds(regime_bounds_df, regime_switch_list[purrr::map(regime_switch_list, "regime_switch") %in% pars_template$select_regime_switches])
-
-# print(regime_bounds_df %>% as.data.frame())
-print("SELECTED")
-# print(selected_regime_bounds %>% as.data.frame())
-print(selected_regime_bounds %>% group_by(data_idx, regime_switch) %>% dplyr::summarise(n=n(), .groups = 'drop') %>% as.data.frame())
-
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
 # Switch to transition models
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
 pars_template$min_length_regime=pars_template$min_length_regime_trans
@@ -313,11 +29,7 @@ filepath_unfiltered_trans_regime_bounds = format_path(format_pars(utils::modifyL
   pars_template,
   list(type_output = "regimes", filename = "unfiltered_trans_regime_bounds")
 )))
-<<<<<<< HEAD
 regime_switch_list = make_filter_regime_switches(pars_template$min_length_regime, pars_template$default_baseline_steps, pars_template$default_transition_steps)
-=======
-regime_switch_list = get_regime_switch_list(pars_template$min_length_regime)
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
 
 
 forloop_ = c(
@@ -612,10 +324,6 @@ regimes_list = foreach(for_par = forloop) %dopar% {
                          filepath_regimes = format_path(format_pars(utils::modifyList(pars, list(type_output = "regimes"))))
 
                          if (file.exists(filepath_regimes)) {
-<<<<<<< HEAD
-=======
-                           # regime_list = readRDS(filepath_regimes)[c("regimes", "regime_bounds")]
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
                            regime_list = readRDS(filepath_regimes)[c("regime_bounds")]
                            return(regime_list)
                          } else {
@@ -639,25 +347,12 @@ regime_bounds_trans_df = readRDS(filepath_unfiltered_trans_regime_bounds)
 print("On to successful!")
 
 
-<<<<<<< HEAD
-=======
-# regime_bounds_trans_df%>%filter(regime_switch== "SUBD_Mixed-Periodic_to_Chaotic1") %>% as.data.frame
-#
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
 # Check if simulation went correctly - sufficient length, null and trans
 regime_bounds_successful = dplyr::bind_rows(
   # Null models should have correct first regime & regime switch as well as be of sufficient length
   regime_bounds_trans_df  %>%
-<<<<<<< HEAD
     group_by(.data$regime_switch) %>%
     group_modify(~ apply_filter_regime_switches(.x,
-=======
-    # filter(regime_switch %in% c("PD_2to4", "PD_4to8", "PD_8to16")) %>%
-    # filter(regime_switch %in% c("PD_Mixed-Periodic_to_Chaotic1")) %>%
-    # filter(regime_switch %in% c("SUBD_Chaotic_to_Mixed-Periodic1")) %>%
-    group_by(.data$regime_switch) %>%
-    group_modify(~ select_regime_bounds(.x,
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
                                         regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch],
                                         trans_or_null = "null") %>%
                    # Remove grouping variable from returned result as it will be appended anyway
@@ -666,16 +361,8 @@ regime_bounds_successful = dplyr::bind_rows(
     mutate(count = rep(length(pars_template$transition_steps), n())) %>%
     tidyr::uncount(count) %>% dplyr::mutate(transition_steps = rep(pars_template$transition_steps, n() / length(pars_template$transition_steps))),
   regime_bounds_trans_df  %>%
-<<<<<<< HEAD
     group_by(.data$regime_switch, .data$transition_steps) %>%
     group_modify(~ apply_filter_regime_switches(.x, regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch], trans_or_null = "transition") %>%
-=======
-    # filter(regime_switch %in% c("PD_2to4", "PD_4to8", "PD_8to16")) %>%
-    # filter(regime_switch %in% c("PD_Mixed-Periodic_to_Chaotic1")) %>%
-    # filter(regime_switch %in% c("SUBD_Mixed-Periodic_to_Chaotic1")) %>%
-    group_by(.data$regime_switch, .data$transition_steps) %>%
-    group_modify(~ select_regime_bounds(.x, regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch], trans_or_null = "transition") %>%
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
                    # Remove grouping variable from returned result as it will be appended anyway
                    select(-c(.data$regime_switch, .data$transition_steps)), .keep = TRUE)
 ) %>% distinct() %>%
@@ -688,10 +375,6 @@ regime_bounds_successful = dplyr::bind_rows(
   # dplyr::summarise(n = n()) %>% as.data.frame()
   dplyr::filter(n() == 2) %>%
   ## Null models do not have an index where regime 2 started, so copy from corresponding transition condition
-<<<<<<< HEAD
-=======
-  # dplyr::mutate(transition_end_idx = na.omit(unique(regime2_start_idx)) - 1) %>%
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
   # Copy start regime 2 from transition condition
   dplyr::mutate(transition_end_idx = regime2_start_idx[trans_or_null == "transition"] -1, seed_nr = cur_group_id()) %>%
   ungroup() %>%
@@ -724,21 +407,15 @@ regime_bounds_successful = dplyr::bind_rows(
           baseline_steps,
           trans_or_null)
 
-<<<<<<< HEAD
-# #
-# group_by(.data$regime_switch, .data$data_idx, transition_steps) %>%
 #
-# match_trans_null_model(
-#     regime_bounds_trans, regime_bounds_null,  data_idx,
-#     min_length_regime, desired_regime_switch,
-#     pre_steps, baseline_steps, transition_steps)
-# # Only need X amount of models
-# group_by(regime_switch, trans_or_null, transition_steps, baseline_steps) %>%
-#   dplyr::slice(1:pars_template$nr_required_models) %>% ungroup() %>%
-#   #
+group_by(.data$regime_switch,) %>%
 
-=======
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
+match_trans_null_model(
+    regime_bounds_trans, regime_bounds_null,  data_idx,
+    min_length_regime, desired_regime_switch,
+    pre_steps, baseline_steps, transition_steps)
+#
+
 regime_bounds_successful %>%
   # Should be n = 2, one transition and one null model
   group_by(data_idx, regime_switch, transition_steps, baseline_steps) %>%
@@ -935,53 +612,3 @@ foreach(
   return(NULL)
 }
 
-<<<<<<< HEAD
-=======
-
-
-
-# ####
-
-#
-#
-# regime_bounds_successful = dplyr::bind_rows(
-#   # Null models should have correct first regime & regime switch as well as be of sufficient length
-#   regime_bounds_trans_df  %>%
-#     # filter(regime_switch %in% c("PD_2to4", "PD_4to8", "PD_8to16")) %>%
-#     # filter(regime_switch %in% c("PH_16to8")) %>%
-#     # filter(regime_switch %in% c("PD_Mixed-Periodic_to_Chaotic1")) %>%
-#     filter(regime_switch %in% c("Chaos-Expansion")) %>%
-#     group_by(.data$regime_switch) %>%
-#     group_modify(~ select_regime_bounds(.x,
-#                                         regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch], trans_or_null = "null") %>%
-#                    # Remove grouping variable from returned result as it will be appended anyway
-#                    select(-.data$regime_switch), .keep = TRUE),
-#   regime_bounds_trans_df  %>%
-#     # filter(regime_switch %in% c("PD_2to4", "PD_4to8", "PD_8to16")) %>%
-#     # filter(regime_switch %in% c("PD_Mixed-Periodic_to_Chaotic1")) %>%
-#     # filter(regime_switch %in% c("PH_16to8")) %>%
-#     # filter(regime_switch %in% c("PD_8to16")) %>%
-#     # filter(regime_switch %in% c("PD_2to4")) %>%
-#     # filter(regime_switch %in% c("PD_4to8")) %>%
-#     filter(regime_switch %in% c("Chaos-Expansion")) %>%
-#     # filter(regime_switch %in% c("SUBD_Mixed-Periodic_to_Chaotic1")) %>%
-#     group_by(.data$regime_switch, .data$transition_steps) %>%
-#     group_modify(~ select_regime_bounds(.x, regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch], trans_or_null = "transition") %>%
-#                    # Remove grouping variable from returned result as it will be appended anyway
-#                    select(-c(.data$regime_switch, .data$transition_steps)), .keep = TRUE)
-# )
-#
-#
-# ##
-#
-# regime_bounds_trans_df  %>%
-#   filter(regime_switch %in% c("PD_2to4")) %>%
-#   # filter(regime_switch %in% c("PD_2to4", "PD_4to8", "PD_8to16")) %>%
-#   # filter(regime_switch %in% c("PD_Mixed-Periodic_to_Chaotic1")) %>%
-#   # filter(regime_switch %in% c("SUBD_Chaotic_to_Mixed-Periodic1")) %>%
-#   group_by(.data$regime_switch) %>%
-#   group_modify(~ select_regime_bounds(.x,
-#                                       regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch], trans_or_null = "null") %>%
-#                  # Remove grouping variable from returned result as it will be appended anyway
-#                  select(-.data$regime_switch), .keep = TRUE)
->>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497

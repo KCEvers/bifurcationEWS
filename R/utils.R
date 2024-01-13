@@ -57,6 +57,8 @@
 # # LazyDataCompression:xz
 # # to the description file.
 
+# Citation file
+# knitr::write_bib(c(.packages(), "bifurcationEWS"), "packages.bib")
 
 #' Reduce size of dataframe by downsampling
 #'
