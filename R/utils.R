@@ -244,7 +244,9 @@ setup_pars <- function(model_name, pars_add = list()) {
       sigma_crit_step = .25,
       nr_consecutive_warnings = 1
     )
-    pars = utils::modifyList(pars_default, pars_add)
+
+    pars = utils::modifyList(
+      utils::modifyList(get_formals(bifurcation_ts), pars_default), pars_add)
     pars$bifpar_list = do.call(get_bifurcation_range, pars$bifpar_pars)
     return(pars)
 
@@ -253,6 +255,22 @@ setup_pars <- function(model_name, pars_add = list()) {
   }
 }
 
+
+#' Get formal arguments of function as list
+#'
+#' @param func Function
+#'
+#' @return List with formal arguments and default arguments
+#' @export
+#'
+#' @examples
+get_formals <- function(func){
+  formal_list = purrr::map(as.list(formals(func)),
+             function(x){try(eval(x), silent = T)
+               })
+  return(formal_list[!unlist(purrr::map(formal_list,
+                                        function(x){"try-error" %in% class(x)}))])
+}
 
 
 #' Specify parameters for specific regime switches
@@ -420,9 +438,8 @@ setup_bifpars <- function() {
   )  %>%
     stats::setNames(unlist(purrr::map(., "regime_switch_name"))) %>%
     # Add default arguments of bifurcation_ts() and find_regimes(), add own parameters
-    purrr::map(., function(x){utils::modifyList(utils::modifyList(as.list(formals(bifurcation_ts)), as.list(formals(find_regimes))), x)}) %>%
-    plyr::llply(
-    ., function(x){utils::modifyList(x,
+    purrr::map(., function(x){utils::modifyList(get_formals(find_regimes), x)}) %>%
+    plyr::llply(., function(x){utils::modifyList(x,
                                      list(s_string = sprintf("s%.05f-s%.05f-by%.05f", x$bifpar_pars$bifpar_start, x$bifpar_pars$bifpar_end, c((x$bifpar_pars$bifpar_end-x$bifpar_pars$bifpar_start)/(x$bifpar_pars$transition_steps-1)) ),
                                           bifpar_list = do.call(get_bifurcation_range, x$bifpar_pars)))})
 

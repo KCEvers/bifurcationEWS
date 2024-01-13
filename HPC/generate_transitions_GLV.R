@@ -348,74 +348,92 @@ print("On to successful!")
 
 
 # Check if simulation went correctly - sufficient length, null and trans
-regime_bounds_successful = dplyr::bind_rows(
-  # Null models should have correct first regime & regime switch as well as be of sufficient length
-  regime_bounds_trans_df  %>%
-    group_by(.data$regime_switch) %>%
-    group_modify(~ apply_filter_regime_switches(.x,
-                                        regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch],
-                                        trans_or_null = "null") %>%
-                   # Remove grouping variable from returned result as it will be appended anyway
-                   select(-.data$regime_switch), .keep = TRUE) %>%
-    # Add transition conditions
-    mutate(count = rep(length(pars_template$transition_steps), n())) %>%
-    tidyr::uncount(count) %>% dplyr::mutate(transition_steps = rep(pars_template$transition_steps, n() / length(pars_template$transition_steps))),
-  regime_bounds_trans_df  %>%
-    group_by(.data$regime_switch, .data$transition_steps) %>%
-    group_modify(~ apply_filter_regime_switches(.x, regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch], trans_or_null = "transition") %>%
-                   # Remove grouping variable from returned result as it will be appended anyway
-                   select(-c(.data$regime_switch, .data$transition_steps)), .keep = TRUE)
-) %>% distinct() %>%
-  # Add baseline condition
-  mutate(count = rep(length(pars_template$baseline_steps), n())) %>%
-  tidyr::uncount(count) %>%
-  dplyr::mutate(baseline_steps = rep(pars_template$baseline_steps, n() / length(pars_template$baseline_steps))) %>%
+regime_bounds_trans_df %>%
+  group_by(.data$data_idx, .data$regime_switch, .data$transition_steps) %>%
+  # Match transition and null model
+  dplyr::group_modify(~ match_trans_null_model(
+    regime_bounds_trans = .x %>% dplyr::filter(trans_or_null == "transition"),
+    regime_bounds_null =  .x %>% dplyr::filter(trans_or_null == "null"),
+    min_length_regime = pars_template$min_length_regime,
+    # Define desired regime filter
+    regime_switch_list = make_filter_regime_switches(pars_template$min_length_regime,
+                                                     pars_template$baseline_steps,
+                                                     .y$transition_steps)[.y$regime_switch],
+    pre_steps = pars_template$pre_steps, baseline_steps = pars_template$baseline_steps,
+    transition_steps = .y$transition_steps) %>% select(-names(.y)), .keep = T) %>%
   # Check for matching transition and null model per condition -> 2 timeseries per condition
-  group_by(regime_switch, data_idx, transition_steps, baseline_steps) %>%
+  group_by(.data$data_idx, .data$regime_switch, .data$transition_steps, .data$baseline_steps) %>%
   # dplyr::summarise(n = n()) %>% as.data.frame()
-  dplyr::filter(n() == 2) %>%
-  ## Null models do not have an index where regime 2 started, so copy from corresponding transition condition
-  # Copy start regime 2 from transition condition
-  dplyr::mutate(transition_end_idx = regime2_start_idx[trans_or_null == "transition"] -1, seed_nr = cur_group_id()) %>%
-  ungroup() %>%
-  dplyr::mutate(
-    transition_start_idx = transition_end_idx - transition_steps + 1,
-    baseline_end_idx = transition_start_idx - 1,
-    baseline_start_idx = baseline_end_idx - baseline_steps + 1,
-    par_change_start_idx = ifelse(
-      trans_or_null == "transition",
-      pars_template$pre_steps + pars_template$default_baseline_steps,
-      NA
-    ),
-    par_change_end_idx = ifelse(
-      trans_or_null == "transition",
-      pars_template$pre_steps + pars_template$default_baseline_steps + transition_steps,
-      NA
-    )
-  ) %>%
-  # Make sure there is enough baseline time for each model
-  dplyr::filter_at(c("transition_start_idx", "transition_end_idx",
-                     "baseline_start_idx", "baseline_end_idx"), ~ .x > 0) %>%
+  dplyr::filter(n() == 2) %>% ungroup() %>%
   # Only need X amount of models
-  group_by(regime_switch, trans_or_null, transition_steps, baseline_steps) %>%
+  group_by(.data$trans_or_null, .data$regime_switch, .data$transition_steps, .data$baseline_steps) %>%
   dplyr::slice(1:pars_template$nr_required_models) %>% ungroup() %>%
   # Make sure there are enough transition steps
-  # dplyr::filter(transition_end_idx <= (pars_template$pre_steps + pars_template$default_baseline_steps + transition_steps)) %>%
-  arrange(data_idx,
-          regime_switch,
-          transition_steps,
-          baseline_steps,
-          trans_or_null)
+  arrange(.data$data_idx, .data$regime_switch, .data$transition_steps,
+          .data$baseline_steps,
+          .data$trans_or_null)
 
-#
-group_by(.data$regime_switch,) %>%
+# regime_bounds_successful = dplyr::bind_rows(
+#   # Null models should have correct first regime & regime switch as well as be of sufficient length
+#   regime_bounds_trans_df  %>%
+#     group_by(.data$regime_switch) %>%
+#     group_modify(~ apply_filter_regime_switches(.x,
+#                                         regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch],
+#                                         trans_or_null = "null") %>%
+#                    # Remove grouping variable from returned result as it will be appended anyway
+#                    select(-.data$regime_switch), .keep = TRUE) %>%
+#     # Add transition conditions
+#     mutate(count = rep(length(pars_template$transition_steps), n())) %>%
+#     tidyr::uncount(count) %>% dplyr::mutate(transition_steps = rep(pars_template$transition_steps, n() / length(pars_template$transition_steps))),
+#   regime_bounds_trans_df  %>%
+#     group_by(.data$regime_switch, .data$transition_steps) %>%
+#     group_modify(~ apply_filter_regime_switches(.x, regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch], trans_or_null = "transition") %>%
+#                    # Remove grouping variable from returned result as it will be appended anyway
+#                    select(-c(.data$regime_switch, .data$transition_steps)), .keep = TRUE)
+# ) %>% distinct() %>%
+#   # Add baseline condition
+#   mutate(count = rep(length(pars_template$baseline_steps), n())) %>%
+#   tidyr::uncount(count) %>%
+#   dplyr::mutate(baseline_steps = rep(pars_template$baseline_steps, n() / length(pars_template$baseline_steps))) %>%
+#   # Check for matching transition and null model per condition -> 2 timeseries per condition
+#   group_by(regime_switch, data_idx, transition_steps, baseline_steps) %>%
+#   # dplyr::summarise(n = n()) %>% as.data.frame()
+#   dplyr::filter(n() == 2) %>%
+#   ## Null models do not have an index where regime 2 started, so copy from corresponding transition condition
+#   # Copy start regime 2 from transition condition
+#   dplyr::mutate(transition_end_idx = regime2_start_idx[trans_or_null == "transition"] -1, seed_nr = cur_group_id()) %>%
+#   ungroup() %>%
+#   dplyr::mutate(
+#     transition_start_idx = transition_end_idx - transition_steps + 1,
+#     baseline_end_idx = transition_start_idx - 1,
+#     baseline_start_idx = baseline_end_idx - baseline_steps + 1,
+#     par_change_start_idx = ifelse(
+#       trans_or_null == "transition",
+#       pars_template$pre_steps + pars_template$default_baseline_steps,
+#       NA
+#     ),
+#     par_change_end_idx = ifelse(
+#       trans_or_null == "transition",
+#       pars_template$pre_steps + pars_template$default_baseline_steps + transition_steps,
+#       NA
+#     )
+#   ) %>%
+#   # Make sure there is enough baseline time for each model
+#   dplyr::filter_at(c("transition_start_idx", "transition_end_idx",
+#                      "baseline_start_idx", "baseline_end_idx"), ~ .x > 0) %>%
+#   # Only need X amount of models
+#   group_by(regime_switch, trans_or_null, transition_steps, baseline_steps) %>%
+#   dplyr::slice(1:pars_template$nr_required_models) %>% ungroup() %>%
+#   # Make sure there are enough transition steps
+#   # dplyr::filter(transition_end_idx <= (pars_template$pre_steps + pars_template$default_baseline_steps + transition_steps)) %>%
+#   arrange(data_idx,
+#           regime_switch,
+#           transition_steps,
+#           baseline_steps,
+#           trans_or_null)
 
-match_trans_null_model(
-    regime_bounds_trans, regime_bounds_null,  data_idx,
-    min_length_regime, desired_regime_switch,
-    pre_steps, baseline_steps, transition_steps)
-#
 
+# Check
 regime_bounds_successful %>%
   # Should be n = 2, one transition and one null model
   group_by(data_idx, regime_switch, transition_steps, baseline_steps) %>%
