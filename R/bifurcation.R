@@ -1303,7 +1303,10 @@ apply_filter_regime_switches = function(regime_bounds_df,
     }
 
     # If multiple matching regimes are found, return one with largest lengths of regime1 and regime 2
-    sel_regime_bounds_df = sel_regime_bounds_df %>%
+    if (nrow(sel_regime_bounds_df) == 0) {
+      return(data.frame())
+    } else if (nrow(sel_regime_bounds_df) > 1){
+      sel_regime_bounds_df = sel_regime_bounds_df %>%
       rowwise() %>% mutate(mean_length = mean(c(.data$regime1_length, .data$regime2_length), na.rm=TRUE) ) %>%
       group_by(.data$data_idx) %>%
       filter(.data$mean_length == max(.data$mean_length)) %>%
@@ -1311,6 +1314,7 @@ apply_filter_regime_switches = function(regime_bounds_df,
       slice(1) %>%
       select(-.data$mean_length) %>%
       ungroup()
+    }
 
     return(sel_regime_bounds_df %>% mutate(regime_switch = regime_switch))
   }, .id = NULL)
@@ -1348,6 +1352,19 @@ match_trans_null_model <- function(
   )
 
   # Match regime bounds; define shared baseline and transition periods
+  succesful_switches = unique(selected_regime_bounds$trans_or_null)
+  if (length(succesful_switches) < 2){
+
+    if (length(succesful_switches) == 0){
+      prefix = "Neither the transition nor null model passes"
+    } else if (!"transition" %in% succesful_switches){
+      prefix = "The transition model did not pass"
+    } else if (!"null" %in% succesful_switches){
+      prefix = "The null model did not pass"
+    }
+    message(sprintf("%s the desired regime switch filter.", prefix))
+    return(data.frame())
+  } else {
   regime_bounds_successful = selected_regime_bounds %>%
     # Define transition period
     mutate(transition_steps = !!transition_steps,
@@ -1376,4 +1393,5 @@ match_trans_null_model <- function(
     filter_at(c("transition_start_idx", "transition_end_idx",
                        "baseline_start_idx", "baseline_end_idx"), ~ .x > 0)
   return(regime_bounds_successful)
+  }
 }

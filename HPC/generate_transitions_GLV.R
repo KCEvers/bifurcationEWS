@@ -345,10 +345,9 @@ saveRDS(regime_bounds_trans_df, filepath_unfiltered_trans_regime_bounds)
 regime_bounds_trans_df = readRDS(filepath_unfiltered_trans_regime_bounds)
 
 print("On to successful!")
-
-
 # Check if simulation went correctly - sufficient length, null and trans
-regime_bounds_trans_df %>%
+regime_bounds_successful_ = regime_bounds_trans_df %>%
+  # filter(data_idx==1) %>%
   group_by(.data$data_idx, .data$regime_switch, .data$transition_steps) %>%
   # Match transition and null model
   dplyr::group_modify(~ match_trans_null_model(
@@ -360,7 +359,10 @@ regime_bounds_trans_df %>%
                                                      pars_template$baseline_steps,
                                                      .y$transition_steps)[.y$regime_switch],
     pre_steps = pars_template$pre_steps, baseline_steps = pars_template$baseline_steps,
-    transition_steps = .y$transition_steps) %>% select(-names(.y)), .keep = T) %>%
+    transition_steps = .y$transition_steps) %>% select(-any_of(names(.y))), .keep = T)
+
+if (nrow(regime_bounds_successful_) > 0){
+  regime_bounds_successful = regime_bounds_successful_ %>%
   # Check for matching transition and null model per condition -> 2 timeseries per condition
   group_by(.data$data_idx, .data$regime_switch, .data$transition_steps, .data$baseline_steps) %>%
   # dplyr::summarise(n = n()) %>% as.data.frame()
@@ -403,12 +405,7 @@ regime_bounds_trans_df %>%
 #   # Copy start regime 2 from transition condition
 #   dplyr::mutate(transition_end_idx = regime2_start_idx[trans_or_null == "transition"] -1, seed_nr = cur_group_id()) %>%
 #   ungroup() %>%
-#   dplyr::mutate(
-#     transition_start_idx = transition_end_idx - transition_steps + 1,
-#     baseline_end_idx = transition_start_idx - 1,
-#     baseline_start_idx = baseline_end_idx - baseline_steps + 1,
-#     par_change_start_idx = ifelse(
-#       trans_or_null == "transition",
+      # trans_or_null == "transition",
 #       pars_template$pre_steps + pars_template$default_baseline_steps,
 #       NA
 #     ),
@@ -445,6 +442,8 @@ regime_bounds_successful %>%
 #
 saveRDS(regime_bounds_successful, filepath_successful_regime_bounds)
 regime_bounds_successful = readRDS(filepath_successful_regime_bounds)
+
+}
 
 # Per condition, check if simulation was successfull
 forloop_cond = unique(purrr::map(forloop, function(x) {
