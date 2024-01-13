@@ -9,9 +9,9 @@ get_bands(x, min_edge = 0, max_edge = 1, step_size = 0.05)
 \arguments{
 \item{x}{Peak vector}
 
-\item{min_edge}{Minimum basin boundary}
+\item{min_edge}{Minimum edge of basin boundary}
 
-\item{max_edge}{Maximum basin boundary}
+\item{max_edge}{Maximum edge of basin boundary}
 
 \item{step_size}{Step size in histogram}
 }

@@ -41,9 +41,9 @@ find_regimes(
 
 \item{variable_name}{Column name in dataframe to assess for hitting basin boundaries}
 
-\item{min_edge}{Minimum basin boundary}
+\item{min_edge}{Minimum edge of basin boundary}
 
-\item{max_edge}{Maximum basin boundary}
+\item{max_edge}{Maximum edge of basin boundary}
 
 \item{max_k}{Maximum cluster size to look for}
 

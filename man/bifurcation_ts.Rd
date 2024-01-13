@@ -13,12 +13,9 @@ bifurcation_ts(
   X_names = names(X0),
   seed_nr = 123,
   timestep = 0.01,
-  nr_timesteps = 100,
-  deSolve_method = c("lsoda", "euler", "rk4")[1],
-  stopifregime = function(out) {
-     any(apply(out, 2, is.infinite)) | any(apply(out, 2,
-    is.nan))
- },
+  nr_timesteps = 1000,
+  deSolve_method = c("lsoda", "rk4", "euler")[2],
+  stopifregime = get_stopifregime("default"),
   do_downsample = TRUE,
   fs = NULL,
   which_X = "all",

@@ -26,11 +26,10 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
                            X0 = c(),
                            X_names = names(X0),
                            seed_nr = 123,
-                           timestep = .01, nr_timesteps = 100,
-                           deSolve_method = c("lsoda", "euler", "rk4")[1],
+                           timestep = .01, nr_timesteps = 1000,
+                           deSolve_method = c("lsoda", "rk4", "euler")[2],
                            # stopifregime = function(out){FALSE},
-                           stopifregime = function(out){any(apply(out, 2, is.infinite)) | any(apply(out, 2, is.nan))},
-
+                           stopifregime = get_stopifregime("default"),
                            do_downsample = TRUE,
                            fs = NULL,
                            which_X = "all",
@@ -100,7 +99,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       out <- out[-nrow(out),]
 
       # Stop if condition is met
-      if (stopifregime(out) & (bifpar_idx > bifpar_idxs[1])){
+      if (stopifregime(out, X_names) & (bifpar_idx > bifpar_idxs[1])){
         message("Hit undesirable regime! Deleting generated timeseries and starting from new initial condition")
         print(as.data.frame(out)[seq(1, nr_timesteps, length.out = 10),])
         break
@@ -164,6 +163,34 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
   }
 }
 
+
+#' Define stopifregime function for bifurcation_ts()
+#'
+#' @param type Type of stopifregime function; one of "default" (stop in case of infinite or NaN values), "no_nodes" (stop in case of a node), or "only_nodes" (stop in case of NO node)
+#' @param min_bifpar_idx Minimum bifurcation parameter index above which stopifregime is applied
+#' @param max_bifpar_idx Maximum bifurcation parameter index below which stopifregime is applied
+#'
+#' @return stopifregime function
+#' @export
+#'
+#' @examples
+get_stopifregime = function(type = c("default","no_nodes", "only_nodes")[1],
+                            min_bifpar_idx = 2, max_bifpar_idx = 50){
+  if (type == "default"){
+    stopifregime = function(out, ...) {
+      any(apply(out, 2, is.infinite)) | any(apply(out, 2, is.nan))
+    }
+  } else if (type == "no_nodes"){
+    stopifregime = function(out, X_names){
+      all(apply(apply(scale(out[,X_names], center = TRUE, scale = FALSE), 2, range), 2, diff) < .01) & (unique(out[,"bifpar_idx"]) < max_bifpar_idx)
+    }
+  } else if (type == "only_nodes"){
+    stopifregime = function(out, X_names){
+      all(apply(apply(scale(out[,X_names], center = TRUE, scale = FALSE), 2, range), 2, diff) > .1) & (unique(out[,"bifpar_idx"])) > min_bifpar_idx & (unique(out[,"bifpar_idx"]) < max_bifpar_idx)
+    }
+  }
+  return(stopifregime)
+}
 
 #' Find both local peaks and troughs of timeseries
 #'
@@ -756,8 +783,8 @@ combine_mixed_regimes <- function(regimes_A, X_names, min_length_regime,
 #' @param nr_smooth Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing
 #' @param factor_k Weighting of period length k; heavier weight means shorter k is preferred; factor_k = 0 means the optimal period length is chosen based solely on minimum spread
 #' @param variable_name Column name in dataframe to assess for hitting basin boundaries
-#' @param min_edge Minimum basin boundary
-#' @param max_edge Maximum basin boundary
+#' @param min_edge Minimum edge of basin boundary
+#' @param max_edge Maximum edge of basin boundary
 #' @param remove_initial_bifpar_idx Remove a few initial steps in the bifurcation parameter where the system is still settling
 #' @param update_regimes Logical; whether periods and regimes should be updated with newly passed parameter. If TRUE, the list passed to GLV should be the output of find_regimes()
 #' @param keep_nr_timesteps Number of timesteps to keep for each bifurcation parameter value; number of timesteps to retain after discarding the transient. If "all", none are removed
@@ -771,7 +798,7 @@ find_regimes <- function(GLV,
                          thresh_node = .001,
                          thresh_coord_spread = .025,
                          thresh_peak_idx_spread=2,
-                         thresh_full_band = .9,
+                         thresh_full_band = .9, #.9
                          min_length_regime = 5,
                          nr_smooth = 0,
                          factor_k = .1,
@@ -1010,4 +1037,343 @@ choose_best_k <- function(spread_df, thresh_node, factor_k){
 
   }
   return(as.data.frame(spread_df[idx_min,]))
+}
+
+
+
+#' Make filter to obtain desired regime switches
+#'
+#' @inheritParams find_regimes
+#' @param baseline_steps Number of  steps for null model filter
+#' @param transition_steps Number of transition steps for transition model filter
+#'
+#' @return List with filters for each desired regime switch. Each filter consists of:
+#' regime_switch String; the name of the regime switch we're choosing here
+#  regime_switch_type String; the name of the regime switch as given by find_regimes()
+#  regime1 String; should occur as a (sub)string in the first regime
+#  regime2 String; should occur as a (sub)string in the second regime
+#  regime1_null String; used in case of null models; should occur as a (sub)string in the first regime
+#  filter_func_null Function; used to filter null models
+#  filter_func_transition Function; used to filter transition models
+#'
+#' @export
+#' @importFrom dplyr filter .data group_by arrange slice_head ungroup
+#'
+#' @examples
+make_filter_regime_switches <- function(min_length_regime, baseline_steps, transition_steps){
+
+  # Filter null models
+  default_null_filter <- function(x){filter(x,
+                                                   .data$regime1_length >= baseline_steps + transition_steps &
+                                                     is.na(.data$regime2_length)) }
+  # Filter transition models
+  default_trans_filter <- function(x){filter(x,
+                                                    .data$regime1_length >= baseline_steps
+                                                    # Regime 2 doesn't have to be exactly the transition length but it should be of sufficiently length to say it's transitioned
+                                                    & .data$regime2_length >= min_length_regime) }
+
+  # Design filter for all desired regime switches
+  regime_switch_list = list(
+    list(
+      "PD_1to1",
+      "Same-Period",
+      "Period-1 (X1,X2,X3,X4)",
+      "Period-1 (X1,X2,X3,X4)",
+      "Period-1 (X1,X2,X3,X4)",
+      default_null_filter, default_trans_filter
+    ),
+    list(
+      "PD_1to2",
+      "Period-Doubling",
+      "Period-1 (X1,X2,X3,X4)",
+      "Period-2 (X1,X2,X3,X4)",
+      "Period-1 (X1,X2,X3,X4)",
+      default_null_filter, default_trans_filter
+    ),
+    list(
+      "PD_2to4",
+      "Period-Doubling",
+      "Period-2 (X1,X2,X3,X4)",
+      "Period-4 (X1,X2,X3,X4)",
+      "Period-2 (X1,X2,X3,X4)",
+      default_null_filter, default_trans_filter
+    ),
+    list(
+      "PD_4to8",
+      "MultVar-Period-Increasing-or-Doubling",
+      "Period-4 (X2,X3,X4) AND Period-6 (X1)",
+      "Period-10 (X1) AND Period-8 (X2,X3,X4)",
+      "Period-4 (X2,X3,X4) AND Period-6 (X1)",
+      default_null_filter, default_trans_filter
+    ),
+    list(
+      "PD_8to16",
+      "Period-Doubling",
+      "Period-10 (X1) AND Period-8 (X2,X3,X4)",
+      c("Period-16", "Period-20 (X1)"),
+      "Period-10 (X1) AND Period-8 (X2,X3,X4)",
+      default_null_filter, default_trans_filter
+    ),
+    list(
+      "PD_Mixed-Periodic_to_Chaotic1",
+      c("Mixed-Periodic to ", "Chaotic"),
+      c("Period", "X1", "X2", "X3", "X4"),
+      "Chaotic",
+      c("Period", "X1", "X2", "X3", "X4"),
+      default_null_filter,
+      function(x){filter(x, .data$regime1_length >= min_length_regime,
+                                .data$regime2_length >= min_length_regime)}
+
+    ),
+    list(
+      "SUBD_Chaotic_to_Mixed-Periodic1",
+      c("Chaotic", "to Mixed-Periodic"),
+      "Chaotic",
+      "Period-6 (X2,X3,X4) AND Period-8 (X1)",
+      "Chaotic",
+      function(x){x %>%
+          group_by(.data$data_idx)  %>%
+          filter(!(!grepl("Chaotic", .data$regime1) & .data$regime1_length >= min_length_regime))
+      },
+      function(x){x}
+
+    ),
+    list(
+      "PH_16to8",
+      "Period-Halving",
+      "Period-16 (X2,X3,X4)",
+      "Period-8 (X2,X3,X4)",
+      "Period-16 (X2,X3,X4)",
+      default_null_filter,
+      function(x){x}
+    ),
+    list(
+      "PH_8to4",
+      c("Period"),
+      c("Period-8 (X2,X3,X4)"),
+      c("Period-4 (X2,X3,X4)"),
+      c("Period-8 (X2,X3,X4)"),
+      default_null_filter,
+      function(x){x}
+    ),
+    list(
+      "PH_4to2",
+      "Period-Halving",
+      "Period-4 (X1,X2,X3,X4)",
+      "Period-2 (X1,X2,X3,X4)",
+      "Period-4 (X1,X2,X3,X4)",
+      default_null_filter,
+      function(x){x}
+    ),
+    list(
+      "PH_2to1",
+      "Period-Halving",
+      "Period-2 (X1,X2,X3,X4)",
+      "Period-1 (X1,X2,X3,X4)",
+      "Period-2 (X1,X2,X3,X4)",
+      default_null_filter,
+      function(x){x}
+    ),
+    list(
+      "PH_Chaotic_to_Mixed-Periodic1",
+      c("Chaotic", "to Mixed-Periodic"),
+      "Chaotic",
+      c("Period", "X1", "X2", "X3", "X4"),
+      "Chaotic",
+      function(x){x %>%
+          group_by(.data$data_idx)  %>%
+          filter(!any((grepl("Period", .data$regime1) & !(grepl("Chaotic", .data$regime1) | grepl("Mixture", .data$regime1))) | (grepl("Period", .data$regime2) & !(grepl("Chaotic", .data$regime2) | grepl("Mixture", .data$regime2))) ))
+      },
+      function(x){x}
+    ),
+    list(
+      "SUBD_Mixed-Periodic_to_Chaotic1",
+      c("Mixed-Periodic to", "Chaotic"),
+      "Period-6 (X2,X3,X4) AND Period-8 (X1)",
+      "Chaotic",
+      "Period-6 (X2,X3,X4) AND Period-8 (X1)",
+      default_null_filter,
+      function(x){
+        x %>% ungroup() %>%
+          filter( abs(.data$regime1_end_idx - .data$regime2_start_idx) <= min_length_regime)
+      }
+    ),
+    list(
+      "Interior-Crisis-Merging",
+      "Chaos-Expansion",
+      "Chaotic",
+      c("Chaotic", "Merged-Band"),
+      "Chaotic",
+      function(x){x %>%
+          group_by(.data$data_idx) %>%
+          filter(!any(grepl("Merged-Band", .data$regime1, fixed=T) | grepl("Merged-Band", .data$regime2, fixed=T))) %>%
+          filter(grepl("Chaotic", .data$regime1, fixed = T) & (grepl("Chaotic", .data$regime2, fixed = T) | grepl("None", .data$regime2, fixed = T)) ) %>% ungroup()
+      },
+      function(x){x %>% group_by(.data$data_idx) %>%
+          arrange(.data$regime1_start_idx, .by_group = T) %>%
+          slice_head(n=1) %>% ungroup()
+      }
+    ),
+    list(
+      "Interior-Crisis-Separation",
+      "Chaos-Reduction",
+      c("Chaotic", "Merged-Band"),
+      "Chaotic",
+      c("Chaotic", "Merged-Band"),
+      function(x){x %>%
+          group_by(.data$data_idx) %>%
+          filter(all((grepl("Merged-Band", .data$regime1, fixed=T) & (grepl("Merged-Band", .data$regime2, fixed=T) | grepl("None", .data$regime2, fixed=T))) | sum(.data$regime1_length, .data$regime2_length, na.rm=T) <= min_length_regime )) %>%
+          filter(grepl("Chaotic", .data$regime1, fixed = T) & (grepl("Chaotic", .data$regime2, fixed = T) | grepl("None", .data$regime2, fixed = T)) ) %>% ungroup()
+      },
+      default_trans_filter
+    ),
+    list(
+      "Boundary-Crisis",
+      c("Chaotic", "to Period-1 (X1,X2,X3,X4)"),
+      "Chaotic",
+      "Period-1 (X1,X2,X3,X4)",
+      c("Chaotic"),
+      function(x){x %>%
+          group_by(.data$data_idx) %>%
+          filter(all((grepl( "Mixture",.data$regime1, fixed = T)|grepl( "Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime1, fixed = T)) & (grepl( "None",.data$regime2, fixed = T)|grepl( "Mixture",.data$regime2, fixed = T)|grepl("Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime2, fixed = T)))) %>%
+          ungroup()
+      },
+      default_trans_filter
+    )
+  ) %>%
+    purrr::map(function(x) {
+      stats::setNames(x,
+               c(
+                 "regime_switch", # The name of the regime switch we're choosing here
+                 "regime_switch_type", # The name of the regime switch as given by find_regimes()
+                 "regime1", # Look for this first regime
+                 "regime2", # Look for this second regime
+                 "regime1_null", # In case of null models, look for this null regime
+                 "filter_func_null", # Filter function null models
+                 "filter_func_transition" # Filter function transition models
+               ))
+    }) %>% stats::setNames(unlist(purrr::map(., "regime_switch")))
+  return(regime_switch_list)
+}
+
+
+#' Apply filter to obtain desired regime switches
+#'
+#' @param regime_bounds_df Dataframe with regime bounds concatenated of multiple simulations
+#' @param regime_switch_list List of filters per regime switch, output of make_filter_regime_switches()
+#' @param trans_or_null Transition or null model
+#'
+#' @return Filtered regime bounds dataframe
+#' @importFrom dplyr filter .data group_by rowwise mutate arrange ungroup slice select
+#' @export
+#'
+#' @examples
+apply_filter_regime_switches = function(regime_bounds_df,
+                                        regime_switch_list,
+                                        trans_or_null = c(NA, "null", "transition")[1]) {
+  selected_regime_bounds = plyr::ldply(regime_switch_list, function(regime_switch_l) {
+
+    regime_switch = regime_switch_l[["regime_switch"]]
+    if (!is.na(trans_or_null)){
+      # Define filter function as null or transition model
+      regime_switch_l[["filter_func"]] = regime_switch_l[[sprintf("filter_func_%s", trans_or_null)]]
+
+       # In case of null models, only look whether first regime matches regime1_null and whether it satisfies the null model filter function
+      if (trans_or_null == "null"){
+        regime_switch_l[["regime1"]] = regime_switch_l[["regime1_null"]]
+        regime_switch_l = regime_switch_l[names(regime_switch_l) %in% c("regime1", "filter_func")]
+      }
+    }
+    sel_regime_bounds_df = regime_bounds_df
+    # Only get filter arguments that are columns in the regime boundary dataframe
+    filters = regime_switch_l[names(regime_switch_l) %in% colnames(regime_bounds_df)]
+
+    # Apply all filters in the list
+    for (i in seq_along(filters)){
+      for (j in seq_along(filters[[i]])){
+        sel_regime_bounds_df = sel_regime_bounds_df %>%
+          filter(grepl(filters[[i]][j], .data[[names(filters)[i]]], fixed = TRUE))
+      }
+    }
+
+    # Make sure only transition or null models are kept
+    if (!is.null(regime_switch_l$filter_func)) {
+      sel_regime_bounds_df = sel_regime_bounds_df  %>%
+        filter(trans_or_null == !!trans_or_null) %>% regime_switch_l$filter_func()
+    }
+
+    # If multiple matching regimes are found, return one with largest lengths of regime1 and regime 2
+    sel_regime_bounds_df = sel_regime_bounds_df %>%
+      rowwise() %>% mutate(mean_length = mean(c(.data$regime1_length, .data$regime2_length), na.rm=TRUE) ) %>%
+      group_by(.data$data_idx) %>%
+      filter(.data$mean_length == max(.data$mean_length)) %>%
+      # Take first row in the rare case where there are multiple matches
+      slice(1) %>%
+      select(-.data$mean_length) %>%
+      ungroup()
+
+    return(sel_regime_bounds_df %>% mutate(regime_switch = regime_switch))
+  }, .id = NULL)
+
+  if (nrow(selected_regime_bounds) > 0){
+    return(selected_regime_bounds %>% arrange(.data$data_idx, .data$regime1_start_idx, .data$regime_switch))
+  } else {
+    return(data.frame())
+  }
+}
+
+
+#' Match transition and null model
+#'
+#' @inheritParams find_regimes
+#' @inheritParams get_bifurcation_range
+#' @inheritParams apply_filter_regime_switches
+#' @param regime_bounds_trans Regime bounds of transition model, output of find_regimes()$regime_bounds
+#' @param regime_bounds_null Regime bounds of null model, output of find_regimes()$regime_bounds
+#'
+#' @return
+#' @importFrom dplyr filter_at .data mutate
+#' @export
+#'
+#' @examples
+match_trans_null_model <- function(
+    regime_bounds_trans, regime_bounds_null,
+    min_length_regime, regime_switch_list,
+    pre_steps, baseline_steps, transition_steps){
+
+  # Filter desired regime
+  selected_regime_bounds = rbind(
+    apply_filter_regime_switches(regime_bounds_trans, regime_switch_list, "transition"),
+    apply_filter_regime_switches(regime_bounds_null, regime_switch_list, "null")
+  )
+
+  # Match regime bounds; define shared baseline and transition periods
+  regime_bounds_successful = selected_regime_bounds %>%
+    # Define transition period
+    mutate(transition_steps = !!transition_steps,
+                  transition_end_idx = .data$regime2_start_idx[.data$trans_or_null == "transition"] - 1,
+                  transition_start_idx = .data$transition_end_idx - .data$transition_steps + 1) %>%
+    # Add baseline condition
+    mutate(count = rep(length(baseline_steps), n())) %>%
+    tidyr::uncount(.data$count) %>%
+    mutate(baseline_steps = rep(baseline_steps, n() / length(baseline_steps))) %>%
+    # Define baseline period
+    mutate(
+      baseline_end_idx = .data$transition_start_idx - 1,
+      baseline_start_idx = .data$baseline_end_idx - .data$baseline_steps + 1,
+      par_change_start_idx = ifelse(
+        .data$trans_or_null == "transition",
+        pre_steps + .data$baseline_steps,
+        NA
+      ),
+      par_change_end_idx = ifelse(
+        .data$trans_or_null == "transition",
+        pre_steps + .data$baseline_steps + .data$transition_steps,
+        NA
+      )
+    ) %>%
+    # Make sure that the models are suitable: enough baseline and transition time for each model
+    filter_at(c("transition_start_idx", "transition_end_idx",
+                       "baseline_start_idx", "baseline_end_idx"), ~ .x > 0)
+  return(regime_bounds_successful)
 }

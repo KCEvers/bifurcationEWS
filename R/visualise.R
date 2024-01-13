@@ -352,7 +352,7 @@ plot_bifdiag = function(regime_list,
     dplyr::mutate_at(regime_list$X_names, ~ifelse(grepl("Chaotic", .), NA,
                                                    stringr::str_replace_all(., "Period-", "") %>%
                                                      as.character() %>% as.numeric())
-    ) %>% ungroup() %>% tidyr::gather(.data$variable, .data$period, -setdiff(colnames(.), regime_list$X_names)) %>%
+    ) %>% ungroup() %>% tidyr::gather(variable, period, -setdiff(colnames(.), regime_list$X_names)) %>%
     dplyr::filter(.data$variable %in% sel_variables) %>%
     mutate(variable_name =
              dplyr::recode(.data$variable, !!!variable_labs))
@@ -395,8 +395,8 @@ plot_bifdiag = function(regime_list,
       direction = 1,
       name = "",
       guide = guide_colorbar(
-        barheight = 30, #14
-        barwidth = 3, #14
+        barheight = 5 + 5 * length(sel_variables), #14
+        barwidth = .75 * length(sel_variables), #14
         reverse = TRUE,
         title.position = "top",
         title.hjust = 0.5,
@@ -409,11 +409,19 @@ plot_bifdiag = function(regime_list,
                col = "gray10",
                size = sz_point_peaks) +
     labs(y = "",
-         x = latex2exp::TeX("$s"),
-         title = "") +
-    ggh4x::facet_grid2(variable_name ~ .,
+         x = latex2exp::TeX("$s$"),
+         title = "")
+
+  if (length(sel_variables) == 1){
+    pl = pl + labs(y = list("X1" = latex2exp::TeX("$X_1$"),
+                            "X2" = latex2exp::TeX("$X_2$"),
+                            "X3" = latex2exp::TeX("$X_3$"),
+                            "X4" = latex2exp::TeX("$X_4$"))[[sel_variables]] )
+    } else {
+    pl = pl + ggh4x::facet_grid2(variable_name ~ .,
                        labeller = label_parsed
     )
+  }
 
   # Set proper axis ranges
   min_x = min(regime_list$peaks_df$bifpar_idx)
@@ -434,13 +442,14 @@ plot_bifdiag = function(regime_list,
   }
 
   pl <- pl +
-    scale_y_continuous(breaks = c(0, .25, .5, .75, 1))
+    scale_y_continuous(breaks = c(0, .25, .5, .75, 1)
+                       )
 
   factor_fs = 1 #ifelse(length(sel_variables) == 1, 2, 4)
   fs = c(
-    "strip.text.x" = 12*factor_fs,
-    "strip.text.y" = 12*factor_fs,
-    "axis.text" = 8*factor_fs,
+    "strip.text.x" = 16*factor_fs,
+    "strip.text.y" = 16*factor_fs,
+    "axis.text" = 12*factor_fs,
     "axis.title" = 16*factor_fs,
     "legend.text" = 12*factor_fs,
     "legend.title" = 14*factor_fs
@@ -462,9 +471,9 @@ plot_bifdiag = function(regime_list,
       pl,
       filepath_image,
       w = 10*factor_resolution,
-      h = 10+2.5*length(sel_variables)*factor_resolution,
+      h = 3+4.5*length(sel_variables)*factor_resolution,
       resolution = resolution,
-      formats = ".eps")
+      formats = ".pdf")
     print(filepath_image)
   }
   return(pl)
