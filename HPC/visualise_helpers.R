@@ -2,6 +2,36 @@
 main_color= colorspace::sequential_hcl(palette='Greens 3', n =10)[1]
 col_facet_labels = scales::viridis_pal(option = "rocket", direction =
                                          -1)(20)[17]
+<<<<<<< HEAD
+=======
+# regimes_switch_labels = list(
+#   "Period-Doubling" = list(
+#     "PD_2to4" = latex2exp::TeX("2 to 4",output = "character"),
+#     "PD_4to8" = latex2exp::TeX("4 to 8",output = "character"),
+#     "PD_8to16" = latex2exp::TeX("8 to 16",output = "character")
+#   ),
+#   "Period-Halving"= list(
+#     "PH_2to1" = latex2exp::TeX("Hopf (Backward)",output = "character"),
+#     "PH_4to2"= latex2exp::TeX("4 to 2",output = "character"),
+#     "PH_8to4"= latex2exp::TeX("8 to 4",output = "character"),
+#     "PH_16to8"= latex2exp::TeX("16 to 8",output = "character")
+#   ),
+#   "Chaotic" = list(
+#     "PD_Mixed-Periodic_to_Chaotic1" = latex2exp::TeX("Period-Doubling Cascade",output = "character"), # with a subduction wedged in between, to "Period-6 (x2,x3,x4) AND Period-8 (x1)"
+#     "PH_Chaotic_to_Mixed-Periodic1" = latex2exp::TeX("Period-Halving Cascade",output = "character"), # with a subduction wedged in between, to "Period-6 (x2,x3,x4) AND Period-8 (x1)"
+#     "SUBD_Mixed-Periodic_to_Chaotic1" = latex2exp::TeX("Subduction: Periodic to Chaotic",output = "character"), # see no change in advance of bifurcation #"Period-6 (x1,x2,x3,x4)"
+#     "SUBD_Chaotic_to_Mixed-Periodic1" = latex2exp::TeX("Subduction: Chaotic to Periodic",output = "character"),
+#     "Boundary-Crisis" = latex2exp::TeX("Boundary Crisis",output = "character"),
+#     "Interior-Crisis-Merging" = latex2exp::TeX("Expansion Chaos",output = "character"),
+#     "Interior-Crisis-Separation" = latex2exp::TeX("Reduction Chaos",output = "character")
+#   ),
+#   "Fixed-Point" = list(
+#     "PD_1to2" = latex2exp::TeX("Hopf",output = "character"),
+#     "PD_1to1" = latex2exp::TeX("Saddle-Node",output = "character")
+#   )
+# )
+
+>>>>>>> 61ac03fb56642a658567af132c0bdcd19b6a0497
 
 regimes_switch_labels = list(
   "Period-Doubling" = list(
