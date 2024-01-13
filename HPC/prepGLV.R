@@ -16,6 +16,7 @@ pars_template_adjust = setup_bifpars() %>%
   # Remove bifpar_list
   purrr::map(., function(x){x[names(x) != "bifpar_list"]}) %>%
   # Remove substring "_trans"
+  #
   # purrr::map(., function(x){x %>% stats::setNames(stringr::str_replace(names(x), "_trans", ""))}) %>%
   # purrr::map(., function(x){utils::modifyList(x, x %>% stats::setNames(stringr::str_replace(names(x), "_trans", "")))}) %>%
   purrr::map(., function(x){utils::modifyList(x, x[grepl("_trans", names(x))] %>% stats::setNames(stringr::str_replace(names(.), "_trans", "")))}) %>%
