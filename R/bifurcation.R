@@ -1443,6 +1443,7 @@ match_trans_null_model <- function(
         .data$trans_or_null == "transition",
         pre_steps + .data$baseline_steps + .data$transition_steps,
         NA
+
       )
     ) %>%
     # Make sure that the models are suitable: enough baseline and transition time for each model
