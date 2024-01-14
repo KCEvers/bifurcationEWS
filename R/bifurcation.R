@@ -676,7 +676,7 @@ periods_to_regimes <- function(peaks_df, periods,
                              min_x = min(.x$X),
                              max_x = max(.x$X),
                              # Step size dependent on how many data points there are
-                             nr_steps = round(length(.x$X)/factor_nr_steps,0) )) %>% ungroup() %>%
+                             nr_steps = ifelse(length(.x$X) <= factor_nr_steps, 1, round(length(.x$X)/factor_nr_steps,0) ) )) %>% ungroup() %>%
     dplyr::filter(.data$occupied_bins_in_band >= thresh_full_band) %>%
     filter(.data$bifpar_idx %in% bifpar_idx_chaotic) %>%
     ungroup()
@@ -1428,7 +1428,7 @@ match_trans_null_model <- function(
                   transition_start_idx = .data$transition_end_idx - .data$transition_steps + 1) %>%
     # Add baseline condition
     mutate(count = rep(length(baseline_steps), n())) %>%
-    tidyr::uncount(.data$count) %>%
+    tidyr::uncount(.data$count) %>% select(-.data$count) %>%
     mutate(baseline_steps = rep(baseline_steps, n() / length(baseline_steps))) %>%
     # Define baseline period
     mutate(
