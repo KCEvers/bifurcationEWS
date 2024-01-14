@@ -414,6 +414,7 @@ setup_bifpars <- function() {
       nr_smooth_full = 10,
       nr_smooth_trans = 10,
       thresh_coord_spread_full = .01,
+      # thresh_coord_spread_trans = .01,
       bifpar_pars = list(
         bifpar_start = 1.03,
         bifpar_end = 1.01,

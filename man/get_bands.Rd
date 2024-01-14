@@ -4,16 +4,16 @@
 \alias{get_bands}
 \title{Get bifurcation diagram band properties}
 \usage{
-get_bands(x, min_edge = 0, max_edge = 1, step_size = 0.05)
+get_bands(x, min_x = 0, max_x = 1, nr_steps = 10)
 }
 \arguments{
 \item{x}{Peak vector}
 
-\item{min_edge}{Minimum edge of basin boundary}
+\item{min_x}{Minimum x}
 
-\item{max_edge}{Maximum edge of basin boundary}
+\item{max_x}{Maximum x}
 
-\item{step_size}{Step size in histogram}
+\item{nr_steps}{Number of steps in histogram}
 }
 \value{
 Band properties

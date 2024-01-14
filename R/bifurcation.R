@@ -477,38 +477,61 @@ smooth_column <- function(rough_df, col_to_smooth = "period", smooth_along_col =
   min_length = rough_df %>% nrow() #dplyr::summarise(n = n(), .groups = 'drop') %>% pull(n) %>% min()
   if (nr_smooth == 0){
     return(rough_df)
-  } else if (min_length < min_length_regime*2 ){
-    print("Warning: in smooth_column(), min_length_regime is not long enough. Skipping smoothing...")
+  } else if (min_length < (nr_smooth*3) ){
+    print("Warning: in smooth_column(), the length of the vector is not long enough compared to the number of smoothing steps (nr_smooth). Skipping smoothing...")
     return(rough_df)
   } else {
-   # If a consistent regime shows one exception, smooth over.
-  find_nr_surrounding_regimes <- function(x, min_length_regime, nr_smooth){
-    # Split vector
-    m <- zoo::rollapply(x, min_length_regime*2 + nr_smooth, by = 1, FUN = c)
-    # Find number of unique periods surrounding nr_smooth, excluding nr_smooth. Look back min_length_regime + nr_smooth - 1 steps (ignoring nr_smooth steps) and forward min_length_regime steps
-    c(rep(NA, min_length_regime + ceiling(nr_smooth/2) - 1), split(m, row(m)) %>% purrr::map(
-      function(x){length(unique(x[-seq(min_length_regime + 1, min_length_regime + nr_smooth)]))}) %>%
-        unname %>% unlist, rep(NA, min_length_regime + (nr_smooth - ceiling(nr_smooth/2))) ) %>% return()
-  }
+  #  # If a consistent regime shows one exception, smooth over.
+  # find_nr_surrounding_regimes <- function(x, min_length_regime, nr_smooth){
+  #   # Split vector
+  #   m <- zoo::rollapply(x, min_length_regime*2 + nr_smooth, by = 1, FUN = c)
+  #   # Find number of unique periods surrounding nr_smooth, excluding nr_smooth. Look back min_length_regime + nr_smooth - 1 steps (ignoring nr_smooth steps) and forward min_length_regime steps
+  #   c(rep(NA, min_length_regime + ceiling(nr_smooth/2) - 1), split(m, row(m)) %>% purrr::map(
+  #     function(x){length(unique(x[-seq(min_length_regime + 1, min_length_regime + nr_smooth)]))}) %>%
+  #       unname %>% unlist, rep(NA, min_length_regime + (nr_smooth - ceiling(nr_smooth/2))) ) %>% return()
+  # }
+
+    # Smoothing functions
+    find_nr_surrounding_regimes <- function(x, nr_smooth){
+      # Split vector
+      size_win = nr_smooth*2 + nr_smooth # Size of window = surrounding nr_smooth (=nr_smooth*2) and removing middle (nr_smooth)
+      m <- zoo::rollapply(x, size_win, by = 1, FUN = c)
+      # For each row in m (see dim(m)), find the number of unique regimes EXCLUDING nr_smooth in the middle
+      nr_unique = apply(m, 1, function(x){length(unique(x[-seq(nr_smooth+1, nr_smooth*2)]))})
+      # Append NAs as we're applying a rolling function
+      pre = rep(NA, nr_smooth)
+      post = rep(NA, size_win - nr_smooth - 1)
+      c(pre, nr_unique, post) %>% return()
+    }
   smooth_along <- function(x, to_smooth, nr_smooth){
     x[to_smooth] = lag(x, n = nr_smooth)[to_smooth]
     return(x)
   }
-  # If a consistent regime shows one exception, smooth over.
-  smooth_df = rough_df %>%
-    mutate(lag_p = lag(.data[[col_to_smooth]], n = nr_smooth),
-           # Apply rolling function to check for each row whether the previous min_length_regime values were the same and the future min_length_regime values were the same. If they were, fill in leading value.
-           embedded_in_same_regime =
-              find_nr_surrounding_regimes(.data[[col_to_smooth]], min_length_regime, nr_smooth) == 1 ) %>%
-    ungroup() %>% rowwise() %>%
-    rename(rough = !!col_to_smooth) %>%
-    mutate(to_smooth = ifelse(is.na(.data$lag_p) | is.na(.data$embedded_in_same_regime), F,
-           ifelse((.data$embedded_in_same_regime == TRUE) & (.data$rough != .data$lag_p), T, F)),
-      smooth = ifelse(.data$to_smooth, .data$lag_p, .data$rough)) %>% ungroup() %>%
-    mutate_at(smooth_along_col, ~smooth_along(., .data$to_smooth, nr_smooth)) %>%
-    select(-c(.data$lag_p, .data$embedded_in_same_regime, .data$to_smooth, .data$rough)) %>%
-    rename(!!col_to_smooth := .data$smooth)
+  smooth_func <- function(rough_df, col_to_smooth, smooth_along_col, nr_smooth){
+    # If a consistent regime shows one exception, smooth over.
+    smooth_df = rough_df %>%
+      mutate(lag_p = lag(.data[[col_to_smooth]], n = nr_smooth),
+             # Apply rolling function to check for each row whether the previous nr_smooth values were the same and the future nr_smooth values were the same. If they were, fill in leading value.
+             embedded_in_same_regime =
+               find_nr_surrounding_regimes(.data[[col_to_smooth]], nr_smooth) == 1 ) %>%
+      ungroup() %>% rowwise() %>%
+      rename(rough = !!col_to_smooth) %>%
+      mutate(to_smooth = ifelse(is.na(.data$lag_p) | is.na(.data$embedded_in_same_regime), F,
+                                ifelse((.data$embedded_in_same_regime == TRUE) & (.data$rough != .data$lag_p), T, F)),
+             smooth = ifelse(.data$to_smooth, .data$lag_p, .data$rough)) %>% ungroup() %>%
+      mutate_at(smooth_along_col, ~smooth_along(., .data$to_smooth, nr_smooth)) %>%
+      select(-c(.data$lag_p, .data$embedded_in_same_regime, .data$to_smooth, .data$rough)) %>%
+      rename(!!col_to_smooth := .data$smooth)
+    return(smooth_df)
+  }
 
+  # Apply iteratively
+  smooth_df = rough_df
+  old_col = ""
+  while (!all(smooth_df[[col_to_smooth]] == old_col, na.rm = T) ){
+    old_col = smooth_df[[col_to_smooth]]
+    smooth_df = smooth_func(rough_df, col_to_smooth, smooth_along_col, nr_smooth)
+  }
 
   return(smooth_df)
   }
@@ -519,15 +542,17 @@ smooth_column <- function(rough_df, col_to_smooth = "period", smooth_along_col =
 #' Get bifurcation diagram band properties
 #'
 #' @param x Peak vector
-#' @inheritParams periods_to_regimes
-#' @param step_size Step size in histogram
+#' @param min_x Minimum x
+#' @param max_x Maximum x
+#' @param nr_steps Number of steps in histogram
 #'
 #' @return Band properties
 #' @export
 #'
 #' @examples
-get_bands = function(x, min_edge = 0, max_edge = 1, step_size = .05){
-  HIST = graphics::hist(x, breaks = seq(min_edge, max_edge, by = step_size), plot = F)
+get_bands = function(x, min_x = 0, max_x = 1, nr_steps = 10){
+  HIST = graphics::hist(x, breaks = seq(min_x, max_x, length.out = nr_steps), plot = F)
+  step_size = diff(HIST$breaks)[1]
 
   dist_bins = diff(which(HIST$density > 0))
   dist_bins = dist_bins[dist_bins > 1]
@@ -638,17 +663,23 @@ periods_to_regimes <- function(peaks_df, periods,
   # Merged bands
   bifpar_idx_chaotic = periods %>% filter(grepl("Chaotic", .data$period_bifpar, fixed = TRUE)) %>% pull(.data$bifpar_idx) %>% unique()
   merged_band_df = peaks_df %>%
-    select(.data$bifpar_idx, .data$variable, .data$minmax, .data$X) %>%
+    select(.data$bifpar_idx, .data$variable,
+           .data$minmax,
+           .data$X) %>%
     dplyr::filter(.data$variable == !!variable_name) %>%
-    group_by(.data$bifpar_idx, .data$variable, .data$minmax) %>%
-    group_modify(~ get_bands(x = .x$X, min_edge = min_edge, max_edge = max_edge,
+    # group_by(.data$bifpar_idx, .data$variable, .data$minmax) %>%
+    group_by(.data$bifpar_idx, .data$variable) %>%
+    group_modify(~ get_bands(x = .x$X,
+                             # min_edge = min_edge, max_edge = max_edge,
+                             min_x = min(.x$X),
+                             max_x = max(.x$X),
                              # Step size dependent on how many data points there are
-                             step_size = (max_edge - min_edge)/length(.x$X)  )) %>% ungroup() %>%
+                             nr_steps = length(.x$X)/3 )) %>% ungroup() %>%
     dplyr::filter(.data$occupied_bins_in_band >= thresh_full_band) %>%
     filter(.data$bifpar_idx %in% bifpar_idx_chaotic) %>%
     ungroup()
 
-  # Update which periods touch the basin-boundary
+  # Update which periods touch the basin-boundary and which have merged bands
   updated_periods = periods %>% ungroup() %>% rowwise() %>%
     mutate(period_bifpar = ifelse(.data$bifpar_idx %in% basin_bound$bifpar_idx,
                                   paste0(.data$period_bifpar, " (Touching Basin-Boundary)"),
@@ -667,14 +698,15 @@ periods_to_regimes <- function(peaks_df, periods,
     arrange(.data$start_bifpar_idx) %>%
     ungroup() %>% rename(regime = .data$period_bifpar)
 
-  if (nr_smooth != 0){
+  if (nr_smooth > 0){
+    # Unravel regimes grouped together into separate rows
   regimes = regimes_A %>%
   tibble::rownames_to_column() %>%
     group_by(.data$rowname) %>%
     slice(rep(1:n(), each = .data$length_region)) %>%
     mutate(bifpar_idx = seq(unique(.data$start_bifpar_idx),
                             unique(.data$end_bifpar_idx))) %>% ungroup() %>%
-    arrange(.data$bifpar_idx)
+    arrange(.data$bifpar_idx) %>% select(-c("start_bifpar_idx", "end_bifpar_idx", "length_region", "nr_regions", "region_nr"))
 
   for (nr_smooth_ in nr_smooth:1){
     regimes = regimes %>%
@@ -849,7 +881,7 @@ find_regimes <- function(GLV,
                                nr_smooth=nr_smooth, min_length_regime=min_length_regime,
                                X_names=GLV$X_names)
 
-  # Convert periods to regimrs
+  # Convert periods to regimes
   regimes = periods_to_regimes(peaks_df, periods,
                                  X_names = GLV$X_names,
                                min_length_regime=min_length_regime,
@@ -871,12 +903,13 @@ find_regimes <- function(GLV,
                          all.x = TRUE)
 
   # Compile
-  regime_list_ =list(df = NULL,
+  regime_list_ = list(df = NULL,
                      peaks_df = peaks_df,
                      k_spread = k_spread,
                      periods = periods,
                      regimes = regimes,
                      regime_bounds = regime_bounds,
+                     thresh_node = thresh_node,
                      thresh_coord_spread = thresh_coord_spread,
                      thresh_peak_idx_spread=thresh_peak_idx_spread,
                      thresh_full_band=thresh_full_band,
@@ -887,7 +920,9 @@ find_regimes <- function(GLV,
                      min_edge=min_edge,
                      max_edge=max_edge,
                      factor_k = factor_k)
-  regime_list = modify_list(GLV[setdiff(names(GLV), names(regime_list_))], regime_list_)
+  regime_list = modify_list(
+    # GLV[setdiff(names(GLV), names(regime_list_))],
+    GLV, regime_list_)
 
   return(regime_list)
 }
