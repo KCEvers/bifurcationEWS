@@ -1,5 +1,5 @@
 print("Start computing EWS!")
-rerun = F
+rerun = T
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
 
 # Define EWS functions
@@ -163,7 +163,7 @@ print(sprintf("%d conditions", length(forloop)))
 
 start_t = Sys.time()
 foreach(
-  for_par =rev(forloop),
+  for_par = forloop[1:220],
   .combine = 'cfun',
   .packages = c("bifurcationEWS", "dplyr", "ggplot2"),
   .export = c("pars_template")
@@ -214,14 +214,14 @@ foreach(
     # Count baseline back
     baseline_start = min(regime_bounds$baseline_start_idx)
     transition_end = max(regime_bounds$transition_end_idx)
-
+    bifpar_idx_ =  seq(baseline_start, transition_end)
     print(filepath_EWS)
 
     # Check if all desired EWS are in there
     if (file.exists(filepath_EWS) & !rerun){
       split_df_EWS_old = readRDS(filepath_EWS) %>%
-        filter(bifpar_idx %in% seq(baseline_start, transition_end))
-      bifpar_idx_to_do = setdiff(seq(baseline_start, transition_end), unique(split_df_EWS_old$bifpar_idx))
+        filter(bifpar_idx %in% bifpar_idx_)
+      bifpar_idx_to_do = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
 
       # # Find which metrics aren't in the dataframe
       # uni_metrics_todo = uni_metrics[!unlist(lapply(names(uni_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
@@ -229,20 +229,16 @@ foreach(
       uni_metrics_todo = uni_metrics
       multi_metrics_todo = multi_metrics
     } else {
-      bifpar_idx_to_do = seq(baseline_start, transition_end)
+      bifpar_idx_to_do = bifpar_idx_
       uni_metrics_todo = uni_metrics
       multi_metrics_todo = multi_metrics
     }
-
-    # if (file.exists(filepath_GLV) &
-    #     (!file.exists(filepath_EWS) | rerun)) {
 
     if (file.exists(filepath_GLV) &
         (((length(uni_metrics_todo) > 0) | length(multi_metrics_todo) > 0) | rerun)) {
 
       df = readRDS(filepath_GLV)$df %>%
-        filter(bifpar_idx %in% bifpar_idx_to_do)
-      # dplyr::filter(bifpar_idx >= baseline_start, bifpar_idx <= transition_end)
+        filter(bifpar_idx %in% bifpar_idx_)
 
       # Downsample with new sampling frequency
       if (pars$win_size != 1){
@@ -256,9 +252,11 @@ foreach(
         noise_mean = 0,
         noise_sigma = pars$sigma_obs_noise,
         noise_constant = pars$noise_constant,
-        # Set seed constant across comparing transition and null models; divide by 10000 as the seed number cannot exceed the maximum integer
+        # Set seed constant across comparing transition and null models; adjust as the seed number cannot exceed the maximum integer
         seed_nr = round(as.numeric(regime_bounds$seed_nr) * as.numeric(pars$noise_iter) * as.numeric(pars$downsample_fs) * 100) # pars$noise_iter
-      )
+      ) %>%
+        filter(bifpar_idx %in% bifpar_idx_to_do)
+
       rm(df)
 
       # Compute EWS
@@ -296,6 +294,7 @@ foreach(
 
       if (file.exists(filepath_EWS) & !rerun){
         split_df_EWS = dplyr::bind_rows(split_df_EWS_old, split_df_EWS) %>%
+          filter(bifpar_idx %in% bifpar_idx_) %>%
           arrange(bifpar_idx, metric)
       }
       saveRDS(split_df_EWS, filepath_EWS)

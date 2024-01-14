@@ -366,7 +366,8 @@ if (nrow(regime_bounds_successful_) > 0){
   # Check for matching transition and null model per condition -> 2 timeseries per condition
   group_by(.data$data_idx, .data$regime_switch, .data$transition_steps, .data$baseline_steps) %>%
   # dplyr::summarise(n = n()) %>% as.data.frame()
-  dplyr::filter(n() == 2) %>% ungroup() %>%
+  dplyr::filter(n() == 2) %>%
+  mutate(seed_nr = cur_group_id()) %>%ungroup() %>%
   # Only need X amount of models
   group_by(.data$trans_or_null, .data$regime_switch, .data$transition_steps, .data$baseline_steps) %>%
   dplyr::slice(1:pars_template$nr_required_models) %>% ungroup() %>%
