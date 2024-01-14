@@ -676,7 +676,7 @@ periods_to_regimes <- function(peaks_df, periods,
                              min_x = min(.x$X),
                              max_x = max(.x$X),
                              # Step size dependent on how many data points there are
-                             nr_steps = ifelse(length(.x$X) <= factor_nr_steps, 1, round(length(.x$X)/factor_nr_steps,0) ) )) %>% ungroup() %>%
+                             nr_steps = ifelse(length(.x$X) <= factor_nr_steps, 2, round(length(.x$X)/factor_nr_steps,0) ) )) %>% ungroup() %>%
     dplyr::filter(.data$occupied_bins_in_band >= thresh_full_band) %>%
     filter(.data$bifpar_idx %in% bifpar_idx_chaotic) %>%
     ungroup()

@@ -449,6 +449,7 @@ setup_bifpars <- function() {
       min_length_regime_full = 20,
       min_length_regime_trans = 20,
       variable_name = "X4",
+      thresh_full_band_trans = 1,
       thresh_coord_spread_full = .1,
       thresh_coord_spread_trans = .1
     )

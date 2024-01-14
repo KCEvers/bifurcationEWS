@@ -33,7 +33,7 @@ pars_template_adjust = setup_bifpars() %>%
 pars_template_adjust[["SUBD_Mixed-Periodic_to_Chaotic1"]]$data_idx = 19
 pars_template_adjust[["Interior-Crisis-Merging"]]$data_idx = 3
 pars_template_adjust[["Interior-Crisis-Separation"]]$data_idx = 3
-pars_template_adjust[["Boundary-Crisis"]]$data_idx = 2
+pars_template_adjust[["Boundary-Crisis"]]$data_idx = 3
 
 
 # for_par = pars_template_adjust[["Boundary-Crisis"]]
