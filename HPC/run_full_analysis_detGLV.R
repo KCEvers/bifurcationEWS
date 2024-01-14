@@ -5,8 +5,8 @@
 
 
 # Setup parallelization
-# cl <- parallel::makeCluster(parallel::detectCores())
-# doParallel::registerDoParallel(cl)
+cl <- parallel::makeCluster(parallel::detectCores())
+doParallel::registerDoParallel(cl)
 # cl <- parallel::makeCluster(1)
 # doParallel::registerDoParallel(cl)
 
@@ -38,7 +38,8 @@ pars_general_template = setup_pars(model_name = "detGLV",
                                                    thresh_coord_spread_full = .025,
                                                    thresh_coord_spread_trans = .025,
                                                    thresh_peak_idx_spread=2,
-                                                   thresh_full_band = .9,
+                                                   thresh_full_band_full = .9,
+                                                   thresh_full_band_trans = .7,
                                                    select_regime_switches = c("PD_1to1", "PD_1to2", "PD_2to4","PD_4to8","PD_8to16",
                                                                               "PD_Mixed-Periodic_to_Chaotic1",
                                                                               "SUBD_Chaotic_to_Mixed-Periodic1",
@@ -55,25 +56,41 @@ pars_general_template = setup_pars(model_name = "detGLV",
 regime_switch_names = c(
   # "Saddle-Node" # near check
   # "Hopf" # near check
-  "PD_to_Chaos" # doing
+  # "PD_to_Chaos" # doing
   # "PH_from_Chaos" # doing
   # "Interior-Crisis-Separation"# doing 10 1 .1
   # "Interior-Crisis-Merging" # TO DO
-  # "Boundary-Crisis" # check 10 1 .1
+  "Boundary-Crisis" # check 10 1 .1
   #
   # "complete_forwards"
   # "complete_backwards"
 )
-regime_switch_name = "Interior-Crisis-Separation"
+# regime_switch_name = "Interior-Crisis-Separation"
 
 # Find regime switch specific adjustments of template
 pars_template_adjust = setup_bifpars()
+
 
 for (regime_switch_name in regime_switch_names){
 
   # Adjust template to match regime switch parameters
   pars_template = modify_list(pars_general_template,
                                     pars_template_adjust[[regime_switch_name]])
+
+  # Temp: "Interior-Crisis-Separation"
+  # pars_template$thresh_full_band_trans = .6
+  # pars_template$nr_smooth_trans = 5
+
+  # # Temp: "Interior-Crisis-Merging"
+  # pars_template$thresh_full_band_trans = .6
+  # pars_template$min_length_regime_trans = 1
+  # pars_template$nr_smooth_trans = 0
+
+  # Temp: "Boundary-Crisis"
+  pars_template$thresh_full_band_trans = .6
+  pars_template$nr_smooth_trans = 0
+  pars_template$min_length_regime_trans = 20
+  pars_template$thresh_coord_spread_trans = .1
 
   # File parameters
   pars_template$type_output = 'data'
@@ -93,9 +110,9 @@ for (regime_switch_name in regime_switch_names){
 
   # Run scripts
   # source('generate_full_GLV.R')
-  # source('generate_transitions_GLV.R')
+  source('generate_transitions_GLV.R')
   # source('compute_EWS_GLV.R')
-  source('eval_performance_EWS_GLV.R')
+  # source('eval_performance_EWS_GLV.R')
 
 }
 parallel::stopCluster(cl)

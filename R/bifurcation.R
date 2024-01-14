@@ -629,6 +629,7 @@ select_best_period <- function(k_spread,
 #' @param peaks_df Dataframe with peaks
 #' @param periods Dataframe with periodicities
 #' @param X_names Names of variables
+#' @param factor_nr_steps Dividing factor for number of steps in histogram to determine merged bands
 #'
 #' @return Updated dataframe
 #' @export
@@ -639,7 +640,7 @@ periods_to_regimes <- function(peaks_df, periods,
                                X_names,
                                min_length_regime,
                                variable_name = "X1", min_edge = 0, max_edge = 1,
-                               thresh_full_band = .8, nr_smooth = 0
+                               thresh_full_band = .8, nr_smooth = 0, factor_nr_steps = 3
 ){
 
   # If there are no minima and maxima (i.e. only nodes), no chaotic regimes can be found
@@ -660,8 +661,9 @@ periods_to_regimes <- function(peaks_df, periods,
     filter(.data$max_maxpeak == !!max_edge & .data$min_minpeak == !!min_edge) %>%
     arrange(.data$bifpar_idx)
 
-  # Merged bands
+  # Merged bands in chaotic regimes
   bifpar_idx_chaotic = periods %>% filter(grepl("Chaotic", .data$period_bifpar, fixed = TRUE)) %>% pull(.data$bifpar_idx) %>% unique()
+
   merged_band_df = peaks_df %>%
     select(.data$bifpar_idx, .data$variable,
            .data$minmax,
@@ -674,7 +676,7 @@ periods_to_regimes <- function(peaks_df, periods,
                              min_x = min(.x$X),
                              max_x = max(.x$X),
                              # Step size dependent on how many data points there are
-                             nr_steps = length(.x$X)/3 )) %>% ungroup() %>%
+                             nr_steps = round(length(.x$X)/factor_nr_steps,0) )) %>% ungroup() %>%
     dplyr::filter(.data$occupied_bins_in_band >= thresh_full_band) %>%
     filter(.data$bifpar_idx %in% bifpar_idx_chaotic) %>%
     ungroup()
@@ -1268,12 +1270,31 @@ make_filter_regime_switches <- function(min_length_regime, baseline_steps, trans
       "Chaotic",
       "Period-1 (X1,X2,X3,X4)",
       c("Chaotic"),
+      # Filter out null models that have long stretches of periodic behaviour that isn't period-1
       function(x){x %>%
           group_by(.data$data_idx) %>%
-          filter(all((grepl( "Mixture",.data$regime1, fixed = T)|grepl( "Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime1, fixed = T)) & (grepl( "None",.data$regime2, fixed = T)|grepl( "Mixture",.data$regime2, fixed = T)|grepl("Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime2, fixed = T)))) %>%
-          ungroup()
+          mutate(
+            chaotic_beh = !grepl("Period-1", .data$regime1, fixed = T) & (grepl("Chaotic", .data$regime1, fixed = T) | grepl("Chaotic", .data$regime2, fixed = T) | (.data$regime1_length < min_length_regime & .data$regime2_length < min_length_regime))
+          ) %>% ungroup() %>%
+          filter(.data$chaotic_beh) %>%
+          select(-c(.data$chaotic_beh))
       },
-      default_trans_filter
+      # function(x){x %>%
+      #     group_by(.data$data_idx) %>%
+      #     # filter(all((grepl( "Mixture",.data$regime1, fixed = T)|grepl( "Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime1, fixed = T)) & (grepl( "None",.data$regime2, fixed = T)|grepl( "Mixture",.data$regime2, fixed = T)|grepl("Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime2, fixed = T)))) %>%
+      #     filter(all((grepl( "Mixture",.data$regime1, fixed = T)|grepl( "Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime1, fixed = T)) & (grepl( "None",.data$regime2, fixed = T)|grepl( "Mixture",.data$regime2, fixed = T)|grepl("Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime2, fixed = T)))) %>%
+      #     ungroup()
+      # },
+      # Filter out transition models that have long stretches of periodic behaviour that isn't period-1
+      function(x){x %>%
+          group_by(.data$data_idx) %>%
+          mutate(
+            chaotic_beh = grepl("Period-1", .data$regime1, fixed = T) | (grepl("Chaotic", .data$regime1, fixed = T) | grepl("Chaotic", .data$regime2, fixed = T) | (.data$regime1_length < min_length_regime & .data$regime2_length < min_length_regime))
+          ) %>% ungroup() %>%
+          filter(.data$chaotic_beh) %>%
+            select(-c(.data$chaotic_beh))
+      }
+      # default_trans_filter
     )
   ) %>%
     purrr::map(function(x) {

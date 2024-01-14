@@ -1,5 +1,5 @@
 print("Start simulating selected regime switches!")
-rerun = F
+rerun = T
 pars_template$nr_timesteps=pars_template$nr_timesteps_full
 pars_template$min_length_regime=pars_template$min_length_regime_full
 
@@ -177,8 +177,8 @@ foreach(
         thresh_node = pars$thresh_node,
         thresh_coord_spread = pars$thresh_coord_spread_trans,
         thresh_peak_idx_spread = pars$thresh_peak_idx_spread,
-        thresh_full_band = pars$thresh_full_band,
-        min_length_regime = pars$min_length_regime,
+        thresh_full_band = pars$thresh_full_band_trans,
+        min_length_regime = pars$min_length_regime_trans,
         nr_smooth = pars$nr_smooth_trans,
         factor_k = pars$factor_k,
         variable_name = pars$variable_name,
@@ -347,7 +347,7 @@ regime_bounds_trans_df = readRDS(filepath_unfiltered_trans_regime_bounds)
 print("On to successful!")
 # Check if simulation went correctly - sufficient length, null and trans
 regime_bounds_successful_ = regime_bounds_trans_df %>%
-  filter(data_idx==6) %>%
+  # filter(data_idx==6) %>%
   group_by(.data$data_idx, .data$regime_switch, .data$transition_steps) %>%
   # Match transition and null model
   dplyr::group_modify(~ match_trans_null_model(

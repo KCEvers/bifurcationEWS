@@ -391,6 +391,7 @@ setup_bifpars <- function() {
     list(
       regime_switch_name = "Interior-Crisis-Merging",
       nr_timesteps_full = 2000,
+      thresh_full_band_trans = .6,
       nr_smooth_full = 5,
       nr_smooth_trans = 0,
       min_length_regime_full = 5,
@@ -412,9 +413,9 @@ setup_bifpars <- function() {
       nr_timesteps_full = 2000,
       factor_k = 1,
       nr_smooth_full = 10,
-      nr_smooth_trans = 10,
+      nr_smooth_trans = 5,
       thresh_coord_spread_full = .01,
-      # thresh_coord_spread_trans = .01,
+      thresh_full_band_trans = .65,
       bifpar_pars = list(
         bifpar_start = 1.03,
         bifpar_end = 1.01,

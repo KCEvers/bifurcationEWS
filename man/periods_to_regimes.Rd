@@ -13,7 +13,8 @@ periods_to_regimes(
   min_edge = 0,
   max_edge = 1,
   thresh_full_band = 0.8,
-  nr_smooth = 0
+  nr_smooth = 0,
+  factor_nr_steps = 3
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ periods_to_regimes(
 \item{thresh_full_band}{Percentage of bins that need to be occupied to qualify it as a fully filled banned}
 
 \item{nr_smooth}{Number of exceptions in a stable periodicity window to smooth over; nr_smooth = 0 means no smoothing}
+
+\item{factor_nr_steps}{Dividing factor for number of steps in histogram to determine merged bands}
 }
 \value{
 Updated dataframe
