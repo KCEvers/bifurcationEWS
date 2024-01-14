@@ -2,17 +2,17 @@ print("Start evaluating performance of EWS!")
 rerun = F
 
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
-filepath_successful_regime_bounds = format_path(format_pars(utils::modifyList(
+filepath_successful_regime_bounds = format_path(format_pars(modify_list(
   pars_template,
   list(type_output = "regimes", filename = "all_trans_regime_bounds")
 )))
 regime_bounds_successful = readRDS(filepath_successful_regime_bounds)
 
-filepath_all_warnings = format_path(format_pars(utils::modifyList(pars_template, list(type_output = "warnings",
+filepath_all_warnings = format_path(format_pars(modify_list(pars_template, list(type_output = "warnings",
                                                                                       filename = "all_warnings"))))
-filepath_EWS_warnings_ROC = format_path(format_pars(utils::modifyList(pars_template, list(type_output = "warnings",
+filepath_EWS_warnings_ROC = format_path(format_pars(modify_list(pars_template, list(type_output = "warnings",
                                                                                           filename = "ROC"))))
-filepath_EWS_warnings_AUC = format_path(format_pars(utils::modifyList(pars_template, list(type_output = "warnings",
+filepath_EWS_warnings_AUC = format_path(format_pars(modify_list(pars_template, list(type_output = "warnings",
                                                                                           filename = "AUC"))))
 
 forloop = get_forloop(data_idx = pars_template$data_idxs,
@@ -36,7 +36,7 @@ filepaths_warnings = foreach(for_par = forloop,
                              )
 ) %dopar% {
 
-  pars <- utils::modifyList(pars_template, for_par)
+  pars <- modify_list(pars_template, for_par)
   pars$subfolder1 = for_par$regime_switch
 
   if (pars$trans_or_null == "transition"){
@@ -49,9 +49,9 @@ filepaths_warnings = foreach(for_par = forloop,
   filename_warnings = sprintf("%s_%dbaseSteps_%dtransSteps_sigmaObs%.4f_iter%04d", pars$trans_or_null,
                               pars$baseline_steps, pars$transition_steps, pars$sigma_obs_noise, pars$noise_iter)
 
-  filepath_GLV = format_path(format_pars(utils::modifyList(pars, list(filename = filename_GLV))))
-  filepath_EWS = format_path(format_pars(utils::modifyList(pars, list(type_output = "EWS", filename=filename_EWS, fs = pars$downsample_fs))))
-  filepath_warnings = format_path(format_pars(utils::modifyList(pars, list(type_output = "warnings", filename=filename_warnings, fs = pars$downsample_fs))))
+  filepath_GLV = format_path(format_pars(modify_list(pars, list(filename = filename_GLV))))
+  filepath_EWS = format_path(format_pars(modify_list(pars, list(type_output = "EWS", filename=filename_EWS, fs = pars$downsample_fs))))
+  filepath_warnings = format_path(format_pars(modify_list(pars, list(type_output = "warnings", filename=filename_warnings, fs = pars$downsample_fs))))
 
   # Check if simulation was successful
   regime_bounds = as.data.frame(for_par) %>% merge(regime_bounds_successful)
@@ -173,7 +173,7 @@ plot_ROC <- function(pars_template, EWS_warnings_ROC_sub, grouping_keys){
     ) +
     scale_y_continuous(n.breaks = 2, limits = c(0,1))
 
-  filepath_image = format_path(format_pars(utils::modifyList(
+  filepath_image = format_path(format_pars(modify_list(
     pars_template,
     list(
       type_output = "figs",
@@ -245,7 +245,7 @@ plot_AUC <- function(pars_template, EWS_warnings_AUC_sub, grouping_keys,
                           ))
     )
 
-  filepath_image = format_path(format_pars(utils::modifyList(
+  filepath_image = format_path(format_pars(modify_list(
     pars_template,
     list(
       type_output = "figs",
@@ -350,7 +350,7 @@ EWS_warnings_AUC%>%
 #   )
 #
 # #
-# filepath_image = format_path(format_pars(utils::modifyList(
+# filepath_image = format_path(format_pars(modify_list(
 #   pars_template,
 #   list(
 #     type_output = "figs",

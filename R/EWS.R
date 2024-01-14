@@ -13,7 +13,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 
   # uni_EWS = lapply(names(uni_metrics), function(j){
   #   unlist(lapply(1:ncol(x), function(i){
-  #     do.call(uni_metrics[[j]], utils::modifyList(list(x = x[,i]), EWS_args[j]))
+  #     do.call(uni_metrics[[j]], modify_list(list(x = x[,i]), EWS_args[j]))
   #   }))
   #   # apply(x, 2, uni_metric)
   # }) %>%
@@ -31,7 +31,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
         EWS_arg = list()
       }
 
-      uni_x = do.call(uni_metrics[[j]], utils::modifyList(list(x = x[,i]), EWS_arg))
+      uni_x = do.call(uni_metrics[[j]], modify_list(list(x = x[,i]), EWS_arg))
 
       # In case of multiple outputs
       if (length(uni_x) > 1){
@@ -53,7 +53,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 
   if (length(multi_metrics) > 0){
   multi_EWS = plyr::ldply(names(multi_metrics), function(j){
-    # do.call(multi_metrics[[j]], utils::modifyList(list(x = x), EWS_args[j]))
+    # do.call(multi_metrics[[j]], modify_list(list(x = x), EWS_args[j]))
 
     if (j %in% names(EWS_args)){
       EWS_arg = EWS_args[[j]]
@@ -61,7 +61,7 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
       EWS_arg = list()
     }
 
-    multi_x = do.call(multi_metrics[[j]], utils::modifyList(list(x = x), EWS_arg))
+    multi_x = do.call(multi_metrics[[j]], modify_list(list(x = x), EWS_arg))
 
     # In case of multiple outputs
     if (length(multi_x) > 1){

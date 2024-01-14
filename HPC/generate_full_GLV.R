@@ -16,9 +16,9 @@ foreach(for_par = forloop,
 ) %dopar% {
   .GlobalEnv$pars_template <- pars_template # Don't ask me why this is necessary...
 
-  pars <- utils::modifyList(pars_template, for_par)
+  pars <- modify_list(pars_template, for_par)
   filepath_GLV = format_path(format_pars(pars))
-  filepath_regimes = format_path(format_pars(utils::modifyList(pars, list(type_output = "regimes"))))
+  filepath_regimes = format_path(format_pars(modify_list(pars, list(type_output = "regimes"))))
   print(filepath_GLV)
   if (!file.exists(filepath_regimes) | rerun){
   if (!file.exists(filepath_GLV)){
@@ -85,7 +85,7 @@ foreach(for_par = forloop,
       ggplot() + geom_point(aes(x = bifpar_idx, y = X, col = minmax), size = point_size) +
       labs(x = 'Bifurcation parameter', y = "X1", title = "Transient bifurcation diagram")
 
-    filepath_image = format_path(format_pars(utils::modifyList(pars, list(type_output = "figs",
+    filepath_image = format_path(format_pars(modify_list(pars, list(type_output = "figs",
                                                                                    subfolder1 = "regimes",
                                                                           # filename = "only-transient_peaks-x1",
                                                                           # filename = "discard-transient_peaks-x1",
@@ -198,8 +198,8 @@ regimes_list = foreach(for_par = forloop,
                        # .combine = 'rbind'
 ) %dopar% {
 
-  pars <- utils::modifyList(pars_template, for_par)
-  filepath_regimes = format_path(format_pars(utils::modifyList(pars, list(type_output = "regimes"))))
+  pars <- modify_list(pars_template, for_par)
+  filepath_regimes = format_path(format_pars(modify_list(pars, list(type_output = "regimes"))))
   if (file.exists(filepath_regimes)){
     regime_list = readRDS(filepath_regimes)
   }
@@ -211,13 +211,13 @@ regimes_df = purrr::map(seq_along(regimes_list),
                         function(x){regimes_list[[x]]$regimes %>% add_par_as_cols(forloop[[x]])
                           }) %>%
   do.call(rbind, .) %>% as.data.frame()
-filepath_all_regimes = format_path(format_pars(utils::modifyList(pars_template, list(type_output = "regimes", filename = "all_regimes"))))
+filepath_all_regimes = format_path(format_pars(modify_list(pars_template, list(type_output = "regimes", filename = "all_regimes"))))
 saveRDS(regimes_df, filepath_all_regimes)
 
 regime_bounds_df = purrr::map(seq_along(regimes_list),
                               function(x){regimes_list[[x]]$regime_bounds %>% add_par_as_cols(forloop[[x]])}) %>%
   do.call(rbind, .) %>% as.data.frame()
-filepath_all_regime_bounds = format_path(format_pars(utils::modifyList(pars_template, list(type_output = "regimes", filename = "all_regime_bounds"))))
+filepath_all_regime_bounds = format_path(format_pars(modify_list(pars_template, list(type_output = "regimes", filename = "all_regime_bounds"))))
 saveRDS(regime_bounds_df, filepath_all_regime_bounds)
 regime_bounds_df = readRDS(filepath_all_regime_bounds)
 
@@ -249,7 +249,7 @@ pl_regime_comp = regimes_df %>% arrange(data_idx, start_bifpar_idx) %>%
 
 # print(style_plot(pl_regime_comp))
 
-filepath_image = format_path(format_pars(utils::modifyList(pars_template, list(type_output = "figs",
+filepath_image = format_path(format_pars(modify_list(pars_template, list(type_output = "figs",
                                                                                subfolder1 = "regimes",
                                                                                filename = "compare_all_regimes",
                                                                                file_ext = ".png"))))

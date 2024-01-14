@@ -4,7 +4,7 @@ pars_template$nr_timesteps=pars_template$nr_timesteps_full
 pars_template$min_length_regime=pars_template$min_length_regime_full
 
 # Select regime switches
-filepath_all_regime_bounds = format_path(format_pars(utils::modifyList(
+filepath_all_regime_bounds = format_path(format_pars(modify_list(
   pars_template,
   list(type_output = "regimes", filename = "all_regime_bounds")
 )))
@@ -21,11 +21,11 @@ print(selected_regime_bounds %>% group_by(data_idx, regime_switch) %>% dplyr::su
 # Switch to transition models
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
 pars_template$min_length_regime=pars_template$min_length_regime_trans
-filepath_successful_regime_bounds = format_path(format_pars(utils::modifyList(
+filepath_successful_regime_bounds = format_path(format_pars(modify_list(
   pars_template,
   list(type_output = "regimes", filename = "all_trans_regime_bounds")
 )))
-filepath_unfiltered_trans_regime_bounds = format_path(format_pars(utils::modifyList(
+filepath_unfiltered_trans_regime_bounds = format_path(format_pars(modify_list(
   pars_template,
   list(type_output = "regimes", filename = "unfiltered_trans_regime_bounds")
 )))
@@ -59,7 +59,7 @@ forloop = forloop_[!unlist(purrr::map(forloop_, is.null))]
 # ) %dopar% {
 #   .GlobalEnv$pars_template <- pars_template # Don't ask me why this is necessary...
 #
-#   pars <- utils::modifyList(pars_template, for_par)
+#   pars <- modify_list(pars_template, for_par)
 #   pars$subfolder1 = for_par$regime_switch
 #
 #   # Get details of regime switch
@@ -79,7 +79,7 @@ forloop = forloop_[!unlist(purrr::map(forloop_, is.null))]
 #     }
 #
 #     filepath_GLV = format_path(format_pars(pars))
-#     filepath_regimes = format_path(format_pars(utils::modifyList(pars, list(type_output = "regimes"))))
+#     filepath_regimes = format_path(format_pars(modify_list(pars, list(type_output = "regimes"))))
 #
 #     print(filepath_GLV)
 #     if (file.exists(filepath_GLV)){
@@ -115,7 +115,7 @@ foreach(
 ) %dopar% {
   .GlobalEnv$pars_template <- pars_template # Don't ask me why this is necessary...
 
-  pars <- utils::modifyList(pars_template, for_par)
+  pars <- modify_list(pars_template, for_par)
   pars$subfolder1 = for_par$regime_switch
 
   # Get details of regime switch
@@ -144,7 +144,7 @@ foreach(
     X0 = unlist(desired_switch[, pars$X_names])
 
     filepath_GLV = format_path(format_pars(pars))
-    filepath_regimes = format_path(format_pars(utils::modifyList(pars, list(type_output = "regimes"))))
+    filepath_regimes = format_path(format_pars(modify_list(pars, list(type_output = "regimes"))))
 
     print(filepath_GLV)
     print(as.data.frame(desired_switch))
@@ -211,7 +211,7 @@ foreach(
     pl_peaks = peaks_df %>% dplyr::filter(variable=="X1") %>% ggplot() + geom_point(aes(x = bifpar_idx, y = X), size = point_size) +
       labs(x = 'Bifurcation parameter', y = "X1", title = "Transient bifurcation diagram")
 
-    filepath_image = format_path(format_pars(utils::modifyList(
+    filepath_image = format_path(format_pars(modify_list(
       pars,
       list(
         type_output = "figs",
@@ -306,7 +306,7 @@ print(end_t - start_t)
 
 # Compile regimes of all simulations
 regimes_list = foreach(for_par = forloop) %dopar% {
-                       pars <- utils::modifyList(pars_template, for_par)
+                       pars <- modify_list(pars_template, for_par)
                        pars$subfolder1 = for_par$regime_switch
 
                        # Get details of regime switch
@@ -321,7 +321,7 @@ regimes_list = foreach(for_par = forloop) %dopar% {
                            pars$filename = for_par$trans_or_null
                          }
                          filepath_GLV = format_path(format_pars(pars))
-                         filepath_regimes = format_path(format_pars(utils::modifyList(pars, list(type_output = "regimes"))))
+                         filepath_regimes = format_path(format_pars(modify_list(pars, list(type_output = "regimes"))))
 
                          if (file.exists(filepath_regimes)) {
                            regime_list = readRDS(filepath_regimes)[c("regime_bounds")]
@@ -347,7 +347,7 @@ regime_bounds_trans_df = readRDS(filepath_unfiltered_trans_regime_bounds)
 print("On to successful!")
 # Check if simulation went correctly - sufficient length, null and trans
 regime_bounds_successful_ = regime_bounds_trans_df %>%
-  # filter(data_idx==1) %>%
+  filter(data_idx==6) %>%
   group_by(.data$data_idx, .data$regime_switch, .data$transition_steps) %>%
   # Match transition and null model
   dplyr::group_modify(~ match_trans_null_model(
@@ -456,7 +456,7 @@ foreach(
   .combine = 'cfun',
   .packages = c("bifurcationEWS", "dplyr", "foreach", "ggplot2")
 ) %dopar% {
-  pars_cond <- utils::modifyList(pars_template, for_par_cond)
+  pars_cond <- modify_list(pars_template, for_par_cond)
   pars_cond$subfolder1 = pars_cond$regime_switch
   if (pars_cond$trans_or_null == "transition") {
     pars_cond$filename = sprintf("%s_%dtransSteps",
@@ -472,14 +472,14 @@ foreach(
   if (nrow(regime_bounds) > 0){
     # Get peaks from all simulations of this condition
     all_peaks_df = foreach(for_par_inner = forloop_inner, .combine = 'rbind') %do% {
-      pars = utils::modifyList(pars_cond, for_par_inner)
+      pars = modify_list(pars_cond, for_par_inner)
       # Get details of regime switch
       desired_switch = selected_regime_bounds %>% dplyr::filter(data_idx == pars$data_idx,
                                                                 regime_switch == pars$regime_switch)
 
       if (nrow(desired_switch) == 1) {
         filepath_GLV = format_path(format_pars(pars))
-        filepath_regimes = format_path(format_pars(utils::modifyList(pars, list(type_output = "regimes"))))
+        filepath_regimes = format_path(format_pars(modify_list(pars, list(type_output = "regimes"))))
 
         print(filepath_GLV)
         if (file.exists(filepath_regimes)) {
@@ -607,7 +607,7 @@ foreach(
         coord_cartesian(clip = 'off') +
         ggh4x::facet_wrap2(. ~ data_idx, ncol = 6, axes='all')
 
-      filepath_image = format_path(format_pars(utils::modifyList(
+      filepath_image = format_path(format_pars(modify_list(
         pars_cond,
         list(
           type_output = "figs",

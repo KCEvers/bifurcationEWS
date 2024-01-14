@@ -216,7 +216,7 @@ plot_3D_landscape_trans <- function(df,
         y = domains_rows[[plot_grid[plot_idx, "row_nr"]]] # y = vertical domain
       )
       scene_name = sprintf("scene%s", ifelse(plot_idx != 1, toString(plot_idx), ""))
-      fig$x$layout[[scene_name]] = utils::modifyList(scenes, list(domain=xy_domain
+      fig$x$layout[[scene_name]] = modify_list(scenes, list(domain=xy_domain
                                                                   # xaxis = list(showticklabels=showticklabels),
                                                                   # yaxis = list(showticklabels=showticklabels),
                                                                   # zaxis = list(showticklabels=showticklabels)

@@ -64,6 +64,7 @@ regime_switch_names = c(
   # "complete_forwards"
   # "complete_backwards"
 )
+regime_switch_name = "Interior-Crisis-Separation"
 
 # Find regime switch specific adjustments of template
 pars_template_adjust = setup_bifpars()
@@ -71,7 +72,7 @@ pars_template_adjust = setup_bifpars()
 for (regime_switch_name in regime_switch_names){
 
   # Adjust template to match regime switch parameters
-  pars_template = utils::modifyList(pars_general_template,
+  pars_template = modify_list(pars_general_template,
                                     pars_template_adjust[[regime_switch_name]])
 
   # File parameters

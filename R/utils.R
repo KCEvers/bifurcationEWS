@@ -166,6 +166,21 @@ add_obs_noise <-
 
 
 
+#' Modify list
+#'
+#' @param old_list List to modify
+#' @param new_list List to modify old_list with
+#'
+#' @return Modified list
+#' @export
+#'
+#' @examples
+modify_list <- function(old_list, new_list){
+  # utils::modifyList() doesn't update nested list as I want them to: if a nested list has a different number of elements, it doesn't seem to be replaced
+  utils::modifyList(old_list[setdiff(names(old_list), names(new_list))], new_list)
+
+}
+
 
 
 #' Set up parameters
@@ -245,8 +260,8 @@ setup_pars <- function(model_name, pars_add = list()) {
       nr_consecutive_warnings = 1
     )
 
-    pars = utils::modifyList(
-      utils::modifyList(get_formals(bifurcation_ts), pars_default), pars_add)
+    pars = modify_list(
+      modify_list(get_formals(bifurcation_ts), pars_default), pars_add)
     pars$bifpar_list = do.call(get_bifurcation_range, pars$bifpar_pars)
     return(pars)
 
@@ -438,8 +453,8 @@ setup_bifpars <- function() {
   )  %>%
     stats::setNames(unlist(purrr::map(., "regime_switch_name"))) %>%
     # Add default arguments of bifurcation_ts() and find_regimes(), add own parameters
-    purrr::map(., function(x){utils::modifyList(get_formals(find_regimes), x)}) %>%
-    plyr::llply(., function(x){utils::modifyList(x,
+    purrr::map(., function(x){modify_list(get_formals(find_regimes), x)}) %>%
+    plyr::llply(., function(x){modify_list(x,
                                      list(s_string = sprintf("s%.05f-s%.05f-by%.05f", x$bifpar_pars$bifpar_start, x$bifpar_pars$bifpar_end, c((x$bifpar_pars$bifpar_end-x$bifpar_pars$bifpar_start)/(x$bifpar_pars$transition_steps-1)) ),
                                           bifpar_list = do.call(get_bifurcation_range, x$bifpar_pars)))})
 
@@ -472,7 +487,7 @@ format_path <- function(pars_file) {
     file_ext = ".RDS"
   )
 
-  pars_file = utils::modifyList(pars_file_default, pars_file)
+  pars_file = modify_list(pars_file_default, pars_file)
 
   # Format parameters correctly
   if (!is.null(pars_file$file_ext)) {
@@ -562,7 +577,7 @@ format_pars <- function(pars) {
     return(list(file_ID = file_ID))
   })
 
-  return(utils::modifyList(pars, pars_add))
+  return(modify_list(pars, pars_add))
 }
 
 

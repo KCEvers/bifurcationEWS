@@ -35,7 +35,7 @@ multi_metrics = c(
 # )
 # )
 
-filepath_successful_regime_bounds = format_path(format_pars(utils::modifyList(
+filepath_successful_regime_bounds = format_path(format_pars(modify_list(
   pars_template,
   list(type_output = "regimes", filename = "all_trans_regime_bounds")
 )))
@@ -114,7 +114,7 @@ print(sprintf("%d conditions", length(forloop)))
 # ) %dopar% {
 #   .GlobalEnv$pars_template <- pars_template # Don't ask me why this is necessary...
 #
-#   pars <- utils::modifyList(pars_template, for_par)
+#   pars <- modify_list(pars_template, for_par)
 #   pars$subfolder1 = for_par$regime_switch
 #
 #   if (pars$trans_or_null == "transition") {
@@ -136,16 +136,16 @@ print(sprintf("%d conditions", length(forloop)))
 #   }
 #
 #   filepath_GLV = format_path(
-#     format_pars(utils::modifyList(pars,
+#     format_pars(modify_list(pars,
 #                                   list(filename = filename_GLV))))
-#   filepath_regimes = format_path(format_pars(utils::modifyList(
+#   filepath_regimes = format_path(format_pars(modify_list(
 #     pars, list(type_output = "regimes", filename = filename_GLV)
 #   )))
 #
 #   # Update downsampling parameters
 #   pars$win_size = round(pars_template$fs / pars$downsample_fs)
 #
-#   filepath_EWS = format_path(format_pars(utils::modifyList(
+#   filepath_EWS = format_path(format_pars(modify_list(
 #     pars, list(type_output = "EWS", filename = filename_EWS, fs = pars$downsample_fs)
 #   )))
 #
@@ -170,7 +170,7 @@ foreach(
 ) %dopar% {
   .GlobalEnv$pars_template <- pars_template # Don't ask me why this is necessary...
 
-  pars <- utils::modifyList(pars_template, for_par)
+  pars <- modify_list(pars_template, for_par)
   pars$subfolder1 = for_par$regime_switch
 
   if (pars$trans_or_null == "transition") {
@@ -192,16 +192,16 @@ foreach(
   }
 
   filepath_GLV = format_path(
-    format_pars(utils::modifyList(pars,
+    format_pars(modify_list(pars,
                                   list(filename = filename_GLV))))
-  filepath_regimes = format_path(format_pars(utils::modifyList(
+  filepath_regimes = format_path(format_pars(modify_list(
     pars, list(type_output = "regimes", filename = filename_GLV)
   )))
 
   # Update downsampling parameters
   pars$win_size = round(pars_template$fs / pars$downsample_fs)
 
-  filepath_EWS = format_path(format_pars(utils::modifyList(
+  filepath_EWS = format_path(format_pars(modify_list(
     pars, list(type_output = "EWS", filename = filename_EWS, fs = pars$downsample_fs)
   )))
 
@@ -419,7 +419,7 @@ foreach(
                                    style_plot(pl_EWS) + theme(legend.position = 'bottom'),
                                    ncol = 2,
                                    rel_widths = c(1, 3))
-        filepath_image = format_path(format_pars(utils::modifyList(
+        filepath_image = format_path(format_pars(modify_list(
           pars,
           list(
             type_output = "figs",

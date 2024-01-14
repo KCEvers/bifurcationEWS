@@ -233,7 +233,7 @@ pl_dir_across_cond = warnings_fitting_criterion_summary  %>%
   labs(x="", y = "",  title = "")
 
 
-filepath_image = format_path(format_pars(utils::modifyList(
+filepath_image = format_path(format_pars(modify_list(
   pars_general_template,
   list(
     type_output = "figs",
@@ -306,7 +306,7 @@ pl_dir_per_cond = warnings_fitting_criterion_cond_summary  %>%
   )
 
 
-filepath_image = format_path(format_pars(utils::modifyList(
+filepath_image = format_path(format_pars(modify_list(
   pars_general_template,
   list(
     type_output = "figs",
@@ -374,7 +374,7 @@ pl_timing = warnings_fitting_criterion_summary  %>%
   scale_y_continuous(position = 'right', expand = c(0.2,0.2)) +
   coord_cartesian(clip = 'off') #+
 
-filepath_image = format_path(format_pars(utils::modifyList(
+filepath_image = format_path(format_pars(modify_list(
   pars_general_template,
   list(
     type_output = "figs",
@@ -472,7 +472,7 @@ save_plot(
                                ))
     )
 
-  filepath_image = format_path(format_pars(utils::modifyList(
+  filepath_image = format_path(format_pars(modify_list(
     pars_general_template,
     list(
       type_output = "figs",
@@ -555,7 +555,7 @@ plot_direction <- function(pars_template, EWS_warnings_, grouping_keys, width = 
                            ))
     )
 
-  filepath_image = format_path(format_pars(utils::modifyList(
+  filepath_image = format_path(format_pars(modify_list(
     pars_template,
     list(
       type_output = "figs",
@@ -670,7 +670,7 @@ plot_timing <- function(pars_template, EWS_warnings_, grouping_keys, width = 100
     )
 
   filepath_image =  "test.png"
-    # format_path(format_pars(utils::modifyList(
+    # format_path(format_pars(modify_list(
     # pars_template,
     # list(
       # type_output = "figs",

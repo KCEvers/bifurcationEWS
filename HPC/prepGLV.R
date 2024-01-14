@@ -15,12 +15,8 @@ null_model = "null"
 pars_template_adjust = setup_bifpars() %>%
   # Remove bifpar_list
   purrr::map(., function(x){x[names(x) != "bifpar_list"]}) %>%
-  # Remove substring "_trans"
-  #
-  # purrr::map(., function(x){x %>% stats::setNames(stringr::str_replace(names(x), "_trans", ""))}) %>%
-  # purrr::map(., function(x){utils::modifyList(x, x %>% stats::setNames(stringr::str_replace(names(x), "_trans", "")))}) %>%
+  # Set parameters with substring "_trans" as standard parameters by removing substring
   purrr::map(., function(x){utils::modifyList(x, x[grepl("_trans", names(x))] %>% stats::setNames(stringr::str_replace(names(.), "_trans", "")))}) %>%
-  # purrr::map(., function(x){utils::modifyList(x[!names(x) %in% stringr::str_replace(names(x), "_trans", "")], x %>% stats::setNames(stringr::str_replace(names(x), "_trans", "")))}) %>%
   # Unwrap template: Repeat when there are multiple selected regime switches for s
   purrr::map(., function(x){rep(list(x), length(x$select_regime_switches)) %>%
       purrr::imap(., function(y, idx){utils::modifyList(y,

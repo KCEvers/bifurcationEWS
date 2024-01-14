@@ -45,7 +45,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
     message("Specify either a named list with bifurcation parameter values using bifpar_list or specify a list in bifpar_pars to construct such a list, e.g. bifpar_list = list(list('s' = .96)) or bifpar_pars = list(bifpar_start = .96, bifpar_end = .97, transition_steps = 100).")
     return()
   }  else if (is.null(bifpar_list)){
-    bifpar_list = utils::modifyList(list(pre_steps = 0, baseline_steps = 100, transition_steps = 0, post_steps = 0), bifpar_pars) %>%
+    bifpar_list = modify_list(list(pre_steps = 0, baseline_steps = 100, transition_steps = 0, post_steps = 0), bifpar_pars) %>%
       do.call(get_bifurcation_range, .)
   }
 
@@ -81,7 +81,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       }
       # Adjust bifurcation parameter
       bifpar = bifpar_list[[bifpar_idx]]
-      model_pars = utils::modifyList(model_pars, bifpar)
+      model_pars = modify_list(model_pars, bifpar)
 
       # Save initial condition
       X0s[bifpar_idx,] <- c(bifpar_idx, X0)
@@ -887,7 +887,7 @@ find_regimes <- function(GLV,
                      min_edge=min_edge,
                      max_edge=max_edge,
                      factor_k = factor_k)
-  regime_list = utils::modifyList(GLV[setdiff(names(GLV), names(regime_list_))], regime_list_)
+  regime_list = modify_list(GLV[setdiff(names(GLV), names(regime_list_))], regime_list_)
 
   return(regime_list)
 }
