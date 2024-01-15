@@ -163,7 +163,7 @@ print(sprintf("%d conditions", length(forloop)))
 
 start_t = Sys.time()
 foreach(
-  for_par = forloop[1:220],
+  for_par = forloop[221:1000],
   .combine = 'cfun',
   .packages = c("bifurcationEWS", "dplyr", "ggplot2"),
   .export = c("pars_template")

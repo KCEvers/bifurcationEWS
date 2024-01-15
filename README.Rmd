@@ -14,349 +14,58 @@ knitr::opts_chunk$set(
 ```
 
 # bifurcationEWS
+bifurcationEWS is an R package for running an Early Warning Signal analysis to anticipate deterministic bifurcations in dynamical systems. The package supports timeseries simulation of many deterministic bifurcations, computation of some univariate and multivariate EWS, and an assessment of the performance of EWS. 
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of bifurcationEWS is to ...
-
 ## Installation
 
-You can install bifurcationEWS from [GitHub](https://github.com) with:
+You can install the development version of bifurcationEWS from [GitHub](https://github.com/) with:
 
-```{r eval=FALSE, include=FALSE}
+```{r}
+# install.packages("devtools")
 devtools::install_github("KCEvers/bifurcationEWS")
+library(bifurcationEWS)
 
 ```
 
-What are some more complicated regimes that we can find in the model?
+## Generate timeseries
 
-There is no "one" type of chaos - chaotic dynamics can look radically different. 
+Let's generate some timeseries for a deterministic Hopf bifurcation:
 
-```{r chaos, echo=FALSE}
-times      <- seq(0, 10000, by = 0.01)
-sel_idxs = round(.25*length(times)):length(times)
-# Chaos 1
-model_pars["s"] = .97
-df_chaos1 <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars)
-pl1 = rgl::plot3d(df_chaos1[sel_idxs,c("X1", "X2", "X3")], aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f", model_pars[["s"]]))
-print(pl1)
-
-# Chaos 2
-model_pars["s"] = .995
-df_chaos2 <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars)
-pl2 = rgl::plot3d(df_chaos2[sel_idxs,c("X1", "X2", "X3")], aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f", model_pars[["s"]]))
-print(pl2)
-
-# Chaos 3
-model_pars["s"] = 1.125
-df_chaos3 <- deSolve::ode(y = X0, times = times, func = GLV_model, parms = model_pars)
-pl3 = rgl::plot3d(df_chaos3[sel_idxs,c("X1", "X2", "X3")], aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f", model_pars[["s"]]))
-print(pl3)
-```
-
-### Bifurcation diagram
-
-```{r bifucation diagram, include=FALSE}
-# Generate data with changing bifurcation parameter
-downsample_pars = list(type = c("average", "one_sample")[1],
-                                                  win_size = 25,
-                                                  which_X = c(25, "first", "middle", "last", "random")[1],
-                                                  seed = 123)
-times = seq(0,1000,by=.01)
-bifpar_list = purrr::transpose(expand.grid(s = seq(.955, .97, by = .0001)))
-
-df = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
-               bifpar_list = bifpar_list,
-               times = times,
-               downsample_pars = downsample_pars,
-               X_names = X_names)
-head(df)
-
-# Get dataframe with peaks
-peaks_df = peaks_bifdiag(df, X_names)
-head(peaks_df)
-```
-
-```{r plot bifurcation diagram, echo=FALSE}
-peaks_df_ = peaks_df %>% dplyr::filter(variable == "X1")
-plot(peaks_df_$bifpar_idx, peaks_df_$X, main = "Transient bifurcation diagram",
-     # ylim = c(0, .75), 
-     cex = .25, pch = 16, xlab = 'Bifurcation parameter', ylab = "X1")
-```
-
-
-
-```{r intermittency}
-times = seq(0,1000,by=.01)
-bifpar_list = purrr::transpose(expand.grid(s = seq(.965, .985, by = .0001)))
-
-df_interm = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
-               bifpar_list = bifpar_list,
-               times = times,
-               downsample_pars = downsample_pars,
-               X_names = X_names)
-head(df_interm)
-
-# Get dataframe with peaks
-peaks_df = peaks_bifdiag(df_interm, X_names)
-head(peaks_df)
-
-peaks_df_ = peaks_df %>% dplyr::filter(variable == "X1")
-plot(peaks_df_$bifpar_idx, peaks_df_$X, main = "Transient bifurcation diagram",
-     # ylim = c(0, .75), 
-     cex = .5, pch = 16)
-rgl::plot3d(df_interm[,c("X1", "X2", "X3")], col = rainbow(nrow(df_interm)), aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f to s = %.4f", bifpar_list[[1]]$s, bifpar_list[[length(bifpar_list)]]$s ))
-rgl::plot3d(df_interm[,c("X1", "X2", "X3")],  aspect = TRUE, lwd = 1, alpha = .01, main = sprintf("s = %.4f to s = %.4f", bifpar_list[[1]]$s, bifpar_list[[length(bifpar_list)]]$s ))
+```{r }
+# Define control parameter
+bifpar_pars = list(
+        bifpar_start = .75,
+        bifpar_end = .85,
+        pre_steps = 0,
+        baseline_steps = 0,
+        transition_steps = 51,
+        post_steps = 0
+      )
+# Generate Hopf bifurcation timeseries
+GLV_Hopf = bifurcation_ts(model = GLV_model,
+                         bifpar_pars = bifpar_pars,
+                         nr_timesteps = 1000
+                        )
+df = GLV_Hopf$df
 
 ```
 
+```{r }
 
-```{r chaotic transient}
-
-
-```
-
-
-### Finding regime boundaries
-
-How do we find the boundaries between these two regimes? A first approach might be to simply count the number of distinct peaks for each bifurcation parameter. However, this neglects the temporal sequence of these peaks, which is required to be consistenct for a limit cycle. Change point detection algorithms would be another option, yet these are often not suitable for cyclical data.
-
-The code below executes a quite crude yet effective approach. For a number of candidate period lengths $k \in ks$, we cluster the peaks corresponding to the same time in the period. We then compute the within-cluster sum of squares (WCSS) to get a sense of the spread within each cluster. A period length $k$ with minimum WCSS is determined as the best period (we deal with subharmonics in a subsequent step, see code).
-
-Note that although there are much more sophisticated temporal clustering algorithms out there (such as provided in the R package **dtwclust**), we only required a very simple metric to assess how well temporal sequences could be distinguished.
-
-```{r periodicity, eval=FALSE, include=FALSE}
-regime_list = find_regimes(df,
-                         X_names,
-                         ks = 2:100, # Periodicity length to look for
-                         thresh_coord_WCSS = .2,
-                         thresh_peak_idx_WCSS=.2,
-                         min_length_regime = 10)
-
-print(head(regime_list$period_per_var))
-print(regime_list$periods)
-print(regime_list$regimes)
-print(regime_list$regime_bounds)
- 
-# Plot bifurcation diagram coloured according to periodicity
-pl_periods = ggplot(regime_list$periods %>%
-                        merge(peaks_df) %>%
-           dplyr::filter(variable == "X1")
-           # dplyr::filter(min_from == c("coord", "peak_idx")[2])
-         ) +
-    geom_point(aes(x = bifpar_idx, y = X, col = factor(period),
-                   # col = coord_WCSS
-                   ),
-               size = 1.05) +
-     ggh4x::facet_grid2(variable ~ .) +
-    theme_bw() + viridis::scale_color_viridis(
-      discrete=TRUE,
-      option = 'turbo',
-      begin = 0, end = .8)
-print(style_plot(pl_periods))
-```
-
-
-### Generating null and transition models
-
-Now, we might be interested in a select few transitions. To get a sense of the sensitivity and specificity of our ability to detect these transitions, we need both transition and null models. To fairly compare transitions, we make them of the same time length, yet this does also go hand in hand with a change in the rate of the control parameter. 
-
-Say we are interested in the regime switch of *** - how might we simulate this? We already have the range of $s$ for which a particular regime switch occurs. However, the system is also multistable for many parameter ranges, such that a randomly chosen initial condition is not likely to yield the desired regime. To circumvent this issue, we make use of our full GLV timeseries. This timeseries offers both the regime boundaries $s$ and corresponding initial condition needed to simulate a new (much shorter) transition model. In addition, we can now add a proper baseline and transition period. 
-
-```{r pars}
-baseline_steps = 50
-transition_steps = 25
-post_steps = 25
-```
-
-```{r transition model, eval=FALSE, include=FALSE}
-desired_switch = regime_list$regime_bounds[regime_list$regime_bounds$regime1 == "Period-4 (X1,X2,X3,X4)",]
-s_seq = get_bifurcation_range(bifpar_start = bifpar_list[[desired_switch$regime1_halfway_idx]]$s, bifpar_end = bifpar_list[[desired_switch$regime2_start_idx]]$s, 
-                              baseline_steps = baseline_steps, transition_steps = transition_steps, post_steps = post_steps)
-
-# Generate data with changing bifurcation parameter
-df_trans = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
-               bifpar_list = purrr::transpose(expand.grid(s = s_seq)),
-               X0 = unlist(desired_switch[,X_names]),
-               times = times,
-                downsample_pars = downsample_pars,
-               X_names = X_names
-               )
-head(df_trans)
-
-pl_df_trans = df_trans %>%
-  as.data.frame() %>% 
-  # dplyr::filter(bifpar_idx < 5) %>%
-  tidyr::gather(variable, value, -setdiff(colnames(.), X_names)) %>%
-  ggplot() + geom_point(aes(x = time, y = value), size = .1) +
-  ggh4x::facet_grid2(variable ~ .)
-print(style_plot(pl_df_trans))
-
-# We need to check whether our simulation generated the desired regimes using the same process as above:
-# Get dataframe with peaks
-peaks_df_trans = peaks_bifdiag(df_trans, X_names)
-head(peaks_df_trans)
-
-peaks_df_trans_ = peaks_df_trans %>% dplyr::filter(variable == "X1")
-plot(peaks_df_trans_$bifpar_idx, peaks_df_trans_$X, main = "Transient bifurcation diagram", ylim = c(0, .75), cex = .5, pch = 16)
-```
-
-Similarly, we can generate a null model, where the control parameter stays constant.
-
-```{r null model, eval=FALSE, include=FALSE}
-s_seq = get_bifurcation_range(bifpar_start = bifpar_list[[desired_switch$regime1_halfway_idx]]$s, bifpar_end = NA, 
- baseline_steps = baseline_steps, transition_steps = transition_steps, post_steps = post_steps)
-
-# Generate data with changing bifurcation parameter
-df_null = bifurcation_ts(model = GLV_model, model_pars = list(r = r0, C0 = C0, mu = mu),
-               bifpar_list = purrr::transpose(expand.grid(s = s_seq)),
-               X0 = unlist(desired_switch[,X_names]),
-               times = times,
-                downsample_pars = downsample_pars,
-               X_names = X_names
-               )
-head(df_null)
-
-pl_df_null = df_null %>%
-  as.data.frame() %>% 
-  tidyr::gather(variable, value, -setdiff(colnames(.), X_names)) %>%
-  ggplot() + geom_point(aes(x = time, y = value), size = .1) +
-  ggh4x::facet_grid2(variable ~ .)
-print(style_plot(pl_df_null))
-
-# We need to check whether our simulation generated the desired regimes using the same process as above:
-# Get dataframe with peaks
-peaks_df_null = peaks_bifdiag(df_null, X_names)
-head(peaks_df_null)
-
-peaks_df_null_ = peaks_df_null %>% dplyr::filter(variable == "X1")
-plot(peaks_df_null_$bifpar_idx, peaks_df_null_$X, main = "Transient bifurcation diagram", ylim = c(0, .75), cex = .5, pch = 16)
-```
-
-
-
-## Early Warning Signals
-
-### Computing windowed EWS
-```{r Windowed EWS}
-
-# df %>% dplyr::group_by(bifpar_idx) %>%
-#   dplyr::group_modify(~
-# EWSmethods::multiEWS(
-#   data.frame(.x$win_nr, .x$X1, .x$X2, .x$X3, .x$X4),
-#   metrics = c("meanAR", "maxAR", "meanSD", "maxSD", "eigenMAF", "mafAR", "mafSD",
-#     "pcaAR", "pcaSD", "eigenCOV", "maxCOV", "mutINFO"),
-#   method = c("expanding", "rolling")[1],
-#   winsize = n(),
-#   burn_in = 0,
-#   threshold = 2,
-#   tail.direction = "one.tailed"
-# ))
-
-# test = EWSmethods::multiEWS(
-#   cbind(time = 1:nrow(df_), df_),
-#   metrics = c("meanAR", "maxAR", "meanSD", "maxSD", "eigenMAF", "mafAR", "mafSD",
-#     "pcaAR", "pcaSD", "eigenCOV", "maxCOV", "mutINFO"),
-#   method = c("expanding", "rolling")[2],
-#   winsize = 500,
-#   burn_in = 1,
-#   threshold = 2,
-#   tail.direction = "one.tailed"
-# )
-# head(test)
-# df = readRDS("test2.RDS")
-# df1_ = df %>% as.data.frame %>% dplyr::filter(bifpar_idx > 10, bifpar_idx < 100) %>% arrange(time_idx) 
-# plot(df1_$bifpar_idx, df1_$X, pch = 16, type = 'p')
-# 
-# df_ = df1 %>% dplyr::filter(bifpar_idx == 3) %>% arrange(time_idx) %>% select(all_of(X_names)) %>% as.matrix() 
-# head(df_)
-# nrow(df_)
-# rm(df)
-# 
-uni_metrics = c("mean"= mean, "variance"= var, "skewness" = moments::skewness, "kurtosis" = moments::kurtosis)
-multi_metrics = c("meanAbsCrossCorr" = get_conn,
-                  "largestLambdaCovMatrix" = eigenvalue,
-                  "spatial_variance" = spatial_variance,
-                  "spatial_skewness" = spatial_skewness,
-                  "spatial_kurtosis" = spatial_kurtosis
-                  # "RQA" = runRQA
-                  )
-
-
-
-split_df_EWS = run_bifEWS(df, uni_metrics, multi_metrics)
-pl_EWS <- split_df_EWS %>% ggplot() +
-  geom_point(aes(x=bifpar_idx, y = value), size = .25) +
-  geom_line(aes(x=bifpar_idx, y = value), linewidth = .25) +
-  ggh4x::facet_wrap2(. ~ metric, ncol = 3, scales = "free_y")
-print(style_plot(pl_EWS))
-
-
-
-
+# regimes_Hopf = find_regimes(GLV_Hopf_trans, factor_k = 1)
+# plot_bifdiag(regimes_Hopf, sel_variables = "X1")
 
 ```
 
-To make the regime switch harder to detect, we add some simple white observational noise.
+<!-- You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this. -->
 
-```{r Adding observational noise}
-noise_sigma = .05
-noisy_df = add_obs_noise(df, X_names, noise_mean = 0, noise_sigma = noise_sigma, noise_constant = 0)
-pl_noisy = noisy_df %>% 
-  dplyr::filter(bifpar_idx > 5, bifpar_idx < 10) %>%
-  tidyr::gather(variable, value, -setdiff(colnames(.), X_names)) %>%
-  ggplot() +
-  geom_point(aes(x = time_idx, y = value), size = .05) +
-  ggh4x::facet_grid2(variable ~ .) + labs(title = sprintf("sigma = %.2f", noise_sigma))
-print(style_plot(pl_noisy))
-``` 
+<!-- You can also embed plots, for example: -->
 
-### Warnings
+<!-- ```{r pressure, echo = FALSE} -->
+<!-- plot(pressure) -->
+<!-- ``` -->
 
-At what point do we decide the system is transitioning?
-
-We make use of a simple classical technique that involves **. 
-By varying the width of the confidence bands, we get a better understanding of the sensitivity and specificity of the measure. 
-The only two settings that are required are the definition of the baseline period and the range of $\sigma_{crit}$ that is tested.
-
-```{r warning}
-warnings_trans = get_warnings(split_df_EWS, baseline_steps, transition_steps, sigmas_crit = seq(.25, 6, by = .25), nr_consecutive_warnings = 1)
-
-# Plot
-sigma_crit = 2
-sz_point_nowarning = .1
-sz_point_warning = 1
-
- pl_warnings <- warnings_trans$winEWS_df %>%
-      dplyr::mutate(ymin = mean_w0 - sigma_crit * sd_w0,
-                    ymax = mean_w0 + sigma_crit * sd_w0,
-                    value_within_bounds = ifelse(value >= ymin & value <= ymax, value, NA),
-                    value_outside_bounds_on_time = ifelse((value < ymin | value > ymax) & bifpar_idx > baseline_steps & bifpar_idx <= (baseline_steps + transition_steps), value, NA),
-                    value_outside_bounds_baseline = ifelse((value < ymin | value > ymax) & bifpar_idx <= baseline_steps, value, NA),
-                    value_outside_bounds_too_late = ifelse((value < ymin | value > ymax) & bifpar_idx >= (baseline_steps + transition_steps), value, NA)
-      ) %>%
-      ggplot()  +
-      geom_ribbon(aes(x = bifpar_idx, ymin = ymin, ymax =ymax), fill="gray80", color = "gray40", alpha = .65) +
-     geom_line(aes(x = bifpar_idx, y =  as.numeric(as.character(value))), colour = "gray50", linewidth = .1) +
-      geom_point(aes(x = bifpar_idx, y =  as.numeric(as.character(value_within_bounds))), colour = "gray50", size = sz_point_nowarning, alpha = .75) +
-      geom_point(aes(x = bifpar_idx, y =  as.numeric(as.character(value_outside_bounds_on_time))), colour = 'red', size = sz_point_warning) +
-      geom_point(aes(x = bifpar_idx, y = as.numeric(as.character(value_outside_bounds_baseline))), colour = 'purple', size = sz_point_warning) +
-      geom_point(aes(x = bifpar_idx, y = as.numeric(as.character(value_outside_bounds_too_late))), colour = 'blue', size = sz_point_warning) +
-      ggh4x::facet_wrap2(metric ~ .,
-                         # dir = "v", strip.position = "right",
-                         labeller = label_parsed,
-                         # strip = ggh4x::strip_nested(bleed = TRUE),
-                         ncol = 4,
-                         scales = "free_y")
-print(pl_warnings)
-
-    
-```
-
-### Sensitivity vs. Specificity
-
-
-```{r AUC}
-
-```
+<!-- In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN. -->

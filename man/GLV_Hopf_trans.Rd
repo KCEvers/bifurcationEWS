@@ -3,7 +3,7 @@
 \docType{data}
 \name{GLV_Hopf_trans}
 \alias{GLV_Hopf_trans}
-\title{Example Hopf bifurcation transition model}
+\title{Hopf bifurcation in GLV model (transition model)}
 \format{
 A named list:
 \describe{
@@ -19,13 +19,14 @@ A named list:
 \item{bifpar_list}{List with changing bifurcation parameter values}
 \item{bifpar_pars}{List with parameters to generate bifpar_list, needs to include list(bifpar_start = .96, bifpar_end = .96), optionally specify list(pre_steps = 0, baseline_steps = 100, transition_steps = 0, post_steps = 0)}
 \item{do_downsample}{Reduce dataframe size by downsampling?}
-\item{downsample_pars}{List of parameters for downsampling}
+\item{fs}{Sampling frequency for downsampling if do_downsample = TRUE}
+\item{which_X}{Time point(s) in downsampling window to select if do_downsample = TRUE}
 }
 }
 \usage{
 GLV_Hopf_trans
 }
 \description{
-Data set of a Hopf bifurcation generated using bifurcation_ts()
+Data set of a Hopf bifurcation in the Generalized Lotka Volterra model which was generated using bifurcation_ts()
 }
 \keyword{datasets}

@@ -60,6 +60,10 @@
 # Citation file
 # knitr::write_bib(c(.packages(), "bifurcationEWS"), "packages.bib")
 
+# Readme file
+# usethis::use_readme_rmd()
+# devtools::build_readme() # when finished
+
 #' Reduce size of dataframe by downsampling
 #'
 #' @param df Dataframe
@@ -353,7 +357,7 @@ setup_bifpars <- function() {
       GLV_string = c(
         "GLV_PD_2to4",
         "GLV_PD_4to8",
-        "GLV+PD_8to16",
+        "GLV_PD_8to16",
         "GLV_PD_Chaos",
         "GLV_SUBD_forw")
     ),

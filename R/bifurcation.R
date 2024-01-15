@@ -845,7 +845,7 @@ find_regimes <- function(GLV,
   if (!update_regimes){
     # Get dataframe with peaks
     if (keep_nr_timesteps == "all"){
-      keep_nr_timesteps = GLV$df %>% dplyr::filter(.data$bifpar_idx == 1) %>% nrow()
+      keep_nr_timesteps = GLV$df %>% dplyr::filter(.data$bifpar_idx == dplyr::first(.data$bifpar_idx)) %>% nrow()
     } else if (is.numeric(keep_nr_timesteps)){
       keep_nr_timesteps = keep_nr_timesteps * GLV$fs
     }
@@ -1391,7 +1391,7 @@ apply_filter_regime_switches = function(regime_bounds_df,
 #' @param regime_bounds_trans Regime bounds of transition model, output of find_regimes()$regime_bounds
 #' @param regime_bounds_null Regime bounds of null model, output of find_regimes()$regime_bounds
 #'
-#' @return
+#' @return Dataframe with matched transition and null model.
 #' @importFrom dplyr filter_at .data mutate
 #' @export
 #'

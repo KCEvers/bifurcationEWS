@@ -29,6 +29,9 @@ match_trans_null_model(
 
 \item{transition_steps}{Number of transition steps where the control parameter changes for every index in a step-wise manner}
 }
+\value{
+Dataframe with matched transition and null model.
+}
 \description{
 Match transition and null model
 }
