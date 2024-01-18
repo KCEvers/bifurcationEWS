@@ -9,19 +9,6 @@
 #' @examples
 run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 
-  # print(names(list(...)))
-
-  # uni_EWS = lapply(names(uni_metrics), function(j){
-  #   unlist(lapply(1:ncol(x), function(i){
-  #     do.call(uni_metrics[[j]], modify_list(list(x = x[,i]), EWS_args[j]))
-  #   }))
-  #   # apply(x, 2, uni_metric)
-  # }) %>%
-  #   do.call(rbind, .) %>%
-  #   magrittr::set_rownames(NULL) %>%
-  #   as.data.frame() %>% cbind(metric = names(uni_metrics))  %>% tidyr::pivot_longer(!.data$metric) %>%
-  #   dplyr::mutate(metric = paste0(.data$metric, "_", .data$name)) %>% dplyr::select(-.data$name)
-
   if (length(uni_metrics) > 0){
   uni_EWS = plyr::ldply(names(uni_metrics), function(j){
     plyr::ldply(1:ncol(x), function(i){
@@ -103,9 +90,8 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 #'
 #' @examples
 run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
-                       multi_metrics = c("RQA" = runRQA),
-                       EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100),
-                                       "RQA" = list(emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05)),
+                       multi_metrics = c("spatialSkewness" = spatial_skewness),
+                       EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100)),
                        save_intermediate = FALSE, do_parallel = FALSE){
 
   if (do_parallel){

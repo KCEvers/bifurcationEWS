@@ -30,6 +30,7 @@ Imports:
     magrittr,
     Matrix,
     moments,
+    osfr,
     plotly,
     plyr,
     pracma,

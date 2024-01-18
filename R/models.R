@@ -29,13 +29,9 @@ Lorenz_model <- function(t, state, parms) {
 #' @examples
 GLV_model <- function(t, state, parms) {
   with(as.list(c(parms)), {
-    # dX <-  a * X + Y * Z
-    # dY <-  b * (Y - Z)
-    # dZ <- -X * Y + c * Y - Z
     C = C0 * s
     diag(C) = diag(C0)
     dX <- r * state * (1 - C %*% state) + mu
-    # print(dX)
     list(dX)
   })
 }

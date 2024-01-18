@@ -8,9 +8,8 @@ run_bifEWS(
   df,
   X_names,
   uni_metrics = c(Smax = get_Smax),
-  multi_metrics = c(RQA = runRQA),
-  EWS_args = list(Smax = list(fs = 1, nr_timesteps = 100), RQA = list(emDim = 1, emLag =
-    1, theiler = 1, distNorm = "max", targetValue = 0.05)),
+  multi_metrics = c(spatialSkewness = spatial_skewness),
+  EWS_args = list(Smax = list(fs = 1, nr_timesteps = 100)),
   save_intermediate = FALSE,
   do_parallel = FALSE
 )

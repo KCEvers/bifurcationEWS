@@ -18,7 +18,7 @@
 # browseURL("doc/demo.html")
 
 # Add dependencies
-# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr", "plotly", "tibble", "latex2exp", "foreach", "scico")
+# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr", "plotly", "tibble", "latex2exp", "foreach", "scico", "osfr")
 # for (p in pkgs){
 # usethis::use_package(p)
 # }
@@ -203,6 +203,7 @@ setup_pars <- function(model_name, pars_add = list()) {
     pars_default = list(
       mainDir = getwd(),
       model_name = model_name,
+      model = GLV_model,
       p = p,
       X_names = paste0("X", 1:p),
       X0 = c(),
@@ -670,3 +671,37 @@ add_par_as_cols = function(df, for_par) {
   return(df2)
 }
 
+
+#' Download example data sets
+#'
+#' @return Names of downloaded R objects
+#' @export
+#'
+#' @examples
+download_example_data <- function(){
+
+  # Get files from OSF
+  anes_project <- osfr::osf_retrieve_node("https://osf.io/85d4h")
+  anes_files <- osfr::osf_ls_files(anes_project, n_max = Inf)
+
+  input <- readline(prompt="The complete example data set is about 5.44GB and will take quite a while to download. Would you like to download all files (type 1), some files (type 2), or none (type 3)?")
+  if (input == 1){
+    osfr::osf_download(anes_files, verbose = T, progress = T, conflicts = "skip")
+    print("Download complete! The data can be found in the following R objects:")
+    return(stringr::str_replace(anes_files$name, ".RDS", ""))
+  } else if (input == 2){
+    print(as.data.frame(anes_files["name"]))
+    input2 <- readline(prompt="Printed above you'll find the available files. Please type the row numbers of the files you want to download like so: 1,2,3:")
+    input2 = as.numeric(stringr::str_split(input2, ",")[[1]])
+    if (all(input2 %in% 1:nrow(anes_files))){
+      t = osfr::osf_download(anes_files[input2,], verbose = T, progress = T, conflicts = "skip")
+      print("Download complete! The data can be found in the following R objects:")
+      return(stringr::str_replace(anes_files$name[input2], ".RDS", ""))
+    } else {
+      print("Your input does not correspond to row indices in the dataframe.")
+      return()
+    }
+  } else {
+    return()
+  }
+}

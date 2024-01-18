@@ -338,7 +338,6 @@ plot_bifdiag = function(regime_list,
     sel_variables = unique(regime_list$peaks_df$variable)
   }
 
-
   # Relabel variables
   variable_labs <- list("X1" = latex2exp::TeX("$X_1$", output = 'character'),
                         "X2" = latex2exp::TeX("$X_2$", output = 'character'),
@@ -363,7 +362,10 @@ plot_bifdiag = function(regime_list,
   if (max_period_nr == 1){
     breaks_colourbar = c(1, 100)
     labels_colourbar = c("Node", "Chaotic")
-  } else {
+  } else if (max_period_nr == 2) {
+    breaks_colourbar = c(1, 2, 100)
+    labels_colourbar = c("Node", "Period-2", "Chaotic")
+    } else {
     breaks_colourbar = c(1, 2**seq(1, max(c(ceiling(log2(round(max_period_nr, 0))), 1)), by = 1)) # Logarithmic sequence
     labels_colourbar = c("Node", paste0("Period ", breaks_colourbar[-c(1,length(breaks_colourbar))]), "Chaotic")
   }
@@ -576,3 +578,33 @@ save_plot <-
     return(file.exists(filepath_image))
   }
 
+
+plot_ts <- function(df,
+                    X_names,
+    sel_variables = NULL
+){
+
+  if (is.null(sel_variables)){
+    sel_variables = X_names
+  }
+
+  # Relabel variables
+  variable_labs <- list("X1" = latex2exp::TeX("$X_1$", output = 'character'),
+                        "X2" = latex2exp::TeX("$X_2$", output = 'character'),
+                        "X3" = latex2exp::TeX("$X_3$", output = 'character'),
+                        "X4" = latex2exp::TeX("$X_4$", output = 'character')
+  )
+
+  # Wide to long reshaping
+  df_long = df %>% tidyr::gather(variable, value, -setdiff(colnames(.), X_names)) %>%
+    dplyr::filter(.data$variable %in% sel_variables) %>%
+    mutate(variable_name =  dplyr::recode(.data$variable, !!!variable_labs))
+
+
+  pl = df_long %>% ggplot() + geom_point(aes(x= time_idx, y = value)) +
+    ggh4x::facet_grid2(variable_name ~ .,
+                               labeller = label_parsed
+  )
+  pl = style_plot(pl, fs = fs)
+  return(pl)
+}

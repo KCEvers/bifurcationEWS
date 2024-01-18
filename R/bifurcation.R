@@ -69,6 +69,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       set.seed(seed_nr)
       X0      <- stats::runif(length(X_names)) %>% stats::setNames(X_names)
       if (!silent){
+        print("Initial condition:")
         print(X0)
       }
     }

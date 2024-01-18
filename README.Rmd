@@ -23,40 +23,44 @@ bifurcationEWS is an R package for running an Early Warning Signal analysis to a
 
 You can install the development version of bifurcationEWS from [GitHub](https://github.com/) with:
 
-```{r}
+```{r include=FALSE}
 # install.packages("devtools")
 devtools::install_github("KCEvers/bifurcationEWS")
 library(bifurcationEWS)
-
 ```
 
 ## Generate timeseries
 
-Let's generate some timeseries for a deterministic Hopf bifurcation:
+Let's generate some timeseries to see what the Generalized Lotka Volterra (GLV) model can do:
 
 ```{r }
-# Define control parameter
-bifpar_pars = list(
-        bifpar_start = .75,
-        bifpar_end = .85,
-        pre_steps = 0,
-        baseline_steps = 0,
-        transition_steps = 51,
-        post_steps = 0
-      )
-# Generate Hopf bifurcation timeseries
-GLV_Hopf = bifurcation_ts(model = GLV_model,
-                         bifpar_pars = bifpar_pars,
-                         nr_timesteps = 1000
-                        )
-df = GLV_Hopf$df
+# # Set up parameters
+# pars <- setup_pars(model_name = "detGLV")
+# # Define control parameter
+# pars$bifpar_pars = list(
+#         bifpar_start = .96,
+#         bifpar_end = .97,
+#         pre_steps = 0,
+#         baseline_steps = 0,
+#         transition_steps = 21,
+#         post_steps = 0
+#       )
+# # Generate Hopf bifurcation timeseries
+# GLV = bifurcation_ts(model = pars$model,
+#                           model_pars = pars$model_pars,
+#                          X_names = pars$X_names,
+#                          bifpar_pars = pars$bifpar_pars,
+#                          timestep = .1,
+#                          nr_timesteps = 500, silent = F
+#                         )
+# df = GLV$df
 
 ```
 
 ```{r }
 
-# regimes_Hopf = find_regimes(GLV_Hopf_trans, factor_k = 1)
-# plot_bifdiag(regimes_Hopf, sel_variables = "X1")
+# regimes = find_regimes(GLV, factor_k = 1)
+# plot_bifdiag(regimes, sel_variables = "X1")
 
 ```
 

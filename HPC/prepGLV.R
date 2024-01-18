@@ -4,6 +4,8 @@ library(foreach)
 
 # Define parameters
 filepath_stem = "C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV"
+filepath_cut_datasets = "C:/Users/kever/Documents/PhD_demos/scripts/firstpkg/detGLV/data/paper"
+dir.create(filepath_cut_datasets, showWarnings = FALSE, recursive = TRUE)
 pre_steps = 100
 baseline_steps = 100
 transition_steps = 100
@@ -38,19 +40,19 @@ pars_template_adjust[["SUBD_Mixed-Periodic_to_Chaotic1"]]$data_idx = 19
 pars_template_adjust[["Interior-Crisis-Merging"]]$data_idx = 3
 pars_template_adjust[["Interior-Crisis-Separation"]]$data_idx = 3
 pars_template_adjust[["Boundary-Crisis"]]$data_idx = 3
-
-
-# for_par = pars_template_adjust[["Boundary-Crisis"]]
-# for_par = pars_template_adjust[["Interior-Crisis-Merging"]]
-for_par = pars_template_adjust[["Interior-Crisis-Separation"]]
-for_par = pars_template_adjust[["Interior-Crisis-Separation"]]
-
-for_par=pars_template_adjust[[5]]
-s_string=for_par[["s_string"]]
-select_regime_switches=for_par[["select_regime_switches"]]
-min_length_regime = for_par[["min_length_regime"]]
-for_par[["thresh_coord_spread"]]
-data_idx=for_par$data_idx
+#
+#
+# # for_par = pars_template_adjust[["Boundary-Crisis"]]
+# # for_par = pars_template_adjust[["Interior-Crisis-Merging"]]
+# for_par = pars_template_adjust[["Interior-Crisis-Separation"]]
+# for_par = pars_template_adjust[["Interior-Crisis-Separation"]]
+#
+# for_par=pars_template_adjust[[5]]
+# s_string=for_par[["s_string"]]
+# select_regime_switches=for_par[["select_regime_switches"]]
+# min_length_regime = for_par[["min_length_regime"]]
+# for_par[["thresh_coord_spread"]]
+# data_idx=for_par$data_idx
 
 # Loop through desired regime switches
 filepaths_data_cut = foreach(for_par = pars_template_adjust) %do% {
@@ -61,8 +63,8 @@ filepaths_data_cut = foreach(for_par = pars_template_adjust) %do% {
               sprintf("nr%d_%s_T%d_ts%.03f_fs10.00_Xsigma0.00000_%s.RDS", data_idx, deSolve_method, nr_timesteps, timestep, trans_model))
     filepath_null = file.path(filepath_stem, "data", s_string, select_regime_switches,
                               sprintf("nr%d_%s_T%d_ts%.03f_fs10.00_Xsigma0.00000_%s.RDS", data_idx, deSolve_method, nr_timesteps, timestep, null_model))
-    filepath_trans_cut = stringr::str_replace(filepath_trans, ".RDS", "_cut.RDS")
-    filepath_null_cut = stringr::str_replace(filepath_null, ".RDS", "_cut.RDS")
+    filepath_trans_cut = file.path(filepath_cut_datasets, sprintf("%s_%s.RDS", GLV_string, "trans")) #stringr::str_replace(filepath_trans, ".RDS", "_cut.RDS")
+    filepath_null_cut = file.path(filepath_cut_datasets, sprintf("%s_%s.RDS", GLV_string, "null")) # stringr::str_replace(filepath_null, ".RDS", "_cut.RDS")
 
     if (!file.exists(filepath_trans_cut) | !file.exists(filepath_null_cut)){
       print(filepath_trans)
@@ -109,15 +111,12 @@ filepaths_data_cut = foreach(for_par = pars_template_adjust) %do% {
       saveRDS(GLV_null, filepath_null_cut)
 
     }
+
     return(list("trans" = filepath_trans_cut, "null" = filepath_null_cut))
   })
 }
 
-# j="trans"
-
 # Finally, load cut data sets as R objects
-# pars_template_adjust %>%
-  # purrr::imap(., function(x, idx){
 for (idx in seq_along(pars_template_adjust)){
    for (j in c("trans", "null")){
       GLV_name = sprintf("%s_%s", pars_template_adjust[[idx]][["GLV_string"]], j)
@@ -136,5 +135,3 @@ for (idx in seq_along(pars_template_adjust)){
     # file.create(sprintf("R/%s.R", GLV_name))
 }
   }
-
-
