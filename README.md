@@ -17,6 +17,8 @@ an assessment of the performance of EWS.
 You can install the development version of bifurcationEWS from
 [GitHub](https://github.com/) with:
 
+![](Fig1.pdf)
+
 ## Generate timeseries
 
 Let’s generate some timeseries to see what the Generalized Lotka

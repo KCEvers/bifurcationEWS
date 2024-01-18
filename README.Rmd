@@ -25,9 +25,11 @@ You can install the development version of bifurcationEWS from [GitHub](https://
 
 ```{r include=FALSE}
 # install.packages("devtools")
-devtools::install_github("KCEvers/bifurcationEWS")
+# devtools::install_github("KCEvers/bifurcationEWS")
 library(bifurcationEWS)
 ```
+
+![](Fig1.pdf)
 
 ## Generate timeseries
 
