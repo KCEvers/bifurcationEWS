@@ -3,59 +3,31 @@
 
 # bifurcationEWS
 
-bifurcationEWS is an R package for running an Early Warning Signal
-analysis to anticipate deterministic bifurcations in dynamical systems.
-The package supports timeseries simulation of many deterministic
-bifurcations, computation of some univariate and multivariate EWS, and
-an assessment of the performance of EWS.
+*bifurcationEWS* is an R package accompanying the paper “Early Warning
+Signals of Complex Critical Transitions in Deterministic Dynamics” by
+Evers et al. (submitted). The package supports timeseries simulation of
+many deterministic bifurcations, computation of some univariate and
+multivariate Early Warning Signals (EWS), and an assessment of the
+performance of EWS. As an example, it uses the four-dimensional
+Generalised Lotka Volterra (GLV) model, with strength of
+interconnectivity $s$ as the control parameter.
 
-<!-- badges: start -->
-<!-- badges: end -->
+<img src="figs/Fig1.jpg" width="100%" style="display: block; margin: auto;" />
+
+These transitions can also be visualised using a bifurcation diagram:
+
+<img src="figs/Fig2.jpg" width="100%" style="display: block; margin: auto;" />
 
 ## Installation
 
 You can install the development version of bifurcationEWS from
 [GitHub](https://github.com/) with:
 
-![](Fig1.pdf)
+See the vignette for a demonstration on how to use the package.
 
-## Generate timeseries
+## Questions
 
-Let’s generate some timeseries to see what the Generalized Lotka
-Volterra (GLV) model can do:
-
-``` r
-# # Set up parameters
-# pars <- setup_pars(model_name = "detGLV")
-# # Define control parameter
-# pars$bifpar_pars = list(
-#         bifpar_start = .96,
-#         bifpar_end = .97,
-#         pre_steps = 0,
-#         baseline_steps = 0,
-#         transition_steps = 21,
-#         post_steps = 0
-#       )
-# # Generate Hopf bifurcation timeseries
-# GLV = bifurcation_ts(model = pars$model,
-#                           model_pars = pars$model_pars,
-#                          X_names = pars$X_names,
-#                          bifpar_pars = pars$bifpar_pars,
-#                          timestep = .1,
-#                          nr_timesteps = 500, silent = F
-#                         )
-# df = GLV$df
-```
-
-``` r
-
-# regimes = find_regimes(GLV, factor_k = 1)
-# plot_bifdiag(regimes, sel_variables = "X1")
-```
+For any questions, please contact Kyra Evers at
+<kyra.c.evers@gmail.com>.
 
 <!-- You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this. -->
-<!-- You can also embed plots, for example: -->
-<!-- ```{r pressure, echo = FALSE} -->
-<!-- plot(pressure) -->
-<!-- ``` -->
-<!-- In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN. -->
