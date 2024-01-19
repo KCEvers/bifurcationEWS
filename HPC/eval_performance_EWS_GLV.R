@@ -1,4 +1,5 @@
 print("Start evaluating performance of EWS!")
+source('visualise_helpers.R')
 rerun = F
 
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
@@ -104,7 +105,7 @@ EWS_warnings = foreach(filepath_warnings = filepaths_warnings,
 saveRDS(EWS_warnings, filepath_all_warnings)
 print(head(EWS_warnings) %>% as.data.frame())
 
-# Compute ROC
+# Compute ROC and AUC
 grouping_vars = setdiff(names(forloop[[1]]), c("data_idx","noise_iter", "trans_or_null"))
 EWS_warnings_ROC = warnings_to_ROC(EWS_warnings, grouping_vars)
 EWS_warnings_AUC = ROC_to_AUC(EWS_warnings_ROC, grouping_vars)
@@ -113,20 +114,15 @@ EWS_warnings_AUC = ROC_to_AUC(EWS_warnings_ROC, grouping_vars)
 saveRDS(EWS_warnings_ROC, filepath_EWS_warnings_ROC)
 saveRDS(EWS_warnings_AUC, filepath_EWS_warnings_AUC)
 
-
+# Read
 EWS_warnings = readRDS(filepath_all_warnings)
 EWS_warnings_ROC = readRDS(filepath_EWS_warnings_ROC)
 EWS_warnings_AUC = readRDS(filepath_EWS_warnings_AUC)
 
 ##### ROC
 # if (FALSE){
-plot_ROC <- function(pars_template, EWS_warnings_ROC_sub, grouping_keys){
-  filename = grouping_keys %>% t() %>% as.data.frame()%>%
-    tibble::rownames_to_column() %>%
-    dplyr::mutate_all (~ trimws(.x))%>%
-    apply(1, paste0, collapse = "_") %>% paste0(collapse="_")
-
-  pl_ROC = EWS_warnings_ROC_sub %>%
+plot_ROC_old <- function(x){
+  pl_ROC = x %>%
     select(-c("sum_tp", "sum_fp", "sum_tn", "sum_fn", "acc")) %>%
     tidyr::gather(rate, sum_freq, -setdiff(colnames(.), c("fnr", "fpr", "tnr", "tpr"))) %>%
     dplyr::mutate(trans_or_null = ifelse(rate %in% c("fnr", "tpr"), "Transition", "Null" )) %>%
@@ -139,7 +135,6 @@ plot_ROC <- function(pars_template, EWS_warnings_ROC_sub, grouping_keys){
         tnr = "% True Negative"
       )
     ) %>%
-    # dplyr::filter(metric == "mean_var1") %>%
     ggplot(aes(
       x = sigma_crit,
       y = sum_freq,
@@ -163,27 +158,79 @@ plot_ROC <- function(pars_template, EWS_warnings_ROC_sub, grouping_keys){
     ) +
     geom_bar(position = "stack", stat = "identity") +
     ggh4x::facet_nested( metric ~ regime_switch + trans_or_null,
-                         # scales = "free_y",
-                         # switch = "y",
-                         # axes='all',
                          labeller = label_parsed) +
-    labs(y = "Rate", x = latex2exp::TeX("$\\sigma_{crit}$"), title = filename) +
+    labs(y = "Rate", x = latex2exp::TeX("$\\sigma_{crit}$")) +
     scale_x_continuous(expand = c(0, 0)
-                       # limits = c(min(EWS_warnings_ROC_long$sigma_crit), max(EWS_warnings_ROC_long$sigma_crit))
     ) +
     scale_y_continuous(n.breaks = 2, limits = c(0,1))
+  pl_ROC = style_plot(pl_ROC) + theme(legend.position = "bottom") +  theme(strip.text.y = element_text(angle = 0))
+  return(pl_ROC)
+}
 
+plot_ROC <- function(x){
+  pl_ROC = x %>%
+    select(-c("sum_tp", "sum_fp", "sum_tn", "sum_fn", "acc")) %>%
+    # tidyr::gather(rate, sum_freq, -setdiff(colnames(.), c("fnr", "fpr", "tnr", "tpr"))) %>%
+    dplyr::mutate(trans_or_null = ifelse(rate %in% c("fnr", "tpr"), "Transition", "Null" )) %>%
+    # mutate(
+    #   rate = recode(
+    #     rate,
+    #     tpr = "% True Positive",
+    #     fpr = "% False Positive",
+    #     fnr = "% False Negative",
+    #     tnr = "% True Negative"
+    #   )
+    # ) %>%
+    ggplot(aes(
+      x = fpr,
+      y = tpr
+      # colour = rate,
+      # fill = rate
+    )) +
+    # viridis::scale_color_viridis(
+    #   discrete = TRUE,
+    #   option = "magma",
+    #   begin = 0,
+    #   end = 0.9,
+    #   name = ""
+    # ) +
+    # viridis::scale_fill_viridis(
+    #   discrete = TRUE,
+    #   option = "magma",
+    #   begin = 0,
+    #   end = 0.9,
+    #   alpha = .5,
+    #   name = ""
+    # ) +
+    # geom_bar(position = "stack", stat = "identity") +
+  geom_point(size = .5) +
+  ggh4x::facet_nested( metric ~ regime_switch + trans_or_null,
+                         labeller = label_parsed) +
+    labs(y = "TPR", x = latex2exp::TeX("FPR")) +
+    scale_x_continuous(expand = c(0, 0), limits = c(0,1)) +
+    scale_y_continuous(n.breaks = 2, limits = c(0,1))
+  pl_ROC = style_plot(pl_ROC) + theme(legend.position = "bottom") +
+    theme(strip.text.y = element_text(angle = 0))
+  return(pl_ROC)
+}
+
+save_plot_ROC <- function(pars_template, EWS_warnings_ROC_sub, grouping_keys){
+  filename = grouping_keys %>% t() %>% as.data.frame()%>%
+    tibble::rownames_to_column() %>%
+    dplyr::mutate_all (~ trimws(.x))%>%
+    apply(1, paste0, collapse = "_") %>% paste0(collapse="_")
+
+  pl_ROC = plot_ROC(EWS_warnings_ROC_sub)
   filepath_image = format_path(format_pars(modify_list(
     pars_template,
     list(
       type_output = "figs",
       subfolder1 = "ROC",
-      # subfolder2 = pars$subfolder1,
-      filename =filename,
+      filename = filename,
       file_ext = ".png"
     )
   )))
-  save_plot(style_plot(pl_ROC) + theme(legend.position = "bottom") +  theme(strip.text.y = element_text(angle = 0)),
+  save_plot(pl_ROC + labs(title = filename),
             filepath_image,
             w = length(unique(EWS_warnings_ROC_sub$regime_switch)) * 10 + 15,
             h = 50,
@@ -194,11 +241,11 @@ plot_ROC <- function(pars_template, EWS_warnings_ROC_sub, grouping_keys){
 EWS_warnings_ROC_grouped=EWS_warnings_ROC%>%
   dplyr::group_by_at(c(setdiff(names(forloop[[1]]), c("data_idx","noise_iter", "regime_switch","trans_or_null")) ) )%>%# dplyr::group_keys()
   # dplyr::group_split() %>%
-  dplyr::group_map(~ plot_ROC(pars_template,
+  dplyr::group_map(~ save_plot_ROC(pars_template,
                               .x, .y))
 # }
+
 ##### AUC
-source('visualise_helpers.R')
 
 plot_AUC <- function(pars_template, EWS_warnings_AUC_sub, grouping_keys,
                      width = 14, height = 7.5
@@ -286,100 +333,3 @@ EWS_warnings_AUC%>%
   dplyr::group_map(~ plot_AUC(pars_template,
                               .x, .y), .keep = T)
 
-#
-# # Summary AUC across conditions
-# pl_summ_discr = EWS_warnings_AUC %>%
-#   group_by(regime_switch, metric) %>%
-#   dplyr::summarise(median_AUC = median(AUC, na.rm=TRUE), sd_AUC = sd(AUC, na.rm=TRUE),
-#                    mad_AUC = mad(AUC, na.rm= TRUE),
-#                    mean_AUC = mean(AUC, na.rm=TRUE), .groups='drop') %>%
-#   rowwise() %>%
-#   dplyr::mutate(median_AUC_class = get_AUC_class(median_AUC)) %>% ungroup() %>%
-#   ggplot() +
-#   geom_tile(aes(x = metric, y = regime_switch,
-#                 fill=median_AUC_class
-#   )) +
-#   viridis::scale_fill_viridis(discrete = TRUE, name = "AUC class", labels = scales::parse_format(),
-#                               option = "inferno", drop = F
-#   ) +
-#   # geom_point(aes(x = metric_full, y = regime_switch_name, size = mad_AUC_class),
-#   #            color='bisque4', fill= 'white',# 'white',
-#   #            # color='lemonchiffon',  fill = 'lemonchiffon',#'lemonchiffon',#'papayawhip' ,#'white',
-#   #            shape = 21, alpha = .95, stroke = .45) +
-#   # scale_size_manual(breaks = c("Low", "Medium", "High", "Very high"), values = c(.25, 1, 2, 3.25),
-#   # labels = c(sprintf("Low (< %.2f)", low_sd),
-#   # sprintf("Medium (< %.2f)", medium_sd),
-#   # sprintf("High (< %.2f)", high_sd), sprintf("Very high (> %.2f)", high_sd)),
-#   # drop=FALSE,
-#   # name = latex2exp::TeX("MAD ${AUC}$"),
-#   ## name = latex2exp::TeX("$\\sigma_{AUC}$") #"SD AUC"
-# # ) +
-# # colorspace::scale_fill_discrete_sequential(breaks = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"),
-# #                                            drop=F,
-# #                                            labels = labels,
-# #                                            name = latex2exp::TeX("Median ${AUC}$"), #"SD AUC"
-# #                                            nmax = 10, palette= "Greens 3",
-# #                                            # palette='Heat 2',
-# #                                            # palette='ag_GrnYl',
-# #                                            # palette="Blue-Yellow",
-# #                                            # palette="Tropic",
-# #                                            # rev=TRUE,
-# #                                            # order = rev(1:10),
-# #                                            # palette = "YlOrBr", nmax = 15
-# # )   + #
-# scale_y_discrete(expand = c(0,0),
-#                  labels = scales::parse_format())+
-#   scale_x_discrete(expand = c(0,0),
-#                    labels = scales::parse_format())+
-#   # ggh4x::facet_nested(. ~ regime_switch ,
-#   #                     # scale = "free",
-#   #                     # space ='free_x',
-#   #                     # switch = "y",
-#   #                     labeller = label_parsed
-#   # )  +
-#   labs(x="", y = "")  +
-#   guides(
-#     # size = guide_legend(title.position = "top", ncol = 1, order=2, drop=F,
-#                              # override.aes = list(alpha = 1
-#         #                                         # color = 'gray30'
-#                              # )),
-#          fill = guide_legend(title.position = "top",
-#                              ncol = 2,
-#                              # order=1,drop=F,
-#                              override.aes = list(alpha = 1))
-#   )
-#
-# #
-# filepath_image = format_path(format_pars(modify_list(
-#   pars_template,
-#   list(
-#     type_output = "figs",
-#     subfolder1 = "AUC",
-#     filename = "AUC-median-across-conditions",
-#     file_ext = ".png"
-#   )
-# )))
-# save_plot(
-#   style_plot(pl_summ_discr) +
-#     theme(legend.position = "bottom") +
-#     theme(axis.text.x = element_text(angle = 45,
-#                                      # vjust = 1,
-#                                      hjust=1
-#     )) +
-#     # theme(panel.grid.major = element_blank(),
-#     #       panel.grid.minor = element_blank()) +
-#     theme(strip.text = element_text(colour = 'gray10',
-#                                     margin = margin(0.5, 0.5, 0.5, 0.5, "cm")
-#     )) +
-#     theme(strip.background = element_rect(color = main_color, fill = NA, linewidth=1.5),
-#           panel.border = element_rect(color = NA, fill = NA, linewidth = 1.5),
-#           strip.text.y.left = element_text(
-#             angle = 0,
-#             margin = margin(0.75, 0.5, 0.75, 0.5, "cm")
-#           ),
-#     ),
-#   stringr::str_replace(filepath_image, "AUC_per_condition", "AUC_across_conditions"),
-#   w = 20,
-#   h = 15,
-#   formats = ".png")
-#

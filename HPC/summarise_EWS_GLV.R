@@ -72,39 +72,16 @@ EWS_warnings_ROC %>%
 EWS_warnings_ROC %>% group_by(regime_switch, sigma_crit, metric, transition_steps, baseline_steps, sigma_obs_noise, downsample_fs) %>%
   mutate(n = n(), id = cur_group_id() ) %>% as.data.frame() %>% filter(n!=1)
 
-EWS_warnings_ROC %>% arrange(regime_switch, metric, transition_steps, baseline_steps, sigma_obs_noise, downsample_fs, sigma_crit) %>% as.data.frame()%>%head(10)
-
-EWS_warnings_AUC %>% filter(AUC < .5) %>% as.data.frame()
-EWS_warnings_ROC %>% filter(regime_switch=="PH_4to2", metric == "COV_var1") %>% as.data.frame()
-EWS_warnings_ROC %>% filter(regime_switch=="PH_4to2", metric == "COV_var1", sigma_obs_noise == .0001, downsample_fs == .1) %>% as.data.frame()
-
 
 # Direction of EWS for sigma_crit corresponding to best cut-off sigma_crit > --------
 
 # Compute best threshold using Youden's J statistic (https://machinelearningmastery.com/threshold-moving-for-imbalanced-classification/)
-criterion_df_full = EWS_warnings_ROC %>%
+criterion_df = EWS_warnings_ROC %>%
 group_by(regime_switch, metric, baseline_steps,
          transition_steps, downsample_fs, sigma_obs_noise) %>%
-  arrange(sigma_crit, .by_group = T) %>%
-  dplyr::summarise(
-    idx_sigma_crit = which.max(tpr - fpr),
-    sigma_crit = sigma_crit[idx_sigma_crit],
-    tpr = tpr[idx_sigma_crit],
-    fpr = fpr[idx_sigma_crit],
-    fnr = fnr[idx_sigma_crit],
-    tnr = tnr[idx_sigma_crit],
-    sum_tp = sum_tp[idx_sigma_crit],
-    sum_tn = sum_tn[idx_sigma_crit],
-    sum_fp = sum_fp[idx_sigma_crit],
-    sum_fn = sum_fn[idx_sigma_crit],
-                   .groups = 'drop'
-  )
-
-criterion_df = criterion_df_full %>%
+  group_modify(~ YoudensJ(.x)) %>%
   filter(!is.na(sigma_crit)) %>%
-  filter(!grepl("LF0.05", metric, fixed = T)) #%>%
-  # select(c(sigma_crit, metric, regime_switch, downsample_fs, sigma_obs_noise))
-
+  filter(!grepl("LF0.05", metric, fixed = T))
 criterion_df %>% as.data.frame %>% head()
 
 # Find corresponding warnings
@@ -131,8 +108,7 @@ foreach(i = filepaths_warnings,
 
      # nrow(warning_df %>% select(-c(sigma_crit,score,first_warning_bifpar_idx,warning_signal)) %>% unique())
           merge(criterion_df, warning_df)
-   } #%>%
-   # mutate(direction = ifelse(score > 0, "Positive", ifelse(score < 0, "Negative", "Zero")))
+   }
 
    rm(warning_dfs)
    saveRDS(merged_df, i_merged)
@@ -162,8 +138,7 @@ foreach(i = filepaths_warnings,
        mutate(regime_switch_class = dplyr::recode_factor(regime_switch, !!!regime_switch_to_class) %>% stringr::str_replace("-", "- ") %>% factor(levels = c("Fixed- Point", "Period- Doubling", "Period- Halving", "Chaotic")))  %>%
        mutate(metric_label =
                 recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
-       mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral"))) #%>%
-     # select(-c(regime_switch, metric))
+       mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral")))
        return(summ_df)
    }
 
@@ -529,8 +504,6 @@ plot_direction <- function(pars_template, EWS_warnings_, grouping_keys, width = 
              recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
     mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral")))  %>%
     ggplot(aes(x = sigma_crit, y = score, col = trans_or_null
-               # shape = factor(downsample_fs),
-               # fill = factor(sigma_obs_noise)
                )) +
     geom_hline(aes(yintercept = 0), alpha = .75, color = 'grey30') +
     geom_jitter(alpha = .2, size = .5, width = .2, shape = 16) +

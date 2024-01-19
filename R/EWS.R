@@ -539,6 +539,29 @@ get_AUC <- function(fpr, tpr){
   }
 }
 
+#' # Compute best threshold using Youden's J statistic
+#'
+#' @param x Dataframe with true/false positive/negative rates for each critical cut-off value
+#'
+#' @return Dataframe with only the row corresponding to the maximal Youden's J statistic
+#' @export
+#'
+#' @examples
+YoudensJ = function(x){
+  x %>% arrange(.data$sigma_crit) %>%
+    dplyr::summarise(
+      idx_sigma_crit = which.max(.data$tpr - .data$fpr),
+      sigma_crit = .data$sigma_crit[.data$idx_sigma_crit],
+      tpr = .data$tpr[.data$idx_sigma_crit],
+      fpr = .data$fpr[.data$idx_sigma_crit],
+      fnr = .data$fnr[.data$idx_sigma_crit],
+      tnr = .data$tnr[.data$idx_sigma_crit],
+      sum_tp = .data$sum_tp[.data$idx_sigma_crit],
+      sum_tn = .data$sum_tn[.data$idx_sigma_crit],
+      sum_fp = .data$sum_fp[.data$idx_sigma_crit],
+      sum_fn = .data$sum_fn[.data$idx_sigma_crit]
+    ) %>% return()
+}
 
 ## Multivariate EWS Metrics
 #' Eigenvalue
