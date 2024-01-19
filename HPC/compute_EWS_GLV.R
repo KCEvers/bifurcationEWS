@@ -220,7 +220,7 @@ foreach(
     # Check if all desired EWS are in there
     if (file.exists(filepath_EWS) & !rerun){
       split_df_EWS_old = readRDS(filepath_EWS) %>%
-        # Remove later, correct mistake
+        # Remove later**, correct mistake
         filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
         filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) %>%
         filter(!grepl("spectral_exp", metric, fixed = T)) %>%
@@ -230,6 +230,13 @@ foreach(
       # # Find which metrics aren't in the dataframe
       uni_metrics_todo = uni_metrics[!unlist(lapply(names(uni_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
       multi_metrics_todo = multi_metrics[!unlist(lapply(names(multi_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
+      print(names(uni_metrics_todo))
+      print(names(multi_metrics_todo))
+
+      # If there's any metrics missing, we have to compute them for all indices
+      if (length(uni_metrics_todo) > 0 | length(multi_metrics_todo) > 0){
+        bifpar_idx_todo = bifpar_idx_
+      }
       # uni_metrics_todo = uni_metrics
       # multi_metrics_todo = multi_metrics
     } else {
@@ -273,7 +280,7 @@ foreach(
           fs = pars$downsample_fs,
           nr_timesteps = pars$nr_timesteps,
           # f_min_to_f_max = list(c(0.005, .5), c(.05, .5))
-          f_min_to_f_max = list(c(fs/2/10, fs/2))
+          f_min_to_f_max = c(pars$downsample_fs/2/10, pars$downsample_fs/2)
         ),
         "Smax" = list(
           fs = pars$downsample_fs,
@@ -286,8 +293,7 @@ foreach(
         )
       start_t = Sys.time()
 
-      split_df_EWS = run_bifEWS(noisy_df,# %>% dplyr::filter(bifpar_idx == 150),
-                                # %>% dplyr::filter(bifpar_idx >= 150, bifpar_idx <= 159),
+      split_df_EWS = run_bifEWS(noisy_df,# %>% filter(bifpar_idx < 110),
                                 pars$X_names,
                                 uni_metrics_todo,
                                 multi_metrics_todo,

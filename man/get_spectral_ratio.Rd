@@ -9,7 +9,7 @@ get_spectral_ratio(
   fs,
   nr_timesteps,
   f_min_to_f_max = c(0.05, 0.5),
-  n.freq = 5000
+  n.freq = 500
 )
 }
 \arguments{

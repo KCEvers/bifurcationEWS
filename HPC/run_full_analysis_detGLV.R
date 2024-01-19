@@ -78,21 +78,6 @@ for (regime_switch_name in regime_switch_names){
   pars_template = modify_list(pars_general_template,
                                 pars_template_adjust[[regime_switch_name]])
 
-  # Temp: "Interior-Crisis-Separation"
-  # pars_template$thresh_full_band_trans = .6
-  # pars_template$nr_smooth_trans = 5
-
-  # # Temp: "Interior-Crisis-Merging"
-  # pars_template$thresh_full_band_trans = .6
-  # pars_template$min_length_regime_trans = 1
-  # pars_template$nr_smooth_trans = 0
-
-  # Temp: "Boundary-Crisis"
-  pars_template$thresh_full_band_trans = 1
-  pars_template$nr_smooth_trans = 0
-  pars_template$min_length_regime_trans = 20
-  pars_template$thresh_coord_spread_trans = .1
-
   # File parameters
   pars_template$type_output = 'data'
   pars_template$analysis_type = pars_template$s_string
@@ -111,8 +96,8 @@ for (regime_switch_name in regime_switch_names){
 
   # Run scripts
   # source('generate_full_GLV.R')
-  source('generate_transitions_GLV.R')
-  # source('compute_EWS_GLV.R')
+  # source('generate_transitions_GLV.R')
+  source('compute_EWS_GLV.R')
   # source('eval_performance_EWS_GLV.R')
 
 }

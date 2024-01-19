@@ -420,7 +420,7 @@ setup_bifpars <- function() {
       nr_smooth_full = 10,
       nr_smooth_trans = 5,
       thresh_coord_spread_full = .01,
-      thresh_full_band_trans = .65,
+      thresh_full_band_trans = .6,
       bifpar_pars = list(
         bifpar_start = 1.03,
         bifpar_end = 1.01,
@@ -456,7 +456,8 @@ setup_bifpars <- function() {
       variable_name = "X4",
       thresh_full_band_trans = 1,
       thresh_coord_spread_full = .1,
-      thresh_coord_spread_trans = .1
+      thresh_coord_spread_trans = .1,
+      nr_smooth_trans = 0
     )
   )  %>%
     stats::setNames(unlist(purrr::map(., "regime_switch_name"))) %>%

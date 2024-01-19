@@ -792,7 +792,7 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
         return()
       } else {
         idx_min = which.min(abs(freq - f_min))
-        idx_max = which.max(abs(freq - f_max))
+        idx_max = which.min(abs(freq - f_max))
       }
     }
 
@@ -817,7 +817,7 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
 #' @examples
 get_spectral_ratio <- function(x, fs, nr_timesteps,
                                f_min_to_f_max =  c(.05, .5),
-                               n.freq = 5000){
+                               n.freq = 500){
 
   if (f_min_to_f_max[2] > (fs/2)){
     message("Error: The highest frequency f_max = %.4f you can estimate with a sampling frequency of %.4f is fs/2 = %.4f.", f_min_to_f_max[2], fs, fs/2)
@@ -833,14 +833,14 @@ get_spectral_ratio <- function(x, fs, nr_timesteps,
     ARSPEC=stats::spec.ar(
       stats::ts(x, frequency = fs, end = nr_timesteps),
       n.freq=n.freq,
-      # order=1, # Order as decided by AIC
+      # order=1, # Don't specify order to get order as decided by AIC
       plot=FALSE
     )
     freq = ARSPEC$freq[-1]
     spec = ARSPEC$spec[-1]
 
     # Spectral ratio dataframe
-     f_min = f_min_to_f_max[1]
+      f_min = f_min_to_f_max[1]
       f_max = f_min_to_f_max[2]
       idx_min = which.min(abs(freq - f_min))
       idx_max = which.min(abs(freq - f_max))
