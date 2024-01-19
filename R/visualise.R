@@ -601,7 +601,7 @@ plot_ts <- function(df,
     mutate(variable_name =  dplyr::recode(.data$variable, !!!variable_labs))
 
 
-  pl = df_long %>% ggplot() + geom_point(aes(x= time_idx, y = value)) +
+  pl = df_long %>% ggplot() + geom_point(aes(x= .data$time_idx, y = .data$value)) +
     ggh4x::facet_grid2(variable_name ~ .,
                                labeller = label_parsed
   )

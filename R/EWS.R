@@ -539,7 +539,7 @@ get_AUC <- function(fpr, tpr){
   }
 }
 
-#' # Compute best threshold using Youden's J statistic
+#' Compute best threshold using Youden's J statistic
 #'
 #' @param x Dataframe with true/false positive/negative rates for each critical cut-off value
 #'
@@ -548,7 +548,7 @@ get_AUC <- function(fpr, tpr){
 #'
 #' @examples
 YoudensJ = function(x){
-  x %>% arrange(.data$sigma_crit) %>%
+  x %>% dplyr::arrange(.data$sigma_crit) %>%
     dplyr::summarise(
       idx_sigma_crit = which.max(.data$tpr - .data$fpr),
       sigma_crit = .data$sigma_crit[.data$idx_sigma_crit],
@@ -751,19 +751,18 @@ get_Hurst_exp <- function(x, fs, nr_timesteps, scaleMin = 10, scaleMax = 100,
 
 
 
-#' Compute Spectral Exponent (Prettyman, 2020)
+#' Compute Spectral Exponent (Prettyman, 2020; Wijnants, 2013)
 #'
 #' @inheritParams get_Smax
-#' @param f_min Low frequency
-#' @param f_max High frequency
+#' @param method Method of selecting frequency range in which to compute spectral exponent
 #'
 #' @return Slope of power spectral density
 #' @export
 #'
 #' @examples
 get_spectral_exp <- function(x, fs, nr_timesteps,
-                             f_min = 10**(-2),
-                             f_max = 10**(-1)){
+                             method = c("Prettyman2020", "Wijnants2013")[2]
+                           ){
 
   if (identical(all.equal(stats::sd(x), 0), TRUE)){
     pse_value = 0
@@ -774,15 +773,29 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
     psdx = (1/(fs*N)) * abs(xdft)**2
     psdx[2:(length(psdx)-1)] = 2*psdx[2:(length(psdx)-1)] # Don't multiply zero frequency by 2
     freq = seq(0, fs/2, length.out=length(psdx)) # Up until Nyquist frequency = fs / 2
-    # freq = seq(0, fs/2, by=fs/N) # Up until Nyquist frequency = fs / 2
-    # plot(freq, psdx, log = 'xy')
-    # abline(v=f_min, col='red')
-    # abline(v=f_max, col='red')
     logf = log10(freq)
     logp = log10(psdx)
 
-    idx_min = which.min(abs(freq - f_min))
-    idx_max = which.min(abs(freq - f_max))
+    # Select section of frequency range
+    if (method == "Wijnants2013"){
+      idx_min = 2 # Skip freq = 0
+      idx_max = 50
+      if (idx_max > length(freq)){
+        message("Timeseries is too short to fit the slope of the spectral exponent over the first 50 frequencies (method = Wijnants2013)!")
+        return()
+      }
+    } else if (method == "Prettyman2020"){
+      f_min = 10**(-2)
+      f_max = 10**(-1)
+      if (f_max > (fs/2)){
+        message("Error: The highest frequency f_max = %.4f you can estimate with a sampling frequency of %.4f is fs/2 = %.4f.", f_max, fs, fs/2)
+        return()
+      } else {
+        idx_min = which.min(abs(freq - f_min))
+        idx_max = which.max(abs(freq - f_max))
+      }
+    }
+
     pfit = stats::lm(logp[idx_min:idx_max] ~ logf[idx_min:idx_max], # Fit linear regression
               na.action=stats::na.omit)
     pse_value = -unname(pfit$coefficients[2])
@@ -795,7 +808,7 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
 #'
 #' @inheritParams get_Smax
 #' @inheritParams get_spectral_exp
-#' @param f_min_to_f_max List of low and high frequency to compare
+#' @param f_min_to_f_max Low and high frequency to compare
 #' @param n.freq Number of points to estimate frequency at
 #'
 #' @return Spectral ratio of spectral density estimated at specified low frequency to spectral density at specified high frequency
@@ -803,14 +816,15 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
 #'
 #' @examples
 get_spectral_ratio <- function(x, fs, nr_timesteps,
-                               f_min_to_f_max = list(c(0.005, .5), c(.05, .5)),
-                               # f_min = 0.005, f_max = .5,
+                               f_min_to_f_max =  c(.05, .5),
                                n.freq = 5000){
 
-  col_names  = plyr::llply(1:length(f_min_to_f_max),
-                                               function(i){
-                                                 return(paste0("LF", f_min_to_f_max[[i]][1], "_HF", f_min_to_f_max[[i]][2]) )
-                                               }) %>% unlist()
+  if (f_min_to_f_max[2] > (fs/2)){
+    message("Error: The highest frequency f_max = %.4f you can estimate with a sampling frequency of %.4f is fs/2 = %.4f.", f_min_to_f_max[2], fs, fs/2)
+    return()
+  }
+
+  col_names  = paste0("LF", f_min_to_f_max[1], "_HF", f_min_to_f_max[2])
   if (identical(all.equal(stats::sd(x), 0), TRUE)){
     return(matrix(0, nrow = 1, ncol = length(f_min_to_f_max)) %>% magrittr::set_colnames(col_names) %>% as.data.frame() )
 
@@ -825,15 +839,14 @@ get_spectral_ratio <- function(x, fs, nr_timesteps,
     freq = ARSPEC$freq[-1]
     spec = ARSPEC$spec[-1]
 
-    spectral_ratio_df = plyr::llply(1:length(f_min_to_f_max),
-                                           function(i){
-      f_min = f_min_to_f_max[[i]][1]
-      f_max = f_min_to_f_max[[i]][2]
+    # Spectral ratio dataframe
+     f_min = f_min_to_f_max[1]
+      f_max = f_min_to_f_max[2]
       idx_min = which.min(abs(freq - f_min))
       idx_max = which.min(abs(freq - f_max))
       spectral_ratio = spec[idx_min] / spec[idx_max]
-      return(matrix(spectral_ratio) %>% magrittr::set_colnames(col_names[i]) %>% as.data.frame() )
-                                           }) %>% do.call(cbind, .) %>% as.data.frame()
+      spectral_ratio_df =  matrix(spectral_ratio) %>% magrittr::set_colnames(col_names) %>% as.data.frame()
+
     return(spectral_ratio_df)
 
   }

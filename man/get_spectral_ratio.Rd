@@ -8,7 +8,7 @@ get_spectral_ratio(
   x,
   fs,
   nr_timesteps,
-  f_min_to_f_max = list(c(0.005, 0.5), c(0.05, 0.5)),
+  f_min_to_f_max = c(0.05, 0.5),
   n.freq = 5000
 )
 }
@@ -19,7 +19,7 @@ get_spectral_ratio(
 
 \item{nr_timesteps}{Number of timesteps}
 
-\item{f_min_to_f_max}{List of low and high frequency to compare}
+\item{f_min_to_f_max}{Low and high frequency to compare}
 
 \item{n.freq}{Number of points to estimate frequency at}
 }

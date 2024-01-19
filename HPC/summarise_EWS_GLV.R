@@ -511,13 +511,9 @@ plot_direction <- function(pars_template, EWS_warnings_, grouping_keys, width = 
     ggh4x::facet_nested(regime_switch_class + regime_switch_label ~ metric_label,
                         strip = ggh4x::strip_nested(size = "variable", clip = "off"),
                         scale = "free_y",
-                        # space ='free_x',
                         switch = "y",
                         labeller = labeller(.cols = label_parsed, .rows = label_wrap_gen(width = 12)
-                                            # , .multi_line = FALSE
                                             )
-                        # labeller = label_wrap_gen(width = 10)
-                        # labeller = label_parsed
     )  +
     labs(y = "Warning Signal (standardized)", x = latex2exp::TeX("Critical cut-off $\\sigma_{crit}$"), title = filename) +
     scale_y_continuous( position = 'right')+
@@ -533,7 +529,6 @@ plot_direction <- function(pars_template, EWS_warnings_, grouping_keys, width = 
     list(
       type_output = "figs",
       subfolder1 = "directionEWS",
-      # subfolder2 = pars$subfolder1,
       filename =filename,
       file_ext = ".png"
     )
@@ -542,7 +537,6 @@ plot_direction <- function(pars_template, EWS_warnings_, grouping_keys, width = 
     style_plot(pl_directionEWS) +
       theme(strip.text = element_text(colour = 'gray10'),
             strip.background = element_rect(
-              # color = 'gray30',
               fill = NA, linewidth=.75)) +
       theme(
             panel.border = element_rect(color = 'gray30', fill = NA, linewidth = .5),
@@ -555,10 +549,6 @@ plot_direction <- function(pars_template, EWS_warnings_, grouping_keys, width = 
                size = 10
             )
       ) +
-      # theme(
-        # strip.text.y = element_text(angle = 0),
-        # strip.text.x = element_text(angle = 90),
-      # ) +
     theme(legend.position = 'bottom'),
     filepath_image,
     w = width,
@@ -570,15 +560,6 @@ plot_direction <- function(pars_template, EWS_warnings_, grouping_keys, width = 
   rm(pl_directionEWS)
 
 }
-
-
-# EWS_warnings_ = EWS_warnings  %>%
-#  group_by(regime_switch, metric, transition_steps, baseline_steps, sigma_obs_noise, downsample_fs, sigma_crit) %>%
-#   filter(
-#     # regime_switch == "PD_2to4",
-#     # metric == "Smax_X1",
-#     sigma_obs_noise == .02, downsample_fs == 10
-  # )
 
 EWS_warnings_grouped=EWS_warnings%>%
   dplyr::group_by(downsample_fs, sigma_obs_noise, transition_steps, baseline_steps)%>%# dplyr::group_keys()
@@ -607,31 +588,16 @@ plot_timing <- function(pars_template, EWS_warnings_, grouping_keys, width = 100
 
   pl_timingEWS = EWS_warnings_ %>%
     mutate(first_warning_bifpar_idx = first_warning_bifpar_idx - 100) %>%
-    # mutate(regime_switch_label =
-    #          recode_factor(regime_switch, !!!purrr::flatten(regimes_switch_labels), .default = NULL, .ordered=T)) %>%
-    # # mutate(regime_switch_label = stringr::str_replace(regime_switch_label, "(Backward)", "\n(Backward)")) %>%
-    # # mutate(regime_switch_label = stringr::str_replace(regime_switch_label, "Cascade", "\nCascade")) %>%
-    # mutate(regime_switch_class = dplyr::recode_factor(regime_switch, !!!regime_switch_to_class) %>% stringr::str_replace("-", "- ") %>% factor(levels = c("Fixed- Point", "Period- Doubling", "Period- Halving", "Chaotic")))  %>%
-    # mutate(metric_label =
-    #          recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
-    # mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral")))  %>%
     ggplot(aes(x = sigma_crit, y = first_warning_bifpar_idx, col = trans_or_null
-               # shape = factor(downsample_fs),
-               # fill = factor(sigma_obs_noise)
     )) +
-    # geom_hline(aes(yintercept = 0), alpha = .75, color = 'grey30') +
     geom_jitter(alpha = .2, size = .5, width = .2, shape = 16) +
     viridis::scale_color_viridis(name = "", option = 'A', discrete=T, begin = .2, end = .9) +
     ggh4x::facet_nested(regime_switch ~ metric,
                         strip = ggh4x::strip_nested(size = "variable", clip = "off"),
                         scale = "free_y",
-                        # space ='free_x',
                         switch = "y",
                         labeller = labeller(.cols = label_parsed, .rows = label_wrap_gen(width = 12)
-                                            # , .multi_line = FALSE
                         )
-                        # labeller = label_wrap_gen(width = 10)
-                        # labeller = label_parsed
     )  +
     labs(y = "Timepoints before transition", x = latex2exp::TeX("Critical cut-off $\\sigma_{crit}$"), title = filename) +
     scale_y_continuous( position = 'right')+
@@ -643,16 +609,6 @@ plot_timing <- function(pars_template, EWS_warnings_, grouping_keys, width = 100
     )
 
   filepath_image =  "test.png"
-    # format_path(format_pars(modify_list(
-    # pars_template,
-    # list(
-      # type_output = "figs",
-      # subfolder1 = "directionEWS",
-      ## subfolder2 = pars$subfolder1,
-     # filename =filename,
-      # file_ext = ".png"
-    # )
-  # )))
   save_plot(
     style_plot(pl_timingEWS) +
       theme(strip.text = element_text(colour = 'gray10'),

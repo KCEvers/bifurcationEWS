@@ -15,7 +15,7 @@
 # or:
 # devtools::install(build_vignettes = TRUE)
 
-# browseURL("doc/demo.html")
+# browseURL("doc/demo.html") # View vignette
 
 # Add dependencies
 # pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr", "plotly", "tibble", "latex2exp", "foreach", "scico", "osfr")

@@ -121,96 +121,48 @@ EWS_warnings_AUC = readRDS(filepath_EWS_warnings_AUC)
 
 ##### ROC
 # if (FALSE){
-plot_ROC_old <- function(x){
-  pl_ROC = x %>%
-    select(-c("sum_tp", "sum_fp", "sum_tn", "sum_fn", "acc")) %>%
-    tidyr::gather(rate, sum_freq, -setdiff(colnames(.), c("fnr", "fpr", "tnr", "tpr"))) %>%
-    dplyr::mutate(trans_or_null = ifelse(rate %in% c("fnr", "tpr"), "Transition", "Null" )) %>%
-    mutate(
-      rate = recode(
-        rate,
-        tpr = "% True Positive",
-        fpr = "% False Positive",
-        fnr = "% False Negative",
-        tnr = "% True Negative"
-      )
-    ) %>%
-    ggplot(aes(
-      x = sigma_crit,
-      y = sum_freq,
-      colour = rate,
-      fill = rate
-    )) +
-    viridis::scale_color_viridis(
-      discrete = TRUE,
-      option = "magma",
-      begin = 0,
-      end = 0.9,
-      name = ""
-    ) +
-    viridis::scale_fill_viridis(
-      discrete = TRUE,
-      option = "magma",
-      begin = 0,
-      end = 0.9,
-      alpha = .5,
-      name = ""
-    ) +
-    geom_bar(position = "stack", stat = "identity") +
-    ggh4x::facet_nested( metric ~ regime_switch + trans_or_null,
-                         labeller = label_parsed) +
-    labs(y = "Rate", x = latex2exp::TeX("$\\sigma_{crit}$")) +
-    scale_x_continuous(expand = c(0, 0)
-    ) +
-    scale_y_continuous(n.breaks = 2, limits = c(0,1))
-  pl_ROC = style_plot(pl_ROC) + theme(legend.position = "bottom") +  theme(strip.text.y = element_text(angle = 0))
-  return(pl_ROC)
-}
 
 plot_ROC <- function(x){
-  pl_ROC = x %>%
+  x= x %>%
     select(-c("sum_tp", "sum_fp", "sum_tn", "sum_fn", "acc")) %>%
-    # tidyr::gather(rate, sum_freq, -setdiff(colnames(.), c("fnr", "fpr", "tnr", "tpr"))) %>%
-    dplyr::mutate(trans_or_null = ifelse(rate %in% c("fnr", "tpr"), "Transition", "Null" )) %>%
-    # mutate(
-    #   rate = recode(
-    #     rate,
-    #     tpr = "% True Positive",
-    #     fpr = "% False Positive",
-    #     fnr = "% False Negative",
-    #     tnr = "% True Negative"
-    #   )
-    # ) %>%
+    # mutate(regime_switch_label =
+    # recode_factor(regime_switch, !!!purrr::flatten(regimes_switch_labels), .default = NULL, .ordered=T)) %>%
+    mutate(metric_label =
+             recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
+    rowwise() %>%
+    mutate(AUC_label = latex2exp::TeX(sprintf("AUC = %.2f", AUC), output='character')) %>% ungroup()
+
+  print("Number of AUC labels")
+  print(nrow( x %>% distinct(metric_label, AUC_label)))
+
+  pl_ROC = x %>%
     ggplot(aes(
       x = fpr,
       y = tpr
-      # colour = rate,
-      # fill = rate
     )) +
-    # viridis::scale_color_viridis(
-    #   discrete = TRUE,
-    #   option = "magma",
-    #   begin = 0,
-    #   end = 0.9,
-    #   name = ""
-    # ) +
-    # viridis::scale_fill_viridis(
-    #   discrete = TRUE,
-    #   option = "magma",
-    #   begin = 0,
-    #   end = 0.9,
-    #   alpha = .5,
-    #   name = ""
-    # ) +
-    # geom_bar(position = "stack", stat = "identity") +
-  geom_point(size = .5) +
-  ggh4x::facet_nested( metric ~ regime_switch + trans_or_null,
-                         labeller = label_parsed) +
-    labs(y = "TPR", x = latex2exp::TeX("FPR")) +
-    scale_x_continuous(expand = c(0, 0), limits = c(0,1)) +
-    scale_y_continuous(n.breaks = 2, limits = c(0,1))
+    geom_area(alpha=0.6) +
+    geom_line(linewidth = 1) +
+    geom_point(size = .75) +
+    geom_text(
+      data    = x %>% distinct(metric_label, AUC_label),
+      mapping = aes(x = -Inf, y = -Inf, label = AUC_label),
+      hjust   = -.65,
+      vjust   = -1, parse = T, family = 'serif', size = 4
+    ) +
+    ggh4x::facet_wrap2( metric_label ~ .,# + trans_or_null,
+                         ncol = 5,
+                        # labeller = labeller(.cols = label_wrap_gen(width = 50), #label_parsed,
+                        #                     .rows = label_parsed) #label_wrap_gen(width = 12)
+                        labeller = label_parsed
+                        ) +
+    labs(y = "True Positive Rate (TPR)", x = latex2exp::TeX("False Positive Rate (FPR)")) +
+    scale_x_continuous(n.breaks = 3,
+      # expand = c(0, 0),
+                       limits = c(0,1)) +
+    scale_y_continuous(n.breaks = 3, limits = c(0,1))
   pl_ROC = style_plot(pl_ROC) + theme(legend.position = "bottom") +
     theme(strip.text.y = element_text(angle = 0))
+
   return(pl_ROC)
 }
 
@@ -220,30 +172,47 @@ save_plot_ROC <- function(pars_template, EWS_warnings_ROC_sub, grouping_keys){
     dplyr::mutate_all (~ trimws(.x))%>%
     apply(1, paste0, collapse = "_") %>% paste0(collapse="_")
 
-  pl_ROC = plot_ROC(EWS_warnings_ROC_sub)
+  title = latex2exp::TeX(sprintf("$%s (f_s = %.1f, \\sigma_{obs} = %.4f)$", grouping_keys$regime_switch, grouping_keys$downsample_fs, grouping_keys$sigma_obs_noise))
+  pl_ROC = plot_ROC(EWS_warnings_ROC_sub %>%
+                      # Clean so there is only one point per unique combination of fpr and tpr, and add AUC
+                      distinct(metric, fpr, tpr, fnr, tnr, .keep_all=T) %>%
+                      # Add AUC
+                      merge(EWS_warnings_AUC))
+
   filepath_image = format_path(format_pars(modify_list(
     pars_template,
     list(
       type_output = "figs",
       subfolder1 = "ROC",
       filename = filename,
-      file_ext = ".png"
+      file_ext = ".pdf"
     )
   )))
-  save_plot(pl_ROC + labs(title = filename),
+  save_plot(pl_ROC + labs(title = title) +
+              theme(strip.text.x = element_text(size = 8)),
             filepath_image,
-            w = length(unique(EWS_warnings_ROC_sub$regime_switch)) * 10 + 15,
-            h = 50,
-            formats = ".png")
+            w = 7.5,
+            h = 12,
+            formats = ".pdf")
   print(filepath_image)
-}
+
+
+  }
 
 EWS_warnings_ROC_grouped=EWS_warnings_ROC%>%
-  dplyr::group_by_at(c(setdiff(names(forloop[[1]]), c("data_idx","noise_iter", "regime_switch","trans_or_null")) ) )%>%# dplyr::group_keys()
-  # dplyr::group_split() %>%
-  dplyr::group_map(~ save_plot_ROC(pars_template,
-                              .x, .y))
-# }
+  dplyr::group_by_at(c(setdiff(names(forloop[[1]]), c("data_idx","noise_iter","trans_or_null", "baseline_steps", "transition_steps")) ) )%>%# dplyr::group_keys()
+   dplyr::group_map(~ save_plot_ROC(pars_template,
+                              .x, .y), .keep = T)
+
+x = EWS_warnings_ROC %>%
+  filter(downsample_fs == .1, sigma_obs_noise == .0001) %>%
+  dplyr::distinct(metric, fpr, tpr, fnr, tnr, .keep_all=T) %>%
+  merge(EWS_warnings_AUC)
+
+
+
+
+#}
 
 ##### AUC
 

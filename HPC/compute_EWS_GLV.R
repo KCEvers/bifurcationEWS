@@ -1,5 +1,5 @@
 print("Start computing EWS!")
-rerun = T
+rerun = F
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
 
 # Define EWS functions
@@ -163,7 +163,7 @@ print(sprintf("%d conditions", length(forloop)))
 
 start_t = Sys.time()
 foreach(
-  for_par = forloop[221:1000],
+  for_par = forloop[1:(18*2)],
   .combine = 'cfun',
   .packages = c("bifurcationEWS", "dplyr", "ggplot2"),
   .export = c("pars_template")
@@ -220,16 +220,20 @@ foreach(
     # Check if all desired EWS are in there
     if (file.exists(filepath_EWS) & !rerun){
       split_df_EWS_old = readRDS(filepath_EWS) %>%
+        # Remove later, correct mistake
+        filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
+        filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) %>%
+        filter(!grepl("spectral_exp", metric, fixed = T)) %>%
         filter(bifpar_idx %in% bifpar_idx_)
-      bifpar_idx_to_do = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
+      bifpar_idx_todo = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
 
       # # Find which metrics aren't in the dataframe
-      # uni_metrics_todo = uni_metrics[!unlist(lapply(names(uni_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
-      # multi_metrics_todo = multi_metrics[!unlist(lapply(names(multi_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
-      uni_metrics_todo = uni_metrics
-      multi_metrics_todo = multi_metrics
+      uni_metrics_todo = uni_metrics[!unlist(lapply(names(uni_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
+      multi_metrics_todo = multi_metrics[!unlist(lapply(names(multi_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
+      # uni_metrics_todo = uni_metrics
+      # multi_metrics_todo = multi_metrics
     } else {
-      bifpar_idx_to_do = bifpar_idx_
+      bifpar_idx_todo = bifpar_idx_
       uni_metrics_todo = uni_metrics
       multi_metrics_todo = multi_metrics
     }
@@ -255,7 +259,7 @@ foreach(
         # Set seed constant across comparing transition and null models; adjust as the seed number cannot exceed the maximum integer
         seed_nr = round(as.numeric(regime_bounds$seed_nr) * as.numeric(pars$noise_iter) * as.numeric(pars$downsample_fs) * 100) # pars$noise_iter
       ) %>%
-        filter(bifpar_idx %in% bifpar_idx_to_do)
+        filter(bifpar_idx %in% bifpar_idx_todo)
 
       rm(df)
 
@@ -268,7 +272,8 @@ foreach(
         "spectral_ratio" = list(
           fs = pars$downsample_fs,
           nr_timesteps = pars$nr_timesteps,
-          f_min_to_f_max = list(c(0.005, .5), c(.05, .5))
+          # f_min_to_f_max = list(c(0.005, .5), c(.05, .5))
+          f_min_to_f_max = list(c(fs/2/10, fs/2))
         ),
         "Smax" = list(
           fs = pars$downsample_fs,
@@ -302,7 +307,7 @@ foreach(
       rm(split_df_EWS)
 }
       # Plot
-      if (T & (pars$noise_iter == 1) & (pars$data_idx <= 5) & file.exists(filepath_EWS)){
+      if (F & (pars$noise_iter == 1) & (pars$data_idx <= 5) & file.exists(filepath_EWS)){
         print("Plot EWS!")
         regime_list = readRDS(filepath_regimes)
         split_df_EWS = readRDS(filepath_EWS)
@@ -448,5 +453,4 @@ foreach(
 
 end_t = Sys.time()
 print(end_t - start_t)
-
 
