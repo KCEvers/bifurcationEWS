@@ -779,7 +779,7 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
     # Select section of frequency range
     if (method == "Wijnants2013"){
       idx_min = 2 # Skip freq = 0
-      idx_max = 50
+      idx_max = 51
       if (idx_max > length(freq)){
         message("Timeseries is too short to fit the slope of the spectral exponent over the first 50 frequencies (method = Wijnants2013)!")
         return()

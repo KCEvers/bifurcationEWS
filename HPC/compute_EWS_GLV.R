@@ -1,3 +1,19 @@
+
+# paths = list.files("/gpfs/work4/0/einf6180/proj-EWS-GLV/HPC/detGLV/EWS/", recursive = T, full.names=T)
+#
+#
+# lapply(2:length(paths), function(i){
+# print(i / length(paths) * 100)
+#   df = readRDS(paths[i])
+#   if ("metric" %in% colnames(df)){
+# # Remove later**, correct mistake
+# df = df %>% filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
+#   filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) %>%
+#   filter(!grepl("spectral_exp_var", metric, fixed = T))
+# saveRDS(df, paths[i])
+# }
+# })
+
 print("Start computing EWS!")
 rerun = F
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
@@ -163,7 +179,7 @@ print(sprintf("%d conditions", length(forloop)))
 
 start_t = Sys.time()
 foreach(
-  for_par = forloop[1:(18*2)],
+  for_par = forloop[(18*2 + 1):length(forloop)],
   .combine = 'cfun',
   .packages = c("bifurcationEWS", "dplyr", "ggplot2"),
   .export = c("pars_template")
@@ -220,10 +236,6 @@ foreach(
     # Check if all desired EWS are in there
     if (file.exists(filepath_EWS) & !rerun){
       split_df_EWS_old = readRDS(filepath_EWS) %>%
-        # Remove later**, correct mistake
-        filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
-        filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) %>%
-        filter(!grepl("spectral_exp", metric, fixed = T)) %>%
         filter(bifpar_idx %in% bifpar_idx_)
       bifpar_idx_todo = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
 
@@ -293,7 +305,7 @@ foreach(
         )
       start_t = Sys.time()
 
-      split_df_EWS = run_bifEWS(noisy_df,# %>% filter(bifpar_idx < 110),
+      split_df_EWS = run_bifEWS(noisy_df,# %>% filter(bifpar_idx < 105),
                                 pars$X_names,
                                 uni_metrics_todo,
                                 multi_metrics_todo,
