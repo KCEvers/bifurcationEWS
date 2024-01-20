@@ -50,7 +50,7 @@ pl_ts = GLV$df %>%
   ggplot() + 
   geom_line(aes(x = time, y = X1), linewidth = .1) +
   geom_point(aes(x = time, y = X1), size = .1) +
-    labs(x = 'Time', y = "X1", title = sprintf("Timeseries for s = %.2f", s)) 
+    labs(x = 'Time', y = expression(X[1]), title = sprintf("Timeseries for s = %.2f", s)) 
 
 print(style_plot(pl_ts))
 ```
@@ -81,9 +81,10 @@ pl_ts = GLV_dfs %>%
   ggplot() + 
   geom_line(aes(x = time_idx, y = X1, color = factor(s)), linewidth = .1) +
   geom_point(aes(x = time_idx, y = X1, color = factor(s)), size = .1) +
-    labs(x = 'Time', y = "X1", title = "Timeseries") + 
+    labs(x = 'Time', y = expression(X[1]), title = "Timeseries") + 
   facet_wrap(s ~ ., ncol = 2) +
-  viridis::scale_color_viridis(discrete=TRUE, name = "Bifurcation parameter")
+  viridis::scale_color_viridis(discrete=TRUE, name = "Bifurcation parameter") +
+  coord_cartesian(expand = F)
   
 print(style_plot(pl_ts) + theme(legend.position = 'none'))
 ```
@@ -100,10 +101,40 @@ print(landscape_GLVs)
 ```
 
 
-<!-- ## Generating bifurcations -->
+## Generating bifurcations
 
-<!-- By changing $s$ gradually, we may produce *bifurcations*: qualitative changes in the dynamics due to small changes in the control parameter. -->
+By changing $s$ gradually, we may produce *bifurcations*: qualitative changes in the dynamics due to small changes in the control parameter.
 
+```{r}
+      bifpar_pars = list(
+        bifpar_start = 1.01,
+        bifpar_end = 1.02,
+        pre_steps = 0,
+        baseline_steps = 0,
+        transition_steps = 51,
+        post_steps = 0
+      )
+# bifpar_list <- list(list("s" = s))
+
+GLV = bifurcation_ts(model = pars$model, model_pars = pars$model_pars,
+                 bifpar_pars = bifpar_pars,
+                 nr_timesteps = nr_timesteps,
+                 X_names = pars$X_names,
+                 seed_nr = round(s*100), silent = F
+                 )
+sel_bifpar_idxs = seq(1, length(GLV$bifpar_list), length.out = 6)
+landscape_GLVs = plot_3D_landscape_trans(GLV$df %>% 
+                                           filter(time > nr_timesteps*.25),
+                                         bifpar_idxs = sel_bifpar_idxs,
+                                         bifpar_values = purrr::map(GLV$bifpar_list[sel_bifpar_idxs], "s"), 
+                                         size_line = .05, size_marker = .5
+                                         # x1_range = c(0,.5), x2_range = c(0.25,0.75),
+                                         # x3_range = c(0,0.5)
+                                         )
+print(landscape_GLVs)
+
+
+```
 
 <!-- ### Bifurcation diagram -->
 

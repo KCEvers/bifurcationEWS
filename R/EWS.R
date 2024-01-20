@@ -779,7 +779,7 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
     # Select section of frequency range
     if (method == "Wijnants2013"){
       idx_min = 2 # Skip freq = 0
-      idx_max = 51
+      idx_max = 50
       if (idx_max > length(freq)){
         message("Timeseries is too short to fit the slope of the spectral exponent over the first 50 frequencies (method = Wijnants2013)!")
         return()
@@ -824,11 +824,11 @@ get_spectral_ratio <- function(x, fs, nr_timesteps,
     return()
   }
 
-  col_names  = paste0("LF", f_min_to_f_max[1], "_HF", f_min_to_f_max[2])
   if (identical(all.equal(stats::sd(x), 0), TRUE)){
     return(matrix(0, nrow = 1, ncol = length(f_min_to_f_max)) %>% magrittr::set_colnames(col_names) %>% as.data.frame() )
 
   } else {
+    col_names  = paste0("LF", f_min_to_f_max[1], "_HF", f_min_to_f_max[2])
 
     ARSPEC=stats::spec.ar(
       stats::ts(x, frequency = fs, end = nr_timesteps),

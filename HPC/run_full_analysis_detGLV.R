@@ -57,16 +57,18 @@ regime_switch_names = c(
   # "Saddle-Node" # near check
   # "Hopf" # near check
   # "PD_to_Chaos" # doing
-  # "PH_from_Chaos" # doing
+  "PH_from_Chaos" # doing
   # "Interior-Crisis-Separation"# doing 10 1 .1
   # "Interior-Crisis-Merging" # TO DO
-  "Boundary-Crisis" # check 10 1 .1
+  # "Boundary-Crisis" # check 10 1 .1
   #
   # "complete_forwards"
   # "complete_backwards"
 )
 # regime_switch_name = "Interior-Crisis-Separation"
-regime_switch_name = "Boundary-Crisis"
+# regime_switch_name = "Boundary-Crisis"
+# regime_switch_name = "Interior-Crisis-Merging"
+# regime_switch_name =  "PH_from_Chaos"
 
 # Find regime switch specific adjustments of template
 pars_template_adjust = setup_bifpars()

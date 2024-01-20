@@ -1,15 +1,16 @@
-
+#
 # paths = list.files("/gpfs/work4/0/einf6180/proj-EWS-GLV/HPC/detGLV/EWS/", recursive = T, full.names=T)
 #
 #
-# lapply(2:length(paths), function(i){
-# print(i / length(paths) * 100)
+# lapply(1:length(paths), function(i){
+# if (i %% 1000 == 0){print(i / length(paths) * 100)}
 #   df = readRDS(paths[i])
 #   if ("metric" %in% colnames(df)){
 # # Remove later**, correct mistake
-# df = df %>% filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
-#   filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) %>%
-#   filter(!grepl("spectral_exp_var", metric, fixed = T))
+# df = df %>%
+#   # filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
+#   # filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) %>%
+#   filter(!grepl("spectral_exp", metric, fixed = T))
 # saveRDS(df, paths[i])
 # }
 # })
@@ -179,7 +180,7 @@ print(sprintf("%d conditions", length(forloop)))
 
 start_t = Sys.time()
 foreach(
-  for_par = forloop[(18*2 + 1):length(forloop)],
+  for_par = forloop,#forloop[(18*2 + 1):length(forloop)],
   .combine = 'cfun',
   .packages = c("bifurcationEWS", "dplyr", "ggplot2"),
   .export = c("pars_template")
@@ -237,20 +238,26 @@ foreach(
     if (file.exists(filepath_EWS) & !rerun){
       split_df_EWS_old = readRDS(filepath_EWS) %>%
         filter(bifpar_idx %in% bifpar_idx_)
-      bifpar_idx_todo = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
 
-      # # Find which metrics aren't in the dataframe
-      uni_metrics_todo = uni_metrics[!unlist(lapply(names(uni_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
-      multi_metrics_todo = multi_metrics[!unlist(lapply(names(multi_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
-      print(names(uni_metrics_todo))
-      print(names(multi_metrics_todo))
+      # Find which metrics aren't in the dataframe
+      check_run = c("all_metrics", "all_bifpar_idx")[1]
+      if (check_run == "all_metrics"){
+        uni_metrics_todo = uni_metrics[!unlist(lapply(names(uni_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
+        multi_metrics_todo = multi_metrics[!unlist(lapply(names(multi_metrics), function(i){any(grepl(i, unique(split_df_EWS_old$metric), fixed = T)) }))]
+        print(names(uni_metrics_todo))
+        print(names(multi_metrics_todo))
 
-      # If there's any metrics missing, we have to compute them for all indices
-      if (length(uni_metrics_todo) > 0 | length(multi_metrics_todo) > 0){
-        bifpar_idx_todo = bifpar_idx_
+        # If there's any metrics missing, we have to compute them for all indices
+        if (length(uni_metrics_todo) > 0 | length(multi_metrics_todo) > 0){
+          bifpar_idx_todo = bifpar_idx_
+        }
+      } else if (check_run == "all_bifpar_idx"){
+        uni_metrics_todo = uni_metrics
+        multi_metrics_todo = multi_metrics
+        bifpar_idx_todo = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
+
       }
-      # uni_metrics_todo = uni_metrics
-      # multi_metrics_todo = multi_metrics
+
     } else {
       bifpar_idx_todo = bifpar_idx_
       uni_metrics_todo = uni_metrics
@@ -258,7 +265,7 @@ foreach(
     }
 
     if (file.exists(filepath_GLV) &
-        (((length(uni_metrics_todo) > 0) | length(multi_metrics_todo) > 0) | rerun)) {
+        (((length(uni_metrics_todo) > 0) | length(multi_metrics_todo) > 0) | length(bifpar_idx_todo) > 0 | rerun)) {
 
       df = readRDS(filepath_GLV)$df %>%
         filter(bifpar_idx %in% bifpar_idx_)
@@ -311,7 +318,6 @@ foreach(
                                 multi_metrics_todo,
                                 EWS_args = EWS_args,
                                 save_intermediate = F
-                                # do_parallel = TRUE
                                 )
       print(Sys.time() - start_t)
 
