@@ -46,20 +46,26 @@ pars_general_template = setup_pars(model_name = "detGLV",
 filepaths_AUC = list.files(
   # path = "",
   pattern = "AUC*.RDS", full.names = TRUE, recursive = TRUE)
-EWS_warnings_AUC = plyr::ldply(filepaths_AUC, function(i){readRDS(i)}) %>%
-  filter(!grepl("LF0.05", metric, fixed = T))
+EWS_warnings_AUC = plyr::ldply(filepaths_AUC, function(i){readRDS(i)})
 
 EWS_warnings_AUC %>% group_by(regime_switch, transition_steps, baseline_steps, sigma_obs_noise, downsample_fs) %>%
   dplyr::summarise(n = n()) %>% as.data.frame()
 EWS_warnings_AUC %>% group_by(regime_switch, metric, transition_steps, baseline_steps, sigma_obs_noise, downsample_fs) %>%
   mutate(n = n(), id = cur_group_id() ) %>% as.data.frame() %>% filter(n!=1)
 
-
+# ROC
 filepaths_ROC = list.files(
   # path = "",
   pattern = "ROC*.RDS", full.names = TRUE, recursive = TRUE)
-EWS_warnings_ROC = plyr::ldply(filepaths_ROC, function(i){readRDS(i)}) %>%
-  filter(!grepl("LF0.05", metric, fixed = T))
+EWS_warnings_ROC = plyr::ldply(filepaths_ROC, function(i){readRDS(i)})
+
+# Inspect ROC
+EWS_warnings_ROC %>% group_by(regime_switch, downsample_fs, sigma_obs_noise, metric) %>% dplyr::summarise(n = n(), .groups = 'drop') %>% arrange(n) %>% as.data.frame() %>% head()
+test = EWS_warnings_ROC %>% group_by(regime_switch, downsample_fs, sigma_obs_noise, metric) %>% dplyr::mutate(n = n()) %>% ungroup()
+test %>% arrange(n, regime_switch, downsample_fs, sigma_obs_noise, metric) %>% as.data.frame() %>% head(20)
+# warning_dfs %>% filter(regime_switch == "PD_4to8", downsample_fs == 0.1, sigma_obs_noise == .0001, metric == 'spatial_variance') %>%filter(is.na(score))%>%group_by(trans_or_null, sigma_crit)%>%summarise(n=n()) %>% as.data.frame() %>%head(20)
+EWS_warnings_ROC %>% filter(regime_switch == "PD_4to8", downsample_fs == 0.1, sigma_obs_noise == .0001, metric == 'mean_var1') %>%
+  as.data.frame() %>%head(20)
 
 # Check how many did not "max out" sigma_crit -> fpr is still too high while tpr is also high
 EWS_warnings_ROC %>%
@@ -80,8 +86,8 @@ criterion_df = EWS_warnings_ROC %>%
 group_by(regime_switch, metric, baseline_steps,
          transition_steps, downsample_fs, sigma_obs_noise) %>%
   group_modify(~ YoudensJ(.x)) %>%
-  filter(!is.na(sigma_crit)) %>%
-  filter(!grepl("LF0.05", metric, fixed = T))
+  filter(!is.na(sigma_crit))
+# %>%  filter(!grepl("LF0.05", metric, fixed = T))
 criterion_df %>% as.data.frame %>% head()
 
 # Find corresponding warnings

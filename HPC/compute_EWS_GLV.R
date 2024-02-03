@@ -238,6 +238,13 @@ foreach(
     if (file.exists(filepath_EWS) & !rerun){
       split_df_EWS_old = readRDS(filepath_EWS) %>%
         filter(bifpar_idx %in% bifpar_idx_)
+      bifpar_idx_todo_ = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
+      # Only keep the bifpar indices that every metric has; otherwise, the unique bifpar indices in the dataframe may only occur once
+      split_df_EWS_old = split_df_EWS_old %>%
+        filter(bifpar_idx %in% (split(split_df_EWS_old$bifpar_idx, split_df_EWS_old$metric) %>% purrr::reduce(intersect)))
+      bifpar_idx_todo = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
+      # print(length(bifpar_idx_todo_))
+      # print(length(bifpar_idx_todo))
 
       # Find which metrics aren't in the dataframe
       check_run = c("all_metrics", "all_bifpar_idx")[1]
@@ -254,7 +261,6 @@ foreach(
       } else if (check_run == "all_bifpar_idx"){
         uni_metrics_todo = uni_metrics
         multi_metrics_todo = multi_metrics
-        bifpar_idx_todo = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
 
       }
 
@@ -265,7 +271,7 @@ foreach(
     }
 
     if (file.exists(filepath_GLV) &
-        (((length(uni_metrics_todo) > 0) | length(multi_metrics_todo) > 0) | length(bifpar_idx_todo) > 0 | rerun)) {
+        (((((length(uni_metrics_todo) > 0) | length(multi_metrics_todo) > 0)) & length(bifpar_idx_todo) > 0) | rerun)) {
 
       df = readRDS(filepath_GLV)$df %>%
         filter(bifpar_idx %in% bifpar_idx_)
@@ -331,7 +337,7 @@ foreach(
       rm(split_df_EWS)
 }
       # Plot
-      if (F & (pars$noise_iter == 1) & (pars$data_idx <= 5) & file.exists(filepath_EWS)){
+      if (T & (pars$noise_iter == 1) & (pars$data_idx <= 5) & file.exists(filepath_EWS)){
         print("Plot EWS!")
         regime_list = readRDS(filepath_regimes)
         split_df_EWS = readRDS(filepath_EWS)

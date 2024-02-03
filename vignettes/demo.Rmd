@@ -103,28 +103,31 @@ print(landscape_GLVs)
 
 ## Generating bifurcations
 
-By changing $s$ gradually, we may produce *bifurcations*: qualitative changes in the dynamics due to small changes in the control parameter.
+By changing $s$ gradually, we may produce *bifurcations*: qualitative changes in the dynamics due to small changes in the control parameter. Below we simulate a *subduction*: a sudden switch from periodic to chaotic behaviour.
 
 ```{r}
-      bifpar_pars = list(
-        bifpar_start = 1.01,
-        bifpar_end = 1.02,
-        pre_steps = 0,
-        baseline_steps = 0,
-        transition_steps = 51,
-        post_steps = 0
-      )
-# bifpar_list <- list(list("s" = s))
+# Specify bifurcation parameter
+bifpar_pars = list(
+  bifpar_start = 1.01,
+  bifpar_end = 1.02,
+  pre_steps = 0,
+  baseline_steps = 0,
+  transition_steps = 51,
+  post_steps = 0
+)
 
+# Simulate timeseries
 GLV = bifurcation_ts(model = pars$model, model_pars = pars$model_pars,
                  bifpar_pars = bifpar_pars,
                  nr_timesteps = nr_timesteps,
                  X_names = pars$X_names,
                  seed_nr = round(s*100), silent = F
                  )
-sel_bifpar_idxs = seq(1, length(GLV$bifpar_list), length.out = 6)
+
+# Plot 3D landscape
+sel_bifpar_idxs = round(c(.1, .15, .2, .25, .3, 1) * length(GLV$bifpar_list)) 
 landscape_GLVs = plot_3D_landscape_trans(GLV$df %>% 
-                                           filter(time > nr_timesteps*.25),
+                                           filter(win_nr > nr_timesteps*.25),
                                          bifpar_idxs = sel_bifpar_idxs,
                                          bifpar_values = purrr::map(GLV$bifpar_list[sel_bifpar_idxs], "s"), 
                                          size_line = .05, size_marker = .5
@@ -132,37 +135,15 @@ landscape_GLVs = plot_3D_landscape_trans(GLV$df %>%
                                          # x3_range = c(0,0.5)
                                          )
 print(landscape_GLVs)
+```
 
+### Bifurcation diagram
+To visualise these changes, we can also use *bifurcation diagram*, which shows the peaks of the timeseries for each value of the control parameter.
+
+```{r}
 
 ```
 
-<!-- ### Bifurcation diagram -->
-
-<!-- ```{r bifurcation diagram, include=FALSE} -->
-<!-- # # Generate data with changing bifurcation parameter -->
-<!-- # downsample_pars = list(type = c("average", "one_sample")[1], -->
-<!-- #                                                   win_size = 50, -->
-<!-- #                                                   which_X = c(50, "first", "middle", "last", "random")[1], -->
-<!-- #                                                   seed = 123) -->
-<!-- timestep = .01 -->
-<!-- nr_timesteps = 1000 -->
-<!-- bifpar_pars = list( -->
-<!-- #   bifpar_start = 1.4, bifpar_end = .6, -->
-<!--   bifpar_start = .96, bifpar_end = .97, -->
-<!-- #   #bifpar_start = .965, bifpar_end = .985, -->
-<!--                                     pre_steps = 0, -->
-<!--                                   baseline_steps = 0, transition_steps = 50, post_steps = 0) -->
-<!-- bifpar_list=do.call(get_bifurcation_range, bifpar_pars) -->
-
-<!-- GLV_Chaos1 = bifurcation_ts(model = GLV_model, model_pars = pars$model_pars, -->
-<!--                bifpar_list = bifpar_list, -->
-<!--                timestep = timestep, nr_timesteps = nr_timesteps, -->
-<!-- #                downsample_pars = downsample_pars, -->
-<!--                X_names = pars$X_names, -->
-<!--                seed_nr = 100 -->
-<!--                ) -->
-
-<!-- ``` -->
 
 
 <!-- ```{r plots, echo=FALSE} -->

@@ -48,7 +48,10 @@ pars_general_template = setup_pars(model_name = "detGLV",
                                                                               "SUBD_Mixed-Periodic_to_Chaotic1",
                                                                               "Interior-Crisis-Separation", "Interior-Crisis-Merging",
                                                                               "Boundary-Crisis"
-                                                   )
+                                                   ),
+                                                   sigma_crit_step = .01,
+
+                                                   thresh_max_sigma_crit = 150
                                                    # sigmas_crit = seq(.25, 10, by = .25),
 
                                    ))
@@ -57,8 +60,8 @@ regime_switch_names = c(
   # "Saddle-Node" # near check
   # "Hopf" # near check
   # "PD_to_Chaos" # doing
-  "PH_from_Chaos" # doing
-  # "Interior-Crisis-Separation"# doing 10 1 .1
+  # "PH_from_Chaos" # doing
+  "Interior-Crisis-Separation"# doing 10 1 .1
   # "Interior-Crisis-Merging" # TO DO
   # "Boundary-Crisis" # check 10 1 .1
   #
@@ -68,7 +71,10 @@ regime_switch_names = c(
 # regime_switch_name = "Interior-Crisis-Separation"
 # regime_switch_name = "Boundary-Crisis"
 # regime_switch_name = "Interior-Crisis-Merging"
+# regime_switch_name =  "PD_to_Chaos"
 # regime_switch_name =  "PH_from_Chaos"
+# regime_switch_name =  "Hopf"
+# regime_switch_name =  "Saddle-Node"
 
 # Find regime switch specific adjustments of template
 pars_template_adjust = setup_bifpars()
@@ -99,8 +105,8 @@ for (regime_switch_name in regime_switch_names){
   # Run scripts
   # source('generate_full_GLV.R')
   # source('generate_transitions_GLV.R')
-  source('compute_EWS_GLV.R')
-  # source('eval_performance_EWS_GLV.R')
+  # source('compute_EWS_GLV.R')
+  source('eval_performance_EWS_GLV.R')
 
 }
 parallel::stopCluster(cl)

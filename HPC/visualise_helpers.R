@@ -75,14 +75,10 @@ metric_labels = list(
     "spectral_exp_var2" = latex2exp::TeX("Spectral Exponent ($x_2$)", output = "character"),
     "spectral_exp_var3" = latex2exp::TeX("Spectral Exponent ($x_3$)", output = "character"),
     "spectral_exp_var4" = latex2exp::TeX("Spectral Exponent ($x_4$)", output = "character"),
-    "spectral_ratio_LF0.005_HF0.5_var1" = latex2exp::TeX("Spectral Ratio ($x_1$)", output = "character"),
-    "spectral_ratio_LF0.005_HF0.5_var2" = latex2exp::TeX("Spectral Ratio ($x_2$)", output = "character"),
-    "spectral_ratio_LF0.005_HF0.5_var3" = latex2exp::TeX("Spectral Ratio ($x_3$)", output = "character"),
-    "spectral_ratio_LF0.005_HF0.5_var4" = latex2exp::TeX("Spectral Ratio ($x_4$)", output = "character"),
-    "spectral_ratio_LF0.05_HF0.5_var1" = latex2exp::TeX("Spectral Ratio 0.05:0.5 ($x_1$)", output = "character"),
-    "spectral_ratio_LF0.05_HF0.5_var2" = latex2exp::TeX("Spectral Ratio 0.05:0.5 ($x_2$)", output = "character"),
-    "spectral_ratio_LF0.05_HF0.5_var3" = latex2exp::TeX("Spectral Ratio 0.05:0.5 ($x_3$)", output = "character"),
-    "spectral_ratio_LF0.05_HF0.5_var4" = latex2exp::TeX("Spectral Ratio 0.05:0.5 ($x_4$)", output = "character")
+    "spectral_ratio_var1" = latex2exp::TeX("Spectral Ratio ($x_1$)", output = "character"),
+    "spectral_ratio_var2" = latex2exp::TeX("Spectral Ratio ($x_2$)", output = "character"),
+    "spectral_ratio_var3" = latex2exp::TeX("Spectral Ratio ($x_3$)", output = "character"),
+    "spectral_ratio_var4" = latex2exp::TeX("Spectral Ratio ($x_4$)", output = "character")
   )
 )
 

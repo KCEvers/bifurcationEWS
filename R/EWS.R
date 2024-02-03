@@ -391,67 +391,64 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
 }
 
 
+
 #' Convert warnings to Receiver Operating Curve (ROC)
 #'
 #' @param EWS_warnings Dataframe with warnings
 #' @param grouping_vars Names of grouping variables
+#' @inheritParams get_warnings
 #'
 #' @return Dataframe with true positive rate, true negative rate, false positive rate, and false negative rate per critical value
 #' @export
 #' @importFrom dplyr mutate mutate_at select summarise rowwise ungroup group_by_at .data
 #'
 #' @examples
-warnings_to_ROC <- function(EWS_warnings, grouping_vars){
+warnings_to_ROC <- function(EWS_warnings, sigma_crit_step, thresh_max_sigma_crit, grouping_vars = c("sigma_crit", "metric")){
 
-  default_grouping_vars <- c("sigma_crit", "metric")
-  grouping_vars = c(default_grouping_vars, grouping_vars)
+  sigmas_crit =  seq(sigma_crit_step, thresh_max_sigma_crit, by=sigma_crit_step)
 
-  # Make sure the same sigma_crit is present for each model
-  complete_sigma_crit = EWS_warnings %>% group_by_at(setdiff(grouping_vars, "sigma_crit")) %>%
-  tidyr::complete(.data$noise_iter, .data$data_idx, .data$trans_or_null, .data$sigma_crit,
-                  fill = list( first_warning_bifpar_idx=NA,
-                               score = NA, nr_warnings = 0,
-                               nr_patches = NA, warning_signal = 0)) %>% ungroup()
+  # Find maximal critical sigma for which a warning was found
+  EWS_warnings_max = EWS_warnings %>% group_by(.data$noise_iter,
+                                               .data$data_idx,
+                                               .data$trans_or_null,
+                                               .data$metric) %>%
+    summarise(max_sigma_crit = max(.data$sigma_crit, na.rm = T), .groups = 'drop')
 
-  # complete_sigma_crit %>% group_by(trans_or_null, metric, regime_switch) %>%
-  # summarise(n = n(), .groups = 'drop') %>% as.data.frame() %>% head(n=100)
-  # complete_sigma_crit %>% group_by_at(c(setdiff(grouping_vars, "sigma_crit"), "trans_or_null")) %>%
-  # summarise(n = n(), .groups = 'drop') %>% as.data.frame() %>% head(n=100)
-
-
-  # Add number of true positives, false negatives, true negatives, and false positives
-  complete_sigma_crit_ = complete_sigma_crit %>%
-   # rowwise() %>%
-    # mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>%
-    # ungroup() %>% rowwise() %>%
-    mutate(nr_tp = ifelse(.data$trans_or_null == "transition", (.data$warning_signal == 1)*1,
-                                 ifelse(.data$trans_or_null == "null", NA, "?")),
-                  nr_fn = ifelse(.data$trans_or_null == "transition", (.data$warning_signal == 0)*1,
-                                 ifelse(.data$trans_or_null == "null", NA, "?")),
-                  nr_tn = ifelse(.data$trans_or_null == "transition", NA,
-                                 ifelse(.data$trans_or_null == "null",(.data$warning_signal == 0)*1, "?")),
-                  nr_fp = ifelse(.data$trans_or_null == "transition", NA,
-                                 ifelse(.data$trans_or_null == "null", (.data$warning_signal == 1)*1, "?"))
+  # For each possible critical sigma, find the true and false positive rate
+  EWS_warnings_ROC_ = plyr::ldply(sigmas_crit, function(sigma_crit){
+    EWS_warnings_max %>%
+      group_by(.data$trans_or_null,
+               .data$metric) %>%
+      dplyr::summarise(no_warning = sum(.data$max_sigma_crit < sigma_crit),
+                       warning = sum(.data$max_sigma_crit >= sigma_crit), .groups = 'drop') %>%
+      mutate(sigma_crit = !!sigma_crit)
+  })
+  EWS_warnings_ROC = EWS_warnings_ROC_  %>%
+    group_by(.data$metric) %>%
+    tidyr::pivot_wider(names_from = "trans_or_null", values_from = c("no_warning", "warning")) %>% ungroup() %>%
+    dplyr::rename(sum_tn = .data$no_warning_null,
+                  sum_fn = .data$no_warning_transition,
+                  sum_fp = .data$warning_null,
+                  sum_tp = .data$warning_transition)  %>%
+    # group_by(metric, sum_tn, sum_fn, sum_fp, sum_tp) %>%
+    group_by(.data$metric, .data$sum_tn, .data$sum_fn, .data$sum_fp, .data$sum_tp) %>%
+    dplyr::summarise(max_sigma_crit = max(.data$sigma_crit), .groups = 'drop') %>%
+    rowwise() %>%
+    mutate(
+      # acc = (sum(.data$sum_tp, na.rm = TRUE) + sum(.data$sum_tn, na.rm = TRUE)) / (sum(.data$sum_tp, na.rm = TRUE) + sum(.data$sum_tn, na.rm = TRUE) + sum(.data$sum_fp, na.rm = TRUE) + sum(.data$sum_fn, na.rm = TRUE)),
+      # fnr = ifelse(sum(.data$sum_fn, na.rm = TRUE) == 0, 0, sum(.data$sum_fn, na.rm = TRUE) / (sum(.data$sum_fn, na.rm = TRUE) + sum(.data$sum_tp, na.rm = TRUE))), # miss rate
+      # tnr = ifelse(sum(.data$sum_tn, na.rm = TRUE) == 0, 0, sum(.data$sum_tn, na.rm = TRUE) / (sum(.data$sum_tn, na.rm = TRUE) + sum(.data$sum_fp, na.rm = TRUE))), # specificity
+      # fpr = ifelse(sum(.data$sum_fp, na.rm = TRUE) == 0, 0, sum(.data$sum_fp, na.rm = TRUE) / (sum(.data$sum_fp, na.rm = TRUE) + sum(.data$sum_tn, na.rm = TRUE))), # false alarm
+      # tpr = ifelse(sum(.data$sum_tp, na.rm = TRUE) == 0, 0, sum(.data$sum_tp, na.rm = TRUE) / (sum(.data$sum_tp, na.rm = TRUE) + sum(.data$sum_fn, na.rm = TRUE)))  # sensitivity
+      acc = (.data$sum_tp + .data$sum_tn) / (.data$sum_tp + .data$sum_tn + .data$sum_fp + .data$sum_fn),
+      fnr = ifelse(.data$sum_fn == 0, 0, .data$sum_fn / (.data$sum_fn + .data$sum_tp)), # miss rate
+      tnr = ifelse(.data$sum_tn == 0, 0, .data$sum_tn / (.data$sum_tn + .data$sum_fp)), # specificity
+      fpr = ifelse(.data$sum_fp == 0, 0, .data$sum_fp / (.data$sum_fp + .data$sum_tn)), # false alarm
+      tpr = ifelse(.data$sum_tp == 0, 0, .data$sum_tp / (.data$sum_tp + .data$sum_fn))  # sensitivity
     )
-
-  # Compute false/true positive/negative rate
-  EWS_warnings_ROC = complete_sigma_crit_ %>%
-    mutate_at(c("sigma_crit", "nr_tp", "nr_fp", "nr_tn", "nr_fn"), ~as.numeric(as.character(.))) %>%
-    group_by_at(grouping_vars) %>%
-    summarise(acc = (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE)) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE)),
-                     sum_tp = sum(.data$nr_tp, na.rm = TRUE),
-                     sum_fp = sum(.data$nr_fp, na.rm = TRUE),
-                     sum_tn = sum(.data$nr_tn, na.rm = TRUE),
-                     sum_fn = sum(.data$nr_fn, na.rm = TRUE),
-                     fnr = ifelse(sum(.data$nr_fn, na.rm = TRUE) == 0, 0, sum(.data$nr_fn, na.rm = TRUE) / (sum(.data$nr_fn, na.rm = TRUE) + sum(.data$nr_tp, na.rm = TRUE))), # miss rate
-                     tnr = ifelse(sum(.data$nr_tn, na.rm = TRUE) == 0, 0, sum(.data$nr_tn, na.rm = TRUE) / (sum(.data$nr_tn, na.rm = TRUE) + sum(.data$nr_fp, na.rm = TRUE))), # specificity
-                     fpr = ifelse(sum(.data$nr_fp, na.rm = TRUE) == 0, 0, sum(.data$nr_fp, na.rm = TRUE) / (sum(.data$nr_fp, na.rm = TRUE) + sum(.data$nr_tn, na.rm = TRUE))), # false alarm
-                     tpr = ifelse(sum(.data$nr_tp, na.rm = TRUE) == 0, 0, sum(.data$nr_tp, na.rm = TRUE) / (sum(.data$nr_tp, na.rm = TRUE) + sum(.data$nr_fn, na.rm = TRUE))),  # sensitivity
-                     .groups = 'drop')
 
   return(EWS_warnings_ROC)
 }
-
 
 
 #' Integrate area under receiver operator curve (ROC) to Area Under the Curve (AUC)
@@ -464,10 +461,10 @@ warnings_to_ROC <- function(EWS_warnings, grouping_vars){
 #' @importFrom dplyr summarise group_by_at .data
 #'
 #' @examples
-ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars){
+ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars = c("metric")){
 
-  default_grouping_vars <- c("metric")
-  grouping_vars = c(default_grouping_vars, grouping_vars)
+  # default_grouping_vars <- c("metric")
+  # grouping_vars = c(default_grouping_vars, grouping_vars)
 
   # Add number of true positives, false negatives, true negatives, and false positives
   EWS_warnings_AUC = EWS_warnings_ROC %>%
@@ -476,7 +473,6 @@ ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars){
 
   return(EWS_warnings_AUC)
 }
-
 
 #' Label AUC
 #'

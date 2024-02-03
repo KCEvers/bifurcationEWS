@@ -1,23 +1,3 @@
-#
-# paths = list.files("/gpfs/work4/0/einf6180/proj-EWS-GLV/HPC/detGLV/warnings/", recursive = T, full.names=T)
-# paths = list.files(path = "/gpfs/work4/0/einf6180/proj-EWS-GLV/HPC/detGLV/warnings/", pattern = ".*nr.*", recursive = T, full.names=T)
-#
-#
-# lapply(1:length(paths), function(i){
-# if (i %% 1000 == 0){print(i / length(paths) * 100)}
-#   list_ = readRDS(paths[i])
-#   df = list_$warning_df
-#   if ("metric" %in% colnames(df)){
-# # Remove later**, correct mistake
-# df = df %>%
-#   filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
-#   filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) #%>%
-#   # filter(!grepl("spectral_exp", metric, fixed = T))
-# list_$warning_df = df
-# saveRDS(list_, paths[i])
-# }
-# })
-
 print("Start evaluating performance of EWS!")
 source('visualise_helpers.R')
 rerun = T
@@ -126,119 +106,31 @@ filepaths_warnings = foreach(for_par = forloop,
 end_t = Sys.time()
 print(end_t - start_t)
 
+EWS_warnings = foreach(filepath_warnings = filepaths_warnings,
+                       for_par = forloop,
+                       .combine='rbind') %dopar% {
+                         if(!is.null(filepath_warnings)){
+                           return(
+                             readRDS(filepath_warnings)$warning_df
+                           )
+                         }
+                       }
+saveRDS(EWS_warnings, filepath_all_warnings)
+print(head(EWS_warnings) %>% as.data.frame())
+
 # Compute ROC and AUC
-forloop_outer = get_forloop(
-  regime_switch = pars_template$select_regime_switches,
-                      baseline_steps = pars_template$baseline_steps,
-                      transition_steps = pars_template$transition_steps,
-                      downsample_fs = pars_template$downsample_fs,
-                      sigma_obs_noise = pars_template$sigma_obs_noise
-)
-forloop_inner = get_forloop(data_idx = pars_template$data_idxs,
-                      trans_or_null = c("transition", "null"),
-                      noise_iter = 1:pars_template$nr_noise_iters
-)
-
-# Compute ROC and AUC per condition; The data is too big to compile at once.
-filepaths_ROC_AUC = foreach(for_par = forloop_outer) %do% {
-
-  print(as.data.frame(for_par))
-
-  # Define filepaths
-  pars <- modify_list(pars_template, for_par)
-  pars$subfolder1 = for_par$regime_switch
-
-  filename_ROC = sprintf("%dbaseSteps_%dtransSteps_sigmaObs%.4f",
-                         pars$baseline_steps, pars$transition_steps, pars$sigma_obs_noise)
-  # filepath_warnings = format_path(format_pars(modify_list(pars, list(type_output = "warnings", filename=filename_ROC, fs = pars$downsample_fs))))
-  filepath_ROC = format_path(format_pars(modify_list(pars, list(type_output = "ROC", filename=filename_ROC, fs = pars$downsample_fs))))
-  filepath_AUC = format_path(format_pars(modify_list(pars, list(type_output = "AUC", filename=filename_ROC, fs = pars$downsample_fs))))
-
-  if (!file.exists(filepath_ROC)){
-  # Get all warning dataframes
-     EWS_warnings = foreach(for_par_inner = forloop_inner,
-                               .packages = c(
-                                 "bifurcationEWS", "dplyr"
-                               ),  .combine='rbind'
-  ) %dopar% {
-
-    pars <- modify_list(pars_template, utils::modifyList(for_par, for_par_inner))
-    pars$subfolder1 = for_par$regime_switch
-
-    filename_warnings = sprintf("%s_%dbaseSteps_%dtransSteps_sigmaObs%.4f_iter%04d", pars$trans_or_null,
-                                pars$baseline_steps, pars$transition_steps, pars$sigma_obs_noise, pars$noise_iter)
-  filepath_warnings = format_path(format_pars(modify_list(pars, list(type_output = "warnings", filename=filename_warnings, fs = pars$downsample_fs))))
-
-  if (file.exists(filepath_warnings)){
-    return(readRDS(filepath_warnings)$warning_df)
-  }
-  }
-     # Compute ROC
-     EWS_warnings_ROC = warnings_to_ROC(EWS_warnings,
-                                        sigma_crit_step = pars_template$sigma_crit_step,
-                                        thresh_max_sigma_crit = pars_template$thresh_max_sigma_crit
-     )
-     saveRDS(EWS_warnings_ROC %>%
-               add_par_as_cols(for_par), filepath_ROC)
-     rm(EWS_warnings)
-}
-  EWS_warnings_ROC = readRDS(filepath_ROC)
-
-  if (!file.exists(filepath_AUC)){
-  # Compute AUC
-  EWS_warnings_AUC = ROC_to_AUC(EWS_warnings_ROC)
-
-  # Save
-  # saveRDS(EWS_warnings, filepath_warnings)
-
-  saveRDS(EWS_warnings_AUC %>%
-            add_par_as_cols(for_par), filepath_AUC)
-  rm(EWS_warnings_AUC)
-  }
-  rm(EWS_warnings_ROC)
-
-  return(list("ROC" = filepath_ROC, "AUC" = filepath_AUC))
-}
-
-# Compile all ROC and AUC
-EWS_warnings_ROC = plyr::ldply(unlist(purrr::map(filepaths_ROC_AUC, "ROC")),
-                               function(x){readRDS(x)})
-EWS_warnings_AUC = plyr::ldply(unlist(purrr::map(filepaths_ROC_AUC, "AUC")),
-                               function(x){readRDS(x)})
-
-# EWS_warnings = foreach(filepath_warnings = filepaths_warnings,
-#                        for_par = forloop,
-#                        .combine='rbind') %dopar% {
-#                          if(!is.null(filepath_warnings)){
-#                            return(
-#                              readRDS(filepath_warnings)$warning_df
-#                            )
-#                          }
-#                        }
-# saveRDS(EWS_warnings, filepath_all_warnings)
-# print(head(EWS_warnings) %>% as.data.frame())
-#
-# # Compute ROC and AUC
-# grouping_vars = setdiff(names(forloop[[1]]), c("data_idx","noise_iter", "trans_or_null"))
-# EWS_warnings_ROC = warnings_to_ROC(EWS_warnings, grouping_vars)
-# EWS_warnings_AUC = ROC_to_AUC(EWS_warnings_ROC, grouping_vars)
+grouping_vars = setdiff(names(forloop[[1]]), c("data_idx","noise_iter", "trans_or_null"))
+EWS_warnings_ROC = warnings_to_ROC(EWS_warnings, grouping_vars)
+EWS_warnings_AUC = ROC_to_AUC(EWS_warnings_ROC, grouping_vars)
 
 # Save
 saveRDS(EWS_warnings_ROC, filepath_EWS_warnings_ROC)
 saveRDS(EWS_warnings_AUC, filepath_EWS_warnings_AUC)
 
 # Read
-# EWS_warnings = readRDS(filepath_all_warnings)
+EWS_warnings = readRDS(filepath_all_warnings)
 EWS_warnings_ROC = readRDS(filepath_EWS_warnings_ROC)
 EWS_warnings_AUC = readRDS(filepath_EWS_warnings_AUC)
-
-
-# Inspect
-EWS_warnings_AUC %>% dplyr::filter(AUC < .5) %>% as.data.frame() %>% head
-EWS_warnings_AUC %>% dplyr::filter(downsample_fs == 0.1, sigma_obs_noise == .0001, metric == "COV_var1", regime_switch == "PH_4to2") %>% as.data.frame()
-EWS_warnings_ROC %>% dplyr::filter(downsample_fs == 0.1, sigma_obs_noise == .0001, metric == "COV_var1", regime_switch == "PH_4to2") %>% as.data.frame()
-
-# %>% head
 
 ##### ROC
 # if (FALSE){
@@ -262,7 +154,7 @@ plot_ROC <- function(x){
       y = tpr
     )) +
     geom_area(alpha=0.6) +
-    geom_line(linewidth = .75) +
+    geom_line(linewidth = 1) +
     geom_point(size = .75) +
     geom_text(
       data    = x %>% distinct(metric_label, AUC_label),
@@ -324,7 +216,16 @@ EWS_warnings_ROC_grouped=EWS_warnings_ROC%>%
   dplyr::group_by_at(c(setdiff(names(forloop[[1]]), c("data_idx","noise_iter","trans_or_null", "baseline_steps", "transition_steps")) ) )%>%# dplyr::group_keys()
    dplyr::group_map(~ save_plot_ROC(pars_template,
                               .x, .y), .keep = T)
-# }
+
+x = EWS_warnings_ROC %>%
+  filter(downsample_fs == .1, sigma_obs_noise == .0001) %>%
+  dplyr::distinct(metric, fpr, tpr, fnr, tnr, .keep_all=T) %>%
+  merge(EWS_warnings_AUC)
+
+
+
+
+#}
 
 ##### AUC
 

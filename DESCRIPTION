@@ -9,7 +9,7 @@ Description: Compute Early Warning Signals (EWS) for anticipating bifurcations i
 License: CC BY 4.0
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3.9000
+RoxygenNote: 7.3.1
 Depends: 
     R (>= 2.10)
 LazyData: true
