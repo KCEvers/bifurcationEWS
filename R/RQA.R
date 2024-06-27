@@ -1,4 +1,3 @@
-
 #' Recurrence Quantification Analysis
 #'
 #' @param x Data, can be a vector or matrix or dataframe
@@ -13,8 +12,6 @@
 #'
 #' @return RQA measures
 #' @export
-#'
-#' @examples
 runRQA <- function(x, emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targetValue = .05,
                    rescaleDist = "none",
                    fix_emRad_or_RR = c( "emRad-space-diameter", "emRad-constant", "RR")[2],
@@ -36,8 +33,6 @@ runRQA <- function(x, emDim = 1, emLag = 1, theiler = 1, distNorm = "max", targe
 #'
 #' @return Recurrence Matrix
 #' @export
-#'
-#' @examples
 getRM <- function(x,
                     emDim,
                     emLag,
@@ -445,8 +440,6 @@ rp_calc_KCE <- function(RM,
 #' @return Dataframe with RQA line measures
 #' @importFrom invctr  `%00%`
 #' @export
-#'
-#' @examples
 rp_calc_lineMeasures_KCE <- function(RM,
                                      DLmin = 2,
                                      VLmin = 2,

@@ -5,8 +5,6 @@
 # Setup parallelization
 cl <- parallel::makeCluster(parallel::detectCores())
 doParallel::registerDoParallel(cl)
-# cl <- parallel::makeCluster(6)
-# doParallel::registerDoParallel(cl)
 
 library(bifurcationEWS)
 library(foreach)

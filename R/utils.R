@@ -75,8 +75,6 @@
 #' @return Downsampled dataframe
 #' @importFrom dplyr .data
 #' @export
-#'
-#' @examples
 downsample <- function(df,
                            X_names,
                            win_size = 10,
@@ -132,8 +130,6 @@ downsample <- function(df,
 #'
 #' @return Noisy dataframe
 #' @export
-#'
-#' @examples
 add_obs_noise <-
   function(df,
            X_names,
@@ -169,8 +165,6 @@ add_obs_noise <-
 #'
 #' @return Modified list
 #' @export
-#'
-#' @examples
 modify_list <- function(old_list, new_list){
   # utils::modifyList() doesn't update nested list as I want them to: if a nested list has a different number of elements, it doesn't seem to be replaced
   utils::modifyList(old_list[setdiff(names(old_list), names(new_list))], new_list)
@@ -186,8 +180,6 @@ modify_list <- function(old_list, new_list){
 #'
 #' @return List of parameters
 #' @export
-#'
-#' @examples
 setup_pars <- function(model_name, pars_add = list()) {
   if (model_name == "detGLV") {
     p = 4
@@ -274,8 +266,6 @@ setup_pars <- function(model_name, pars_add = list()) {
 #'
 #' @return List with formal arguments and default arguments
 #' @export
-#'
-#' @examples
 get_formals <- function(func){
   formal_list = purrr::map(as.list(formals(func)),
              function(x){try(eval(x), silent = T)
@@ -289,8 +279,6 @@ get_formals <- function(func){
 #'
 #' @return List with parameters per regime switch
 #' @export
-#'
-#' @examples
 setup_bifpars <- function() {
 
   pars_template_adjust = list(
@@ -469,8 +457,6 @@ setup_bifpars <- function() {
 #'
 #' @return File path
 #' @export
-#'
-#' @examples
 format_path <- function(pars_file) {
   pars_file_default = list(
     mainDir = getwd(),
@@ -548,8 +534,6 @@ format_path <- function(pars_file) {
 #'
 #' @return Updated list of parameters
 #' @export
-#'
-#' @examples
 format_pars <- function(pars) {
   pars_add = with(pars, {
     if (!is.null(pars[["data_idx"]])) {
@@ -591,8 +575,6 @@ format_pars <- function(pars) {
 #'
 #' @return List of sampling parameters
 #' @export
-#'
-#' @examples
 solve_sampling_par <-
   function(fs = NULL,
            sample_interval = NULL,
@@ -622,8 +604,6 @@ solve_sampling_par <-
 #'
 #' @return NULL
 #' @export
-#'
-#' @examples
 cfun <- function(...) {
   NULL
 }
@@ -634,8 +614,6 @@ cfun <- function(...) {
 #'
 #' @return List of forloop parameters
 #' @export
-#'
-#' @examples
 get_forloop <- function(...) {
   return(tidyr::expand_grid(...) %>% purrr::transpose() %>% unique())
 }
@@ -648,8 +626,6 @@ get_forloop <- function(...) {
 #'
 #' @return Updated dataframe
 #' @export
-#'
-#' @examples
 add_par_as_cols = function(df, for_par) {
   # df2 = cbind(
   #   df,
@@ -669,8 +645,6 @@ add_par_as_cols = function(df, for_par) {
 #'
 #' @return Names of downloaded R objects
 #' @export
-#'
-#' @examples
 download_example_data <- function(){
 
   # Get files from OSF

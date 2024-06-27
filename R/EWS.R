@@ -573,8 +573,6 @@ get_COV <- function(x){
 #'
 #' @return Skewness
 #' @export
-#'
-#' @examples
 skewness <- function(x){moments::skewness(x)}
 
 #' Kurtosis

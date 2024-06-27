@@ -8,7 +8,7 @@ downsample(
   df,
   X_names,
   win_size = 10,
-  which_X = c("all", "first", "middle", "last", "random", 3)[1],
+  which_X = c("all", "first", "middle", "last", "random")[1],
   seed_nr = NULL
 )
 }
@@ -19,12 +19,12 @@ downsample(
 
 \item{win_size}{Number of data points to be averaged or sampled from in each step}
 
-\item{which_X}{Time point(s) in window to select}
+\item{which_X}{String of time point in window to select}
 
 \item{seed_nr}{Seed number for random sampling of data point per window}
 }
 \value{
-Downsampled dataframe.
+Downsampled dataframe
 }
 \description{
 Reduce size of dataframe by downsampling

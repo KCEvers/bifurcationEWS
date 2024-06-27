@@ -6,8 +6,6 @@
 #'
 #' @return Updated state
 #' @export
-#'
-#' @examples
 Lorenz_model <- function(t, state, parms) {
   with(as.list(c(state, parms)), {
     dX <-  a * X + Y * Z
@@ -25,8 +23,6 @@ Lorenz_model <- function(t, state, parms) {
 #'
 #' @return Updated state
 #' @export
-#'
-#' @examples
 GLV_model <- function(t, state, parms) {
   with(as.list(c(parms)), {
     C = C0 * s

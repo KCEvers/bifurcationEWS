@@ -15,8 +15,6 @@
 #'
 #' @return Plotly object
 #' @export
-#'
-#' @examples
 plot_3D_landscape <- function(df,
                               xvar = "X1", yvar = "X2", zvar = "X3",
                               bifpar_name = "s",
@@ -62,8 +60,6 @@ plot_3D_landscape <- function(df,
 #' @return Plotly object
 #' @importFrom dplyr filter mutate group_map group_by .data
 #' @export
-#'
-#' @examples
 plot_3D_landscape_trans <- function(df,
                                    bifpar_idxs,
                                    bifpar_values,
@@ -202,12 +198,14 @@ plot_3D_landscape_trans <- function(df,
                            margin = 0,
                            shareX=TRUE, shareY=TRUE) %>%
       plotly::layout(
-     automargin=F,
+     # automargin=F,
      # autosize = F,
         margin = list(pad = 5, t = 5, b = 5, l = 5, r = 5),
         legend= list(itemsizing='constant'),
         showlegend = showlegend
       )
+    # Prevent Warning: 'layout' objects don't have these attributes: 'NA'
+    fig$x$layout <- fig$x$layout[grep('NA', names(fig$x$layout), invert = TRUE)]
 
     # Update position of subplots
     for (plot_idx in 1:length(bifpar_idxs)){
@@ -222,6 +220,7 @@ plot_3D_landscape_trans <- function(df,
                                                                   # zaxis = list(showticklabels=showticklabels)
                                                                   )
                                                      )
+
     }
 
     # fig$x$layout$margin = c(t = 5, b = 5, l = 5, r = 5)
@@ -245,8 +244,6 @@ plot_3D_landscape_trans <- function(df,
 #' @return Styled plot
 #' @importFrom ggplot2 theme_bw element_text element_rect unit margin theme
 #' @export
-#'
-#' @examples
 style_plot <- function(pl,
                        col_pal = c(
                          col_facet_labels = "#3C1A42FF"
@@ -321,8 +318,6 @@ style_plot <- function(pl,
 #' @return Styled bifurcation digram
 #' @importFrom ggplot2 coord_cartesian element_blank element_line geom_point geom_rect ggplot scale_x_continuous scale_x_reverse scale_y_continuous label_parsed guide_colorbar labs aes
 #' @export
-#'
-#' @examples
 plot_bifdiag = function(regime_list,
                         sel_variables = NULL,
                         filepath_image = NULL,
@@ -495,8 +490,6 @@ plot_bifdiag = function(regime_list,
 #'
 #' @return Success of saving file
 #' @export
-#'
-#' @examples
 save_plot <-
   function(pl,
            filepath_image,

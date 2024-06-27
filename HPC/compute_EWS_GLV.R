@@ -1,20 +1,3 @@
-#
-# paths = list.files("/gpfs/work4/0/einf6180/proj-EWS-GLV/HPC/detGLV/EWS/", recursive = T, full.names=T)
-#
-#
-# lapply(1:length(paths), function(i){
-# if (i %% 1000 == 0){print(i / length(paths) * 100)}
-#   df = readRDS(paths[i])
-#   if ("metric" %in% colnames(df)){
-# # Remove later**, correct mistake
-# df = df %>%
-#   # filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
-#   # filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) %>%
-#   filter(!grepl("spectral_exp", metric, fixed = T))
-# saveRDS(df, paths[i])
-# }
-# })
-
 print("Start computing EWS!")
 rerun = F
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
@@ -29,8 +12,6 @@ uni_metrics = c(
   "kurtosis" = moments::kurtosis,
   "spectral_exp" = get_spectral_exp,
   "spectral_ratio" = get_spectral_ratio
-  # "Smax" = get_Smax
-  # "Hurst" = get_Hurst_exp
 )
 multi_metrics = c(
   "meanAbsCrossCorr" = get_conn,
@@ -39,18 +20,7 @@ multi_metrics = c(
   "spatial_skewness" = spatial_skewness,
   "spatial_kurtosis" = spatial_kurtosis,
   "Smax" = get_Smax
-  # "RQA" = runRQA
 )
-
-
-# "RQA" = list(
-#   emDim = 1,
-#   emLag = 1,
-#   theiler = 1,
-#   distNorm = "max",
-#   targetValue = .05
-# )
-# )
 
 filepath_successful_regime_bounds = format_path(format_pars(modify_list(
   pars_template,
@@ -122,65 +92,9 @@ label_metrics = c(
 
 print(sprintf("%d conditions", length(forloop)))
 
-
-# filepaths = foreach(
-#   for_par =forloop,
-#   .combine = 'cfun',
-#   .packages = c("bifurcationEWS", "dplyr", "ggplot2"),
-#   .export = c("pars_template")
-# ) %dopar% {
-#   .GlobalEnv$pars_template <- pars_template # Don't ask me why this is necessary...
-#
-#   pars <- modify_list(pars_template, for_par)
-#   pars$subfolder1 = for_par$regime_switch
-#
-#   if (pars$trans_or_null == "transition") {
-#     filename_GLV = sprintf("%s_%dtransSteps",
-#                            pars$trans_or_null,
-#                            pars$transition_steps)
-#
-#     filename_EWS = sprintf(
-#       "%s_%dtransSteps_sigmaObs%.4f_iter%04d",
-#       pars$trans_or_null,
-#       pars$transition_steps,
-#       pars$sigma_obs_noise, pars$noise_iter
-#     )
-#   } else if (pars$trans_or_null == "null") {
-#     filename_GLV = sprintf("%s", pars$trans_or_null)
-#     filename_EWS = sprintf("%s_sigmaObs%.4f_iter%04d",
-#                            pars$trans_or_null,
-#                            pars$sigma_obs_noise, pars$noise_iter)
-#   }
-#
-#   filepath_GLV = format_path(
-#     format_pars(modify_list(pars,
-#                                   list(filename = filename_GLV))))
-#   filepath_regimes = format_path(format_pars(modify_list(
-#     pars, list(type_output = "regimes", filename = filename_GLV)
-#   )))
-#
-#   # Update downsampling parameters
-#   pars$win_size = round(pars_template$fs / pars$downsample_fs)
-#
-#   filepath_EWS = format_path(format_pars(modify_list(
-#     pars, list(type_output = "EWS", filename = filename_EWS, fs = pars$downsample_fs)
-#   )))
-#
-#   if (file.exists(filepath_EWS)){
-#     err1 = "try-error" %in% class(try(readRDS(filepath_EWS)))
-#   } else {
-#     err1 = FALSE
-#   }
-#   print(err1)
-#   if (err1){
-#     file.remove(filepath_EWS)
-#   }
-# }
-
-
 start_t = Sys.time()
 foreach(
-  for_par = forloop,#forloop[(18*2 + 1):length(forloop)],
+  for_par = forloop,
   .combine = 'cfun',
   .packages = c("bifurcationEWS", "dplyr", "ggplot2"),
   .export = c("pars_template")
@@ -311,14 +225,10 @@ foreach(
           fs = pars$downsample_fs,
           nr_timesteps = pars$nr_timesteps
         )
-        # "Hurst" = list(
-        #   fs = pars$downsample_fs,
-        #   nr_timesteps = pars$nr_timesteps
-        # )
         )
       start_t = Sys.time()
 
-      split_df_EWS = run_bifEWS(noisy_df,# %>% filter(bifpar_idx < 105),
+      split_df_EWS = run_bifEWS(noisy_df,
                                 pars$X_names,
                                 uni_metrics_todo,
                                 multi_metrics_todo,

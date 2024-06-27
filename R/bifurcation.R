@@ -20,8 +20,6 @@
 #'
 #' @return List with timeseries matrix and parameters used to generate the timeseries
 #' @export
-#'
-#' @examples
 bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = NULL,
                            X0 = c(),
                            X_names = names(X0),
@@ -183,8 +181,6 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
 #'
 #' @return stopifregime function
 #' @export
-#'
-#' @examples
 get_stopifregime = function(type = c("default","no_nodes", "only_nodes")[1],
                             min_bifpar_idx = 2, max_bifpar_idx = 50){
   if (type == "default"){
@@ -211,8 +207,6 @@ get_stopifregime = function(type = c("default","no_nodes", "only_nodes")[1],
 #' @return Dataframe with peaks and troughs per variable, including index of the beginning, height, and end of each peak
 #' @export
 #' @importFrom dplyr select mutate filter slice group_by ungroup all_of rename .data
-#'
-#' @examples
 peaks_bifdiag <- function(df, X_names){
 
   peaks = do.call(rbind, lapply(X_names, function(i){
@@ -267,8 +261,6 @@ peaks_bifdiag <- function(df, X_names){
 #'
 #' @return List of bifurcation parameter values
 #' @export
-#'
-#' @examples
 get_bifurcation_range <- function(bifpar_start, bifpar_end, pre_steps = 0,
                                   baseline_steps = 50, transition_steps = 50, post_steps = 0){
 
@@ -290,8 +282,6 @@ get_bifurcation_range <- function(bifpar_start, bifpar_end, pre_steps = 0,
 #'
 #' @importFrom dplyr .data arrange mutate rowwise
 #' @return Start and end of each consecutive value sequence
-#'
-#' @examples
 find_consec_seq = function(bifpar_idx_) {
   bifpar_idx = sort(unique(bifpar_idx_))
   list_conseq_seq = split(bifpar_idx, cumsum(c(1, diff(bifpar_idx) != 1)))
@@ -316,8 +306,6 @@ find_consec_seq = function(bifpar_idx_) {
 #'
 #' @return Regime switch type
 #' @importFrom dplyr select mutate mutate_at filter slice group_by ungroup all_of rename row_number summarise pull bind_rows across .data
-#'
-#' @examples
 get_regime_switch_type <- function(from_regime, to_regime, X_names){
 
   regime_df = bind_rows(from_regime, to_regime)
@@ -427,8 +415,6 @@ get_regime_switch_type <- function(from_regime, to_regime, X_names){
 #'
 #' @importFrom dplyr arrange ungroup mutate .data group_by_at
 #' @return Dataframe with regime boundaries
-#'
-#' @examples
 find_regime_bounds <- function(regimes, min_length_regime, X_names){
 
   # Find regimes that satisfy a certain size
@@ -481,8 +467,6 @@ find_regime_bounds <- function(regimes, min_length_regime, X_names){
 #'
 #' @return Dataframe with smoothed periodicity
 #' @importFrom dplyr arrange mutate pull lag rowwise .data group_by ungroup rename
-#'
-#' @examples
 smooth_column <- function(rough_df, col_to_smooth = "period", smooth_along_col = c(), nr_smooth = 0, min_length_regime = 10){
 
   min_length = rough_df %>% nrow() #dplyr::summarise(n = n(), .groups = 'drop') %>% pull(n) %>% min()
@@ -559,8 +543,6 @@ smooth_column <- function(rough_df, col_to_smooth = "period", smooth_along_col =
 #'
 #' @return Band properties
 #' @export
-#'
-#' @examples
 get_bands = function(x, min_x = 0, max_x = 1, nr_steps = 10){
   HIST = graphics::hist(x, breaks = seq(min_x, max_x, length.out = nr_steps), plot = F)
   step_size = diff(HIST$breaks)[1]
@@ -589,8 +571,6 @@ get_bands = function(x, min_x = 0, max_x = 1, nr_steps = 10){
 #'
 #' @return Dataframe with periodicities
 #' @export
-#'
-#' @examples
 select_best_period <- function(k_spread,
                                factor_k,
                                thresh_node, thresh_coord_spread, thresh_peak_idx_spread,
@@ -645,8 +625,6 @@ select_best_period <- function(k_spread,
 #' @return Updated dataframe
 #' @export
 #' @importFrom dplyr select group_by group_by_at group_modify slice summarise arrange mutate filter ungroup all_of rename bind_rows n .data
-#'
-#' @examples
 periods_to_regimes <- function(peaks_df, periods,
                                X_names,
                                min_length_regime,
@@ -751,8 +729,6 @@ periods_to_regimes <- function(peaks_df, periods,
 #'
 #' @return Dataframe with updated regimes
 #' @export
-#'
-#' @examples
 combine_mixed_regimes <- function(regimes_A, X_names, min_length_regime,
 
                                   name_mixed_regime = "Mixture: Periodic, Chaotic or Transitioning (X1,X2,X3,X4)",
@@ -837,8 +813,6 @@ combine_mixed_regimes <- function(regimes_A, X_names, min_length_regime,
 #' @return List of dataframes with periodicity per variable, periodicity per bifurcation parameter value, regimes, and regime boundaries
 #' @importFrom dplyr arrange group_modify ungroup filter select group_by mutate rename bind_rows all_of slice_tail .data
 #' @export
-#'
-#' @examples
 find_regimes <- function(GLV,
                          thresh_node = .001,
                          thresh_coord_spread = .025,
@@ -949,8 +923,6 @@ find_regimes <- function(GLV,
 #' @param cluster_idx Vector of cluster indices
 #'
 #' @return Mean, minimum and maximum distance between vector points when partitioned using the indices in ks
-#'
-#' @examples
 max_dist <- function(vec, cluster_idx){
   if (length(vec) <= 1){
     max_dist_per_k = 0
@@ -978,8 +950,6 @@ max_dist <- function(vec, cluster_idx){
 #' @inheritParams find_spread_per_k
 #'
 #' @return Distance in peak and trough coordinates and indices per cluster partitioning
-#'
-#' @examples
 find_dist_per_k <- function(ks, coord, peak_idx){
   # Compute mean maximum distance per cluster - essentially the spread of each cluster averaged per partitioning; for peak coordinates and peak indices
   coord_spread = lapply(ks, function(k){max_dist(vec = coord,
@@ -1008,8 +978,6 @@ find_dist_per_k <- function(ks, coord, peak_idx){
 #'
 #' @return Scaled vector
 #' @export
-#'
-#' @examples
 scale_range = function(x, a = 0, b = 1){
   return((b-a) * ((x - min(x)) / (max(x) - min(x))) + a)
 }
@@ -1022,8 +990,6 @@ scale_range = function(x, a = 0, b = 1){
 #'
 #' @return Scaled vector
 #' @export
-#'
-#' @examples
 rev_scale_range <- function(x,a,b,min_x,max_x){return((x - a) / (b-a) * (max_x - min_x) + min_x) }
 
 
@@ -1035,8 +1001,6 @@ rev_scale_range <- function(x,a,b,min_x,max_x){return((x - a) / (b-a) * (max_x -
 #'
 #' @return Dataframe with best fitting period length k and the corresponding minimum within-cluster distance and between-cluster distance for peak and trough coordinates and indices
 #' @export
-#'
-#' @examples
 find_spread_per_k <- function(coord, peak_idx, max_k = NULL){
   # Finding the best period is tricky: The global minimum might be a subharmonic, but the first local minimum might not be optimal for a more complex oscillation. If the timeseries is truly periodic, local minima in distance will occur for every subharmonic (e.g. period = 4, minima at period = c(4,8,12,...)).
 
@@ -1065,8 +1029,6 @@ find_spread_per_k <- function(coord, peak_idx, max_k = NULL){
 #' @return Dataframe containing one row with best period length
 #' @export
 #' @importFrom dplyr select mutate_at mutate .data
-#'
-#' @examples
 choose_best_k <- function(spread_df, thresh_node, factor_k){
 
   # Detect nodes for which k = 1 should be a good fit
@@ -1106,8 +1068,6 @@ choose_best_k <- function(spread_df, thresh_node, factor_k){
 #'
 #' @export
 #' @importFrom dplyr filter .data group_by arrange slice_head ungroup
-#'
-#' @examples
 make_filter_regime_switches <- function(min_length_regime, baseline_steps, transition_steps){
 
   # Filter null models
@@ -1333,8 +1293,6 @@ make_filter_regime_switches <- function(min_length_regime, baseline_steps, trans
 #' @return Filtered regime bounds dataframe
 #' @importFrom dplyr filter .data group_by rowwise mutate arrange ungroup slice select
 #' @export
-#'
-#' @examples
 apply_filter_regime_switches = function(regime_bounds_df,
                                         regime_switch_list,
                                         trans_or_null = c(NA, "null", "transition")[1]) {
@@ -1405,8 +1363,6 @@ apply_filter_regime_switches = function(regime_bounds_df,
 #' @return Dataframe with matched transition and null model.
 #' @importFrom dplyr filter_at .data mutate
 #' @export
-#'
-#' @examples
 match_trans_null_model <- function(
     regime_bounds_trans, regime_bounds_null,
     min_length_regime, regime_switch_list,
