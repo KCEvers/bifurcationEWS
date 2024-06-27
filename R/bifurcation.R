@@ -28,7 +28,6 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
                            seed_nr = 123,
                            timestep = .01, nr_timesteps = 1000,
                            deSolve_method = c("lsoda", "rk4", "euler")[2],
-                           # stopifregime = function(out){FALSE},
                            stopifregime = get_stopifregime("default"),
                            do_downsample = TRUE,
                            fs = NULL,
@@ -51,8 +50,9 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
 
   if (is.null(fs)){
     fs = 1/timestep
+    do_downsample = FALSE # No downsampling applied when the downsampling frequency matches the generating timestep
   } else if (fs > 1/timestep){
-    message(sprintf("The specified sampling frequency fs = %.2fHz is impossibly high given the specified timestep = %.4fsec - you cannot sample more than 1/timestep = %.2f! Make sure the sampling frequency is equal to or lower than 1/timestep = %.2f", fs, timestep, 1/timestep, 1/timestep))
+    message(sprintf("The specified downsampling frequency fs = %.2fHz is impossibly high given the specified timestep = %.4f - you cannot sample more than 1/timestep = %.2f! Make sure the sampling frequency is equal to or lower than 1/timestep = %.2f", fs, timestep, 1/timestep, 1/timestep))
     return()
   }
 
@@ -62,6 +62,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
   min_t = times[1]
   bifpar_idxs = seq.int(length(bifpar_list))
   X0s <- matrix(nrow = length(bifpar_list), ncol = length(X_names)+1) %>% magrittr::set_colnames(c("bifpar_idx", X_names))
+  win_size = solve_sampling_par(fs = fs, timestep = timestep)$sample_interval
 
   while (!success & (iter <= max_iter)){
     # Initialize
@@ -88,9 +89,12 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       X0s[bifpar_idx,] <- c(bifpar_idx, X0)
 
       # Generate data
+      # start_t = Sys.time()
       out <- deSolve::ode(y = X0, times = times + min_t, func = model,
                           parms = model_pars,
-                          method = deSolve_method) %>% cbind(bifpar_idx=bifpar_idx)
+                          method = deSolve_method) %>%
+        cbind(bifpar_idx=bifpar_idx)
+      # print(sprintf("Time taken by deSolve::ode(): %s seconds", Sys.time() - start_t))
 
       # Overwrite initial state
       X0 <- out[nrow(out),names(X0)]
@@ -107,16 +111,22 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       }
 
       if (do_downsample){
+        # start_t = Sys.time()
          out = downsample(out, X_names,
-                         win_size = solve_sampling_par(fs = fs, timestep = timestep)$sample_interval,
+                         win_size = win_size,
                          which_X = which_X)
+         # print(sprintf("Time taken to downsample: %s seconds", Sys.time() - start_t))
+
       }
 
       # Save intermediate result for efficiency
+      # start_t = Sys.time()
       tmp <- tempfile(fileext = ".RDS")
       saveRDS(out, tmp)
       tmps[bifpar_idx] <- tmp
       rm(out)
+      # print(sprintf("Time taken to save results: %s seconds", Sys.time() - start_t))
+
     }
 
     if (length(tmps) == length(bifpar_idxs)){
@@ -159,7 +169,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
               which_X = which_X
               ))
   } else {
-    message("Simulation NOT successful!")
+    message("Simulation FAILED")
     return()
   }
 }

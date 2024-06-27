@@ -6,7 +6,6 @@
 #' @return Dataframe with early warning signals
 #' @importFrom dplyr .data
 #' @export
-#' @examples
 run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 
   if (length(uni_metrics) > 0){
@@ -65,10 +64,6 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
   } else {
     multi_EWS = data.frame()
   }
-  # %>%
-  #   do.call(rbind, .) %>% magrittr::set_rownames(NULL) %>%
-  #   as.data.frame() %>% cbind(metric = names(multi_metrics)) %>%
-  #   dplyr::rename(value = .data$V1)
 
   return(rbind(uni_EWS, multi_EWS))
 }
@@ -88,7 +83,6 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 #' @importFrom foreach foreach `%do%` `%dopar%`
 #' @export
 #'
-#' @examples
 run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
                        multi_metrics = c("spatialSkewness" = spatial_skewness),
                        EWS_args = list("Smax" = list(fs = 1, nr_timesteps = 100)),
@@ -166,7 +160,6 @@ run_bifEWS <- function(df, X_names, uni_metrics = c("Smax" = get_Smax),
 #' @return Dataframe with warnings
 #' @export
 #'
-#' @examples
 get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigma_crit_step,
                                    thresh_max_sigma_crit = 500,
                                    nr_consecutive_warnings = 1){
@@ -213,24 +206,9 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigma_crit_step,
 #' @export
 #' @importFrom dplyr group_by group_modify ungroup mutate mutate_at first last .data
 #'
-#' @examples
 get_warnings_raw <- function(split_df_EWS, baseline_idx, transition_idx, sigma_crit = 2, nr_consecutive_warnings = 1){
   # Compute baseline mean and standard deviation
   EWS_z_scores = get_zscore_EWS(split_df_EWS, baseline_idx)
-
-  # EWS_z_scores = merge(split_df_EWS, EWS_df_CI) %>% arrange(.data$bifpar_idx) %>%
-  #   group_by(.data$metric) %>%
-  #   # Compute z-scores (normalized): Convert z-score so that it can be compared to any sigma (i.e. you don't have to rerun the procedure for every sigma) using the following formula:
-  #   # current > mu_baseline + (sigma_baseline * sigma_crit)
-  #   # (current - mu_baseline) > (sigma_baseline * sigma_crit)
-  #   # ((current - mu_baseline) / sigma_baseline) > (sigma_crit)
-  #   # z = (current - mu_baseline) / sigma_baseline
-  #   mutate(z_score = ((.data$value - .data$mean_w0) / .data$sd_w0)) %>% ungroup() %>%
-  #   apply(2, unlist) %>% as.data.frame %>%
-  #   mutate_at(c("bifpar_idx", "value", "z_score", "mean_w0", "sd_w0", "quantile_000", "quantile_100"), ~ as.numeric(as.character(.x))) %>%
-  #   group_by(.data$metric) %>%
-  #   mutate(bifpar_idx = round(as.numeric(as.character(.data$bifpar_idx)))) %>%
-  #   ungroup()
 
   # Get warnings for ONE critical sigma
   warnings_raw_value = EWS_z_scores %>%
@@ -275,8 +253,6 @@ get_warnings_raw <- function(split_df_EWS, baseline_idx, transition_idx, sigma_c
 #' @param sigma_crit Critical cut-off value
 #' @return Dataframe with warning indices and number of warning patches
 #' @export
-#'
-#' @examples
 get_warnings_one_sigma <- function(bifpar_idx, z_score, sigma_crit, nr_consecutive_warnings){
   # Find all warnings
   idx_all_warnings = which(abs(z_score) >= sigma_crit)
@@ -298,7 +274,6 @@ get_warnings_one_sigma <- function(bifpar_idx, z_score, sigma_crit, nr_consecuti
 #' @return Dataframe with the mean and standard deviation per EWS in the baseline period
 #' @export
 #' @importFrom dplyr arrange group_by filter summarise mutate mutate_at ungroup .data
-#' @examples
 get_zscore_EWS <- function(split_df_EWS, baseline_idx){
   # Compute baseline mean and standard deviation
   EWS_df_CI = split_df_EWS %>% arrange(.data$bifpar_idx) %>% group_by(.data$metric) %>%
@@ -308,7 +283,7 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
               quantile_100 = as.numeric(stats::quantile(.data$value, 1, na.rm=TRUE)),
               .groups = 'drop')
 
-
+  # Compute z-score
   EWS_z_scores = merge(split_df_EWS, EWS_df_CI) %>% arrange(.data$bifpar_idx) %>%
     group_by(.data$metric) %>%
     # Compute z-scores (normalized): Convert z-score so that it can be compared to any sigma (i.e. you don't have to rerun the procedure for every sigma) using the following formula:
@@ -339,36 +314,13 @@ get_zscore_EWS <- function(split_df_EWS, baseline_idx){
 #' @return Dataframe with warnings per EWS metric
 #' @importFrom dplyr arrange ungroup filter group_by mutate mutate_at summarise group_modify .data
 #' @export
-#'
-#' @examples
 get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
-                         sigma_crit_step = .25,
-                         thresh_max_sigma_crit = 500,
-                         # sigmas_crit= seq(.25, 6, by = .25),
+                         sigma_crit_step = .01,
+                         thresh_max_sigma_crit = 150,
                          nr_consecutive_warnings = 1){
-  # Compute baseline mean and standard deviation
-  # EWS_df_CI = split_df_EWS %>% arrange(.data$bifpar_idx) %>% group_by(.data$metric) %>%
-  #   filter(.data$bifpar_idx %in% baseline_idx) %>%
-  #   summarise(mean_w0 = mean(.data$value), sd_w0 = stats::sd(.data$value),
-  #                    quantile_000 = as.numeric(stats::quantile(.data$value, 0, na.rm=TRUE)),
-  #                    quantile_100 = as.numeric(stats::quantile(.data$value, 1, na.rm=TRUE)),
-  #                    .groups = 'drop')
-  EWS_z_scores = get_zscore_EWS(split_df_EWS, baseline_idx)
 
-  # # Compute z-scores - we're interested in absolute deviations, so either below or above mu + alpha_crit*sd
-  # EWS_z_scores = merge(split_df_EWS, EWS_df_CI) %>% arrange(.data$bifpar_idx) %>%
-  #   group_by(.data$metric) %>%
-  #   # Compute z-scores (normalized): Convert z-score so that it can be compared to any sigma (i.e. you don't have to rerun the procedure for every sigma) using the following formula:
-  #   # current > mu_baseline + (sigma_baseline * sigma_crit)
-  #   # (current - mu_baseline) > (sigma_baseline * sigma_crit)
-  #   # ((current - mu_baseline) / sigma_baseline) > (sigma_crit)
-  #   # z = (current - mu_baseline) / sigma_baseline
-  #   mutate(z_score = ((.data$value - .data$mean_w0) / .data$sd_w0)) %>% ungroup() %>%
-  #   apply(2, unlist) %>% as.data.frame %>%
-  #   mutate_at(c("bifpar_idx", "value", "z_score", "mean_w0", "sd_w0", "quantile_000", "quantile_100"), ~ as.numeric(as.character(.x))) %>%
-  #   group_by(.data$metric) %>%
-  #   mutate(bifpar_idx = round(as.numeric(as.character(.data$bifpar_idx)))) %>%
-  #   ungroup()
+  # Compute z-scores
+  EWS_z_scores = get_zscore_EWS(split_df_EWS, baseline_idx)
 
   # Get warnings per critical sigma
   warning_df = EWS_z_scores %>%
@@ -380,12 +332,9 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
                                           z_score = .x$z_score,
                                           sigma_crit_step = sigma_crit_step,
                                           thresh_max_sigma_crit = thresh_max_sigma_crit,
-                                          # sigmas_crit= sigmas_crit,
                                           nr_consecutive_warnings = nr_consecutive_warnings)) %>% ungroup() %>%
     rowwise() %>%
     dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0)) %>% ungroup()
-  # dplyr::mutate(warning_signal = sum(.data$nr_warnings != 0), no_warning_signal = sum(.data$nr_warnings == 0)) %>% ungroup()
-
   return(list(winEWS_df = EWS_z_scores,
               warning_df = warning_df))
 }
@@ -401,8 +350,6 @@ get_warnings <- function(split_df_EWS, baseline_idx, transition_idx,
 #' @return Dataframe with true positive rate, true negative rate, false positive rate, and false negative rate per critical value
 #' @export
 #' @importFrom dplyr mutate mutate_at select summarise rowwise ungroup group_by_at .data
-#'
-#' @examples
 warnings_to_ROC <- function(EWS_warnings, sigma_crit_step, thresh_max_sigma_crit, grouping_vars = c("sigma_crit", "metric")){
 
   sigmas_crit =  seq(sigma_crit_step, thresh_max_sigma_crit, by=sigma_crit_step)
@@ -435,17 +382,12 @@ warnings_to_ROC <- function(EWS_warnings, sigma_crit_step, thresh_max_sigma_crit
     dplyr::summarise(max_sigma_crit = max(.data$sigma_crit), .groups = 'drop') %>%
     rowwise() %>%
     mutate(
-      # acc = (sum(.data$sum_tp, na.rm = TRUE) + sum(.data$sum_tn, na.rm = TRUE)) / (sum(.data$sum_tp, na.rm = TRUE) + sum(.data$sum_tn, na.rm = TRUE) + sum(.data$sum_fp, na.rm = TRUE) + sum(.data$sum_fn, na.rm = TRUE)),
-      # fnr = ifelse(sum(.data$sum_fn, na.rm = TRUE) == 0, 0, sum(.data$sum_fn, na.rm = TRUE) / (sum(.data$sum_fn, na.rm = TRUE) + sum(.data$sum_tp, na.rm = TRUE))), # miss rate
-      # tnr = ifelse(sum(.data$sum_tn, na.rm = TRUE) == 0, 0, sum(.data$sum_tn, na.rm = TRUE) / (sum(.data$sum_tn, na.rm = TRUE) + sum(.data$sum_fp, na.rm = TRUE))), # specificity
-      # fpr = ifelse(sum(.data$sum_fp, na.rm = TRUE) == 0, 0, sum(.data$sum_fp, na.rm = TRUE) / (sum(.data$sum_fp, na.rm = TRUE) + sum(.data$sum_tn, na.rm = TRUE))), # false alarm
-      # tpr = ifelse(sum(.data$sum_tp, na.rm = TRUE) == 0, 0, sum(.data$sum_tp, na.rm = TRUE) / (sum(.data$sum_tp, na.rm = TRUE) + sum(.data$sum_fn, na.rm = TRUE)))  # sensitivity
       acc = (.data$sum_tp + .data$sum_tn) / (.data$sum_tp + .data$sum_tn + .data$sum_fp + .data$sum_fn),
       fnr = ifelse(.data$sum_fn == 0, 0, .data$sum_fn / (.data$sum_fn + .data$sum_tp)), # miss rate
       tnr = ifelse(.data$sum_tn == 0, 0, .data$sum_tn / (.data$sum_tn + .data$sum_fp)), # specificity
       fpr = ifelse(.data$sum_fp == 0, 0, .data$sum_fp / (.data$sum_fp + .data$sum_tn)), # false alarm
       tpr = ifelse(.data$sum_tp == 0, 0, .data$sum_tp / (.data$sum_tp + .data$sum_fn))  # sensitivity
-    )
+    ) %>% ungroup()
 
   return(EWS_warnings_ROC)
 }
@@ -459,8 +401,6 @@ warnings_to_ROC <- function(EWS_warnings, sigma_crit_step, thresh_max_sigma_crit
 #' @return AUC dataframe
 #' @export
 #' @importFrom dplyr summarise group_by_at .data
-#'
-#' @examples
 ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars = c("metric")){
 
   # default_grouping_vars <- c("metric")
@@ -481,8 +421,6 @@ ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars = c("metric")){
 #'
 #' @return Labelled AUC
 #' @export
-#'
-#' @examples
 get_AUC_class <- function(AUC, nbins = 10){
   breaks_AUC = seq(0, 1, length.out = nbins + 1)
   labels_AUC = plyr::laply(1:nbins,
@@ -510,8 +448,6 @@ get_AUC_class <- function(AUC, nbins = 10){
 #'
 #' @return AUC
 #' @export
-#'
-#' @examples
 get_AUC <- function(fpr, tpr){
 
   xy = cbind(fpr = fpr, tpr = tpr) %>%
@@ -541,8 +477,6 @@ get_AUC <- function(fpr, tpr){
 #'
 #' @return Dataframe with only the row corresponding to the maximal Youden's J statistic
 #' @export
-#'
-#' @examples
 YoudensJ = function(x){
   x %>% dplyr::arrange(.data$sigma_crit) %>%
     dplyr::summarise(
@@ -566,8 +500,6 @@ YoudensJ = function(x){
 #'
 #' @return Eigenvalue
 #' @export
-#'
-#' @examples
 eigenvalue <- function(x) {
   eigen(stats::cov(x))$values[1]
 }
@@ -578,8 +510,6 @@ eigenvalue <- function(x) {
 #'
 #' @return Mean absolute cross-correlation
 #' @export
-#'
-#' @examples
 get_conn <- function(x) {
   mean(abs(stats::cor(x)[upper.tri(stats::cor(x))]))
 }
@@ -591,8 +521,6 @@ get_conn <- function(x) {
 #'
 #' @return Spatial variance
 #' @export
-#'
-#' @examples
 spatial_variance <- function(x) {
   x <- as.matrix(x)
   return(1/(ncol(x)*nrow(x)) * sum((x - mean(x))**2))
@@ -605,8 +533,6 @@ spatial_variance <- function(x) {
 #'
 #' @return Spatial skewness
 #' @export
-#'
-#' @examples
 spatial_skewness <- function(x) {
   x <- as.matrix(x)
   sigma3 = spatial_variance(x)**(1.5)
@@ -620,8 +546,6 @@ spatial_skewness <- function(x) {
 #'
 #' @return Spatial kurtosis
 #' @export
-#'
-#' @examples
 spatial_kurtosis <- function(x) {
   x <- as.matrix(x)
   sigma4 = spatial_variance(x)**(2)
@@ -639,8 +563,6 @@ spatial_kurtosis <- function(x) {
 #'
 #' @return COV
 #' @export
-#'
-#' @examples
 get_COV <- function(x){
   return(mean(x, na.rm = TRUE) / stats::sd(x, na.rm=TRUE))
 }
@@ -661,8 +583,6 @@ skewness <- function(x){moments::skewness(x)}
 #'
 #' @return Kurtosis
 #' @export
-#'
-#' @examples
 kurtosis <- function(x){moments::kurtosis(x)}
 
 
@@ -673,8 +593,6 @@ kurtosis <- function(x){moments::kurtosis(x)}
 #'
 #' @return Lag-1 Autocorrelation
 #' @export
-#'
-#' @examples
 get_autocorr <- function(x) {
   stats::acf(x, plot = FALSE, lag = 1)$acf[[2]]
 }
@@ -690,8 +608,6 @@ get_autocorr <- function(x) {
 #'
 #' @return Spectral EWS from Welch's PSD
 #' @export
-#'
-#' @examples
 get_Smax = function(x, fs, nr_timesteps){
   x = as.matrix(x)
   if (any(apply(x, 2, stats::sd) == 0)){
@@ -722,8 +638,6 @@ get_Smax = function(x, fs, nr_timesteps){
 #'
 #' @return Fitted linear slope of scale vs. detrended fluctuation (log-log)
 #' @export
-#'
-#' @examples
 get_Hurst_exp <- function(x, fs, nr_timesteps, scaleMin = 10, scaleMax = 100,
                           polyOrderSegment = 2){
 
@@ -754,8 +668,6 @@ get_Hurst_exp <- function(x, fs, nr_timesteps, scaleMin = 10, scaleMax = 100,
 #'
 #' @return Slope of power spectral density
 #' @export
-#'
-#' @examples
 get_spectral_exp <- function(x, fs, nr_timesteps,
                              method = c("Prettyman2020", "Wijnants2013")[2]
                            ){
@@ -809,8 +721,6 @@ get_spectral_exp <- function(x, fs, nr_timesteps,
 #'
 #' @return Spectral ratio of spectral density estimated at specified low frequency to spectral density at specified high frequency
 #' @export
-#'
-#' @examples
 get_spectral_ratio <- function(x, fs, nr_timesteps,
                                f_min_to_f_max =  c(.05, .5),
                                n.freq = 500){

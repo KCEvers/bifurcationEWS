@@ -69,61 +69,53 @@
 #' @param df Dataframe
 #' @param X_names Names of columns in df containing observational timeseries to be downsampled
 #' @param win_size Number of data points to be averaged or sampled from in each step
-#' @param which_X Time point(s) in window to select
+#' @param which_X String of time point in window to select
 #' @param seed_nr Seed number for random sampling of data point per window
 #'
-#' @return Downsampled dataframe.
+#' @return Downsampled dataframe
 #' @importFrom dplyr .data
 #' @export
 #'
 #' @examples
 downsample <- function(df,
-                       X_names,
-                       win_size = 10,
-                       which_X = c("all", "first", "middle", "last", "random", 3)[1],
-                       seed_nr = NULL) {
+                           X_names,
+                           win_size = 10,
+                           which_X = c("all", "first", "middle", "last", "random")[1],
+                           seed_nr = NULL) {
   if (is.numeric(seed_nr)) {
     set.seed(seed_nr)
   }
   df = df %>% as.data.frame()
 
-  # Select one sample every win_size with the option of choosing which sample
-  slice_func = dplyr::slice
-
   if (which_X == "all") {
-    # Compute average every X samples with possibility of random samples drawn in every X
-    slice_func = dplyr::slice_sample
-    n = win_size
-  } else if (which_X == "first") {
-    n = 1
-  } else if (which_X == "middle") {
-    n = ceiling(win_size / 2)
-  } else if (which_X == "last") {
-    n = win_size
+    X_day_mu = cbind(
+      apply(matrix(df$time, ncol=win_size, byrow = T), 1, max),
+      lapply(X_names, function(i){
+        Matrix::rowMeans(matrix(df[[i]], ncol=win_size, byrow = T))
+      }) %>% do.call(cbind, .),
+      apply(matrix(df$bifpar_idx, ncol=win_size, byrow = T), 1, max)
+    ) %>% magrittr::set_colnames(c("time", X_names, "bifpar_idx"))
+  }  else if (which_X %in% c("first", "middle", "last")){
+    idx = ifelse(which_X == "first", 1, ifelse(which_X == "last", win_size, ceiling(win_size / 2)))
+    X_day_mu = cbind(
+      matrix(df$time, ncol=win_size, byrow = T)[,idx],
+      lapply(X_names, function(i){
+        matrix(df[[i]], ncol=win_size, byrow = T)[,idx]
+      }) %>% do.call(cbind, .),
+      matrix(df$bifpar_idx, ncol=win_size, byrow = T)[,idx]
+    )
   } else if (which_X == "random") {
-    n = 1
-    slice_func = dplyr::slice_sample
-  } else if (!is.na(as.numeric(which_X))) {
-    n = as.numeric(which_X)
-    slice_func = dplyr::slice_sample
-    if (n > win_size) {
-      print(
-        "The number of samples per win_size cannot be more than the win_size itself. Setting the number of samples to the win_size."
-      )
-      n = win_size
-    }
+    # Select random sample in each window
+    nrow_mat = (nrow(df)/win_size)
+    idxs = cbind(row = 1:nrow_mat, col = sample(1:win_size, size = nrow_mat, replace = T))
+    X_day_mu = cbind(
+      matrix(df$time, ncol=win_size, byrow = T)[idxs],
+      lapply(X_names, function(i){
+        matrix(df[[i]], ncol=win_size, byrow = T)[idxs]
+      }) %>% do.call(cbind, .),
+      matrix(df$bifpar_idx, ncol=win_size, byrow = T)[idxs]
+    )
   }
-
-  X_day_mu_ = df %>%
-    dplyr::mutate(win_nr = rep(1:ceiling(nrow(df) / win_size), each = win_size)[1:nrow(df)]) %>%
-    dplyr::group_by(.data$win_nr) %>%
-    slice_func(n = n)
-  X_day_mu = merge(
-    X_day_mu_ %>%
-      dplyr::summarise_at(setdiff(names(.), c("win_nr", X_names)), max),
-    X_day_mu_ %>%
-      dplyr::summarise_at(X_names, mean)
-  )
   return(X_day_mu)
 
 }

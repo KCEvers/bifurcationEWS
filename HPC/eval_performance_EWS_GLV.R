@@ -20,7 +20,7 @@
 
 print("Start evaluating performance of EWS!")
 source('visualise_helpers.R')
-rerun = T
+rerun = F
 
 pars_template$nr_timesteps=pars_template$nr_timesteps_trans
 filepath_successful_regime_bounds = format_path(format_pars(modify_list(
@@ -31,9 +31,9 @@ regime_bounds_successful = readRDS(filepath_successful_regime_bounds)
 
 filepath_all_warnings = format_path(format_pars(modify_list(pars_template, list(type_output = "warnings",
                                                                                       filename = "all_warnings"))))
-filepath_EWS_warnings_ROC = format_path(format_pars(modify_list(pars_template, list(type_output = "warnings",
+filepath_EWS_warnings_ROC = format_path(format_pars(modify_list(pars_template, list(type_output = "ROC",
                                                                                           filename = "ROC"))))
-filepath_EWS_warnings_AUC = format_path(format_pars(modify_list(pars_template, list(type_output = "warnings",
+filepath_EWS_warnings_AUC = format_path(format_pars(modify_list(pars_template, list(type_output = "AUC",
                                                                                           filename = "AUC"))))
 
 forloop = get_forloop(data_idx = pars_template$data_idxs,
@@ -88,7 +88,8 @@ filepaths_warnings = foreach(for_par = forloop,
       }
     }
 
-    if (file.exists(filepath_GLV) & file.exists(filepath_EWS) & (!file.exists(filepath_warnings) | rerun)){
+    # if (file.exists(filepath_GLV) & file.exists(filepath_EWS) & (!file.exists(filepath_warnings) | rerun)){
+      if ( file.exists(filepath_EWS) & (!file.exists(filepath_warnings) | rerun)){
       print(filepath_warnings)
 
       # Count baseline back
@@ -155,7 +156,8 @@ filepaths_ROC_AUC = foreach(for_par = forloop_outer) %do% {
   filepath_AUC = format_path(format_pars(modify_list(pars, list(type_output = "AUC", filename=filename_ROC, fs = pars$downsample_fs))))
 
   if (!file.exists(filepath_ROC)){
-  # Get all warning dataframes
+
+    # Get all warning dataframes
      EWS_warnings = foreach(for_par_inner = forloop_inner,
                                .packages = c(
                                  "bifurcationEWS", "dplyr"
@@ -170,9 +172,15 @@ filepaths_ROC_AUC = foreach(for_par = forloop_outer) %do% {
   filepath_warnings = format_path(format_pars(modify_list(pars, list(type_output = "warnings", filename=filename_warnings, fs = pars$downsample_fs))))
 
   if (file.exists(filepath_warnings)){
-    return(readRDS(filepath_warnings)$warning_df)
+    return(readRDS(filepath_warnings)$warning_df %>%
+             # group_by(.data$metric) %>%
+             filter(!is.na(score)) %>%
+             filter(sigma_crit == max(sigma_crit), .by = "metric") %>% ungroup()
+           )
   }
   }
+
+
      # Compute ROC
      EWS_warnings_ROC = warnings_to_ROC(EWS_warnings,
                                         sigma_crit_step = pars_template$sigma_crit_step,
@@ -235,8 +243,8 @@ EWS_warnings_AUC = readRDS(filepath_EWS_warnings_AUC)
 
 # Inspect
 EWS_warnings_AUC %>% dplyr::filter(AUC < .5) %>% as.data.frame() %>% head
-EWS_warnings_AUC %>% dplyr::filter(downsample_fs == 0.1, sigma_obs_noise == .0001, metric == "COV_var1", regime_switch == "PH_4to2") %>% as.data.frame()
-EWS_warnings_ROC %>% dplyr::filter(downsample_fs == 0.1, sigma_obs_noise == .0001, metric == "COV_var1", regime_switch == "PH_4to2") %>% as.data.frame()
+EWS_warnings_AUC %>% dplyr::filter(downsample_fs == 10, sigma_obs_noise == .0001, metric == "COV_var1", regime_switch == "PD_8to16") %>% as.data.frame()
+EWS_warnings_ROC %>% dplyr::filter(downsample_fs == 10, sigma_obs_noise == .0001, metric == "COV_var1", regime_switch == "PD_8to16") %>% as.data.frame()
 
 # %>% head
 

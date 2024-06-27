@@ -47,7 +47,7 @@ pars_general_template = setup_pars(model_name = "detGLV",
 
 # Read all AUC and ROC ----------------------------------------------------
 filepaths_AUC = list.files(
-  path = "detGLV/AUC",
+  # path = "",
   pattern = "AUC*.RDS", full.names = TRUE, recursive = TRUE)
 EWS_warnings_AUC = plyr::ldply(filepaths_AUC, function(i){readRDS(i)})
 
@@ -58,218 +58,126 @@ EWS_warnings_AUC %>% group_by(regime_switch, metric, transition_steps, baseline_
 
 # ROC
 filepaths_ROC = list.files(
-  path = "detGLV/ROC",
+  # path = "",
   pattern = "ROC*.RDS", full.names = TRUE, recursive = TRUE)
 EWS_warnings_ROC = plyr::ldply(filepaths_ROC, function(i){readRDS(i)})
 
 # Inspect ROC
 EWS_warnings_ROC %>% group_by(regime_switch, downsample_fs, sigma_obs_noise, metric) %>% dplyr::summarise(n = n(), .groups = 'drop') %>% arrange(n) %>% as.data.frame() %>% head()
-EWS_warnings_ROC %>% pull(regime_switch) %>% unique
-EWS_warnings_ROC %>% group_by(regime_switch) %>% dplyr::summarise(max(max_sigma_crit), min(max_sigma_crit), .groups = 'drop') %>% as.data.frame()
 test = EWS_warnings_ROC %>% group_by(regime_switch, downsample_fs, sigma_obs_noise, metric) %>% dplyr::mutate(n = n()) %>% ungroup()
 test %>% arrange(n, regime_switch, downsample_fs, sigma_obs_noise, metric) %>% as.data.frame() %>% head(20)
 # warning_dfs %>% filter(regime_switch == "PD_4to8", downsample_fs == 0.1, sigma_obs_noise == .0001, metric == 'spatial_variance') %>%filter(is.na(score))%>%group_by(trans_or_null, sigma_crit)%>%summarise(n=n()) %>% as.data.frame() %>%head(20)
+EWS_warnings_ROC %>% filter(regime_switch == "PD_4to8", downsample_fs == 0.1, sigma_obs_noise == .0001, metric == 'mean_var1') %>% as.data.frame() %>%head(20)
+EWS_warnings_ROC %>% filter(regime_switch == "PD_4to8", downsample_fs == 0.1, sigma_obs_noise == .0001, metric == 'skewness_var1') %>% as.data.frame() %>%head(20)
 
 # Check how many did not "max out" sigma_crit -> fpr is still too high while tpr is also high
 EWS_warnings_ROC %>%
   group_by(regime_switch, metric, transition_steps, baseline_steps, sigma_obs_noise, downsample_fs) %>%
+  filter(sigma_crit == max(sigma_crit)) %>%
   as.data.frame() %>%
   filter(fpr > .01)
 
 
-EWS_warnings_ROC %>% group_by(regime_switch, metric, transition_steps, baseline_steps, sigma_obs_noise, downsample_fs) %>%
-  mutate(n = n(), id = cur_group_id() ) %>% as.data.frame() %>% filter(n!=1) %>% head
+EWS_warnings_ROC %>% group_by(regime_switch, sigma_crit, metric, transition_steps, baseline_steps, sigma_obs_noise, downsample_fs) %>%
+  mutate(n = n(), id = cur_group_id() ) %>% as.data.frame() %>% filter(n!=1)
 
 
 # Direction of EWS for sigma_crit corresponding to best cut-off sigma_crit > --------
 
 # Compute best threshold using Youden's J statistic (https://machinelearningmastery.com/threshold-moving-for-imbalanced-classification/)
-criterion_df = EWS_warnings_ROC %>% dplyr::rename(sigma_crit = max_sigma_crit) %>%
+criterion_df = EWS_warnings_ROC %>%
 group_by(regime_switch, metric, baseline_steps,
          transition_steps, downsample_fs, sigma_obs_noise) %>%
   group_modify(~ YoudensJ(.x)) %>%
   filter(!is.na(sigma_crit))
 # %>%  filter(!grepl("LF0.05", metric, fixed = T))
 criterion_df %>% as.data.frame %>% head()
-criterion_df %>%  group_by(regime_switch, downsample_fs, sigma_obs_noise) %>% dplyr::summarise(n=n()) %>% as.data.frame
 
 # Find corresponding warnings
 filepaths_warnings = list.files(
-  pattern = ".*nr.*RDS",
-  path = "detGLV/warnings",
-  full.names = TRUE, recursive = TRUE)
+  pattern = "warnings*.RDS", full.names = TRUE, recursive = TRUE)
+filepaths_warnings_merged = stringr::str_replace(filepaths_warnings, ".RDS", sprintf("_merged_YoudensJ.RDS"))
+filepaths_warnings_cond_summ = stringr::str_replace(filepaths_warnings, ".RDS", sprintf("_cond_summ_YoudensJ.RDS"))
+filepaths_warnings_summ = stringr::str_replace(filepaths_warnings, ".RDS", sprintf("_summ_YoudensJ.RDS"))
 
-# Filter out null models
-idxs = unlist(lapply(filepaths_warnings, function(i){grepl("null", i, fixed = T)}))
-filepaths_warnings = filepaths_warnings[!idxs]
+# Loop through all warning dataframes and find the row corresponding to the optimal sigma_crit; save result
+foreach(i = filepaths_warnings,
+        i_merged = filepaths_warnings_merged,
+        i_cond_summ = filepaths_warnings_cond_summ,
+        i_summ = filepaths_warnings_summ) %do% {
+  print(i)
+  warning_dfs = readRDS(i) %>% filter(trans_or_null == "transition",
+                                      sigma_crit <= max(criterion_df$sigma_crit, na.rm=T)) %>%
+    select(c(sigma_crit, metric, regime_switch,
+             first_warning_bifpar_idx, warning_signal,
+             score, data_idx, noise_iter, downsample_fs, sigma_obs_noise)) %>%
+    group_by(regime_switch, sigma_obs_noise, downsample_fs, metric) %>% group_split()
 
-# filepaths_warnings = filepaths_warnings[1500:1530]
-# Get warning per file
-filepath_warnings_YoudensJ = format_path(format_pars(modify_list(pars_general_template, list(type_output = "warnings",
-                                                                                     filename = "warnings_YoudensJ"))))
+   merged_df = foreach(warning_df = warning_dfs,.combine = 'rbind') %do% {
 
-# Split into batches
-nr_batches = 50
-filepath_warnings_YoudensJ_batch = lapply(1:nr_batches, function(batch){stringr::str_replace(filepath_warnings_YoudensJ, ".RDS", paste0("_", batch, ".RDS"))})
-batch_idxs = split(1:length(filepaths_warnings), cut(seq_along(1:length(filepaths_warnings)),nr_batches,labels = FALSE))
+     # nrow(warning_df %>% select(-c(sigma_crit,score,first_warning_bifpar_idx,warning_signal)) %>% unique())
+          merge(criterion_df, warning_df)
+   }
 
-foreach(batch = 1:nr_batches) %do% {
+   rm(warning_dfs)
+   saveRDS(merged_df, i_merged)
 
-  if (!file.exists(filepath_warnings_YoudensJ_batch[[batch]])){
-    warnings_YoudensJ_batch = foreach(i = batch_idxs[[batch]],
-      # i = 1:length(filepaths_warnings),
-                                                      filepath_warnings = filepaths_warnings[batch_idxs[[batch]]],
-                                .packages = "dplyr",
-                                                      .combine = 'rbind') %dopar% {
-                                                        if(i %% 100 == 0){print(sprintf("%s i = %d %.4f %%", Sys.time(), i, i / length(filepaths_warnings)))}
-                                                        # print(sprintf("%s i = %d %.4f %%", Sys.time(), i, i / length(filepaths_warnings)))
-                                                        warning_df = readRDS(filepath_warnings)$warning_df %>% select(-c("trans_or_null", "nr_patches", "nr_warnings", "baseline_steps", "transition_steps", "warning_signal"))
-      return(merge(criterion_df, warning_df) %>% select(-c("sum_tp", "sum_fp", "sum_tn", "sum_fn")))
-                                                      }
-    saveRDS(warnings_YoudensJ_batch, filepath_warnings_YoudensJ_batch[[batch]])
-    rm(warnings_YoudensJ_batch)
-  }
+   # Summarise direction and timing across condition and aggregating across conditions
+   merged_df_cond = merged_df %>%
+     group_by(metric, regime_switch, sigma_obs_noise, downsample_fs)
+   merged_df_aggr = merged_df %>%
+     group_by(metric, regime_switch)
+
+   summ_dir_timing = function(x){
+     summ_df =   x %>%
+       # # Remove outliers to not mess up the scaling of the plot
+       # filter((score > quantile(score, .01, na.rm = T, names = F)) & (score < quantile(score, .99, na.rm= T, names = F))) %>%
+       dplyr::summarise(nr_positive = sum(score > 0, na.rm = T),
+                        nr_negative = sum(score < 0, na.rm = T),
+                        nr_zero = sum(score == 0, na.rm = T),
+                        no_warning = sum(is.na(score)),
+                        mean_score = mean(score, na.rm = T),
+                        median_score = median(score, na.rm = T),
+                        median_first_warning_bifpar_idx = median(first_warning_bifpar_idx, na.rm= T),
+                        .groups = 'drop'
+       )  %>%
+       mutate(direction_summary = ifelse(nr_positive > 0 & nr_negative == 0 & nr_zero == 0, "Positive", ifelse(nr_positive == 0 & nr_negative > 0 & nr_zero == 0, "Negative", ifelse(nr_positive > 0 & nr_negative > 0 & nr_zero == 0, "Mixed", "?")))) %>%
+       mutate(regime_switch_label =
+                recode_factor(regime_switch, !!!purrr::flatten(regimes_switch_labels), .default = NULL, .ordered=T)) %>%
+       mutate(regime_switch_class = dplyr::recode_factor(regime_switch, !!!regime_switch_to_class) %>% stringr::str_replace("-", "- ") %>% factor(levels = c("Fixed- Point", "Period- Doubling", "Period- Halving", "Chaotic")))  %>%
+       mutate(metric_label =
+                recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
+       mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral")))
+       return(summ_df)
+   }
+
+   summ_merged_df_cond = summ_dir_timing(merged_df_cond)
+   summ_merged_df = summ_dir_timing(merged_df_aggr)
+
+  rm(merged_df)
+  saveRDS(summ_merged_df_cond, i_cond_summ)
+  saveRDS(summ_merged_df, i_summ)
+  rm(summ_merged_df)
   return(NULL)
-
-}
-# Compile batches
-warnings_YoudensJ = foreach(batch = 1:nr_batches, .combine = 'rbind') %do% {
-  return(readRDS(filepath_warnings_YoudensJ_batch[[batch]]))
-}
-saveRDS(warnings_YoudensJ, filepath_warnings_YoudensJ)
-# # Delete batch files
-# if (file.exists(filepath_warnings_YoudensJ)){
-#   foreach(batch = 1:nr_batches) %do% {
-#     rm(filepath_warnings_YoudensJ_batch[[batch]])
-#   }
-# }
-warnings_YoudensJ = readRDS(filepath_warnings_YoudensJ)
-
-# Summarise
-summ_dir_timing = function(x){
-  summ_df =   x %>%
-    # # Remove outliers to not mess up the scaling of the plot
-    # filter((score > quantile(score, .01, na.rm = T, names = F)) & (score < quantile(score, .99, na.rm= T, names = F))) %>%
-    dplyr::summarise(nr_positive = sum(score > 0, na.rm = T),
-                     nr_negative = sum(score < 0, na.rm = T),
-                     nr_zero = sum(score == 0, na.rm = T),
-                     no_warning = sum(is.na(score)),
-                     mean_score = mean(score, na.rm = T),
-                     median_score = median(score, na.rm = T),
-                     median_first_warning_bifpar_idx = median(first_warning_bifpar_idx, na.rm= T),
-                     .groups = 'drop'
-    )  %>%
-    mutate(direction_summary = ifelse(nr_positive > 0 & nr_negative == 0 & nr_zero == 0, "Positive", ifelse(nr_positive == 0 & nr_negative > 0 & nr_zero == 0, "Negative", ifelse(nr_positive > 0 & nr_negative > 0 & nr_zero == 0, "Mixed", "?")))) %>%
-    mutate(regime_switch_label =
-             recode_factor(regime_switch, !!!purrr::flatten(regimes_switch_labels), .default = NULL, .ordered=T)) %>%
-    mutate(regime_switch_class = dplyr::recode_factor(regime_switch, !!!regime_switch_to_class) %>% stringr::str_replace("-", "- ") %>% factor(levels = c("Fixed- Point", "Period- Doubling", "Period- Halving", "Chaotic")))  %>%
-    mutate(metric_label =
-             recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
-    mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral")))
-  return(summ_df)
 }
 
-warnings_YoudensJ_per_cond = warnings_YoudensJ %>%
-  group_by(metric, regime_switch, sigma_obs_noise, downsample_fs) %>%
-  summ_dir_timing()
+# Read dataframes with selected warnings
+warnings_fitting_criterion_cond_summary = foreach(i =filepaths_warnings_cond_summ,
+                                             .combine = 'rbind') %do% {
+                                               return(readRDS(i))
+                                             }
+warnings_fitting_criterion_summary = foreach(i =filepaths_warnings_summ,
+                                             .combine = 'rbind') %do% {
+                                               return(readRDS(i))
+                                             }
+format(object.size(warnings_fitting_criterion_cond_summary), "Mb")
+format(object.size(warnings_fitting_criterion_summary), "Mb")
 
-warnings_YoudensJ_summ = warnings_YoudensJ %>%
-  group_by(metric, regime_switch) %>%
-  summ_dir_timing()
-
-warnings_YoudensJ_per_cond  %>%
-  group_by(metric, regime_switch, sigma_obs_noise, downsample_fs) %>%
-  dplyr::summarise(n = n()) %>% as.data.frame()
-
-warnings_YoudensJ  %>%
-  group_by(metric, regime_switch, sigma_obs_noise, downsample_fs) %>%
-  dplyr::summarise(n = n()) %>% as.data.frame()
-
-##
-# filepaths_warnings = list.files(
-#   pattern = "warnings*.RDS", full.names = TRUE, recursive = TRUE)
-# filepaths_warnings_merged = stringr::str_replace(filepaths_warnings, ".RDS", sprintf("_merged_YoudensJ.RDS"))
-# filepaths_warnings_cond_summ = stringr::str_replace(filepaths_warnings, ".RDS", sprintf("_cond_summ_YoudensJ.RDS"))
-# filepaths_warnings_summ = stringr::str_replace(filepaths_warnings, ".RDS", sprintf("_summ_YoudensJ.RDS"))
-#
-# # Loop through all warning dataframes and find the row corresponding to the optimal sigma_crit; save result
-# foreach(i = filepaths_warnings,
-#         i_merged = filepaths_warnings_merged,
-#         i_cond_summ = filepaths_warnings_cond_summ,
-#         i_summ = filepaths_warnings_summ) %do% {
-#   print(i)
-#   warning_dfs = readRDS(i) %>% filter(trans_or_null == "transition",
-#                                       sigma_crit <= max(criterion_df$sigma_crit, na.rm=T)) %>%
-#     select(c(sigma_crit, metric, regime_switch,
-#              first_warning_bifpar_idx, warning_signal,
-#              score, data_idx, noise_iter, downsample_fs, sigma_obs_noise)) %>%
-#     group_by(regime_switch, sigma_obs_noise, downsample_fs, metric) %>% group_split()
-#
-#    merged_df = foreach(warning_df = warning_dfs,.combine = 'rbind') %do% {
-#
-#      # nrow(warning_df %>% select(-c(sigma_crit,score,first_warning_bifpar_idx,warning_signal)) %>% unique())
-#           merge(criterion_df, warning_df)
-#    }
-#
-#    rm(warning_dfs)
-#    saveRDS(merged_df, i_merged)
-#
-#    # Summarise direction and timing across condition and aggregating across conditions
-#    merged_df_cond = merged_df %>%
-#      group_by(metric, regime_switch, sigma_obs_noise, downsample_fs)
-#    merged_df_aggr = merged_df %>%
-#      group_by(metric, regime_switch)
-#
-#    summ_dir_timing = function(x){
-#      summ_df =   x %>%
-#        # # Remove outliers to not mess up the scaling of the plot
-#        # filter((score > quantile(score, .01, na.rm = T, names = F)) & (score < quantile(score, .99, na.rm= T, names = F))) %>%
-#        dplyr::summarise(nr_positive = sum(score > 0, na.rm = T),
-#                         nr_negative = sum(score < 0, na.rm = T),
-#                         nr_zero = sum(score == 0, na.rm = T),
-#                         no_warning = sum(is.na(score)),
-#                         mean_score = mean(score, na.rm = T),
-#                         median_score = median(score, na.rm = T),
-#                         median_first_warning_bifpar_idx = median(first_warning_bifpar_idx, na.rm= T),
-#                         .groups = 'drop'
-#        )  %>%
-#        mutate(direction_summary = ifelse(nr_positive > 0 & nr_negative == 0 & nr_zero == 0, "Positive", ifelse(nr_positive == 0 & nr_negative > 0 & nr_zero == 0, "Negative", ifelse(nr_positive > 0 & nr_negative > 0 & nr_zero == 0, "Mixed", "?")))) %>%
-#        mutate(regime_switch_label =
-#                 recode_factor(regime_switch, !!!purrr::flatten(regimes_switch_labels), .default = NULL, .ordered=T)) %>%
-#        mutate(regime_switch_class = dplyr::recode_factor(regime_switch, !!!regime_switch_to_class) %>% stringr::str_replace("-", "- ") %>% factor(levels = c("Fixed- Point", "Period- Doubling", "Period- Halving", "Chaotic")))  %>%
-#        mutate(metric_label =
-#                 recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
-#        mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral")))
-#        return(summ_df)
-#    }
-#
-#    summ_merged_df_cond = summ_dir_timing(merged_df_cond)
-#    summ_merged_df = summ_dir_timing(merged_df_aggr)
-#
-#   rm(merged_df)
-#   saveRDS(summ_merged_df_cond, i_cond_summ)
-#   saveRDS(summ_merged_df, i_summ)
-#   rm(summ_merged_df)
-#   return(NULL)
-# }
-#
-# # Read dataframes with selected warnings
-# warnings_YoudensJ_per_cond = foreach(i =filepaths_warnings_cond_summ,
-#                                              .combine = 'rbind') %do% {
-#                                                return(readRDS(i))
-#                                              }
-# warnings_YoudensJ_summ = foreach(i =filepaths_warnings_summ,
-#                                              .combine = 'rbind') %do% {
-#                                                return(readRDS(i))
-#                                              }
-# format(object.size(warnings_YoudensJ_per_cond), "Mb")
-# format(object.size(warnings_YoudensJ_summ), "Mb")
-#
-# warnings_YoudensJ_summ %>% as.data.frame() %>% head
+warnings_fitting_criterion_summary %>% as.data.frame() %>% head
 
 # Direction EWS heatmap ---------------------------------------------------
 # Direction aggregated across conditions
-pl_dir_across_cond = warnings_YoudensJ_summ  %>%
+pl_dir_across_cond = warnings_fitting_criterion_summary  %>%
   rowwise() %>%
   mutate(perc_pos = nr_positive / (nr_positive + nr_negative + nr_zero) * 100) %>% ungroup() %>%
   ggplot() +
@@ -347,7 +255,7 @@ save_plot(
 print(filepath_image)
 
 # Direction per condition
-pl_dir_per_cond = warnings_YoudensJ_per_cond  %>%
+pl_dir_per_cond = warnings_fitting_criterion_cond_summary  %>%
   mutate(downsample_fs_label = latex2exp::TeX(sprintf("$f_{s} = %.2f$", downsample_fs), output = 'character')) %>%
   mutate(sigma_obs_noise_label = latex2exp::TeX(sprintf("$sigma_{obs} = $%.4f", sigma_obs_noise), output = 'character')) %>%
   ggplot() +
@@ -420,7 +328,7 @@ print(filepath_image)
 
 #  Timing EWS -------------------------------------------------------------
 # Summary timing
-pl_timing = warnings_YoudensJ_summ  %>%
+pl_timing = warnings_fitting_criterion_summary  %>%
   # Set transition at t = 0
   mutate(median_first_warning_bifpar_idx = (median_first_warning_bifpar_idx-pars_general_template$transition_steps)) %>%
   # Manipulate yintercept to fit all EWS (not meaningful placement, for illustration purposes)
@@ -444,7 +352,7 @@ pl_timing = warnings_YoudensJ_summ  %>%
   viridis::scale_color_viridis(name="Metric", discrete = T,
                                labels = scales::parse_format(),
                                option = "turbo", begin = 0, end = 1) +
-  scale_x_continuous(n.breaks = 5, limits = c(-100,0), expand = c(0, 0)) +
+  scale_x_continuous(n.breaks = 5, limits = c(-100,0), expand = c(.01, 0)) +
   labs(x = "Steps before transition",
        y= "", title = ""  ) +
   scale_y_continuous(position = 'right', expand = c(0.2,0.2)) +
@@ -504,7 +412,7 @@ save_plot(
   formats = ".pdf")
 
 # AUC ---------------------------------------------------------------------
-pl_summ_discr = EWS_warnings_AUC %>%
+  pl_summ_discr = EWS_warnings_AUC %>%
     group_by(regime_switch, metric) %>%
     dplyr::summarise(median_AUC = median(AUC, na.rm=TRUE), sd_AUC = sd(AUC, na.rm=TRUE),
                      mad_AUC = mad(AUC, na.rm= TRUE),
@@ -578,7 +486,169 @@ pl_summ_discr = EWS_warnings_AUC %>%
             ),
       ),
     filepath_image,
-    w = 15,h = 10,
+    w = 15,h = 9,
     formats = ".pdf")
   print(filepath_image)
 
+
+
+#old?
+# Direction ---------------------------------------------------------------
+
+
+plot_direction <- function(pars_template, EWS_warnings_, grouping_keys, width = 100, height = 40){
+
+  filename = grouping_keys %>% t() %>% as.data.frame()%>%
+    tibble::rownames_to_column() %>%
+    dplyr::mutate_all (~ trimws(.x))%>%
+    apply(1, paste0, collapse = "_") %>% paste0(collapse="_")
+
+  pl_directionEWS = EWS_warnings_ %>%
+    mutate(regime_switch_label =
+             recode_factor(regime_switch, !!!purrr::flatten(regimes_switch_labels), .default = NULL, .ordered=T)) %>%
+    # mutate(regime_switch_label = stringr::str_replace(regime_switch_label, "(Backward)", "\n(Backward)")) %>%
+    # mutate(regime_switch_label = stringr::str_replace(regime_switch_label, "Cascade", "\nCascade")) %>%
+    mutate(regime_switch_class = dplyr::recode_factor(regime_switch, !!!regime_switch_to_class) %>% stringr::str_replace("-", "- ") %>% factor(levels = c("Fixed- Point", "Period- Doubling", "Period- Halving", "Chaotic")))  %>%
+    mutate(metric_label =
+             recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
+    mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral")))  %>%
+    ggplot(aes(x = sigma_crit, y = score, col = trans_or_null
+               )) +
+    geom_hline(aes(yintercept = 0), alpha = .75, color = 'grey30') +
+    geom_jitter(alpha = .2, size = .5, width = .2, shape = 16) +
+    viridis::scale_color_viridis(name = "", option = 'A', discrete=T, begin = .2, end = .9) +
+    ggh4x::facet_nested(regime_switch_class + regime_switch_label ~ metric_label,
+                        strip = ggh4x::strip_nested(size = "variable", clip = "off"),
+                        scale = "free_y",
+                        switch = "y",
+                        labeller = labeller(.cols = label_parsed, .rows = label_wrap_gen(width = 12)
+                                            )
+    )  +
+    labs(y = "Warning Signal (standardized)", x = latex2exp::TeX("Critical cut-off $\\sigma_{crit}$"), title = filename) +
+    scale_y_continuous( position = 'right')+
+    scale_x_continuous(expand=c(0,0)) +
+    guides(
+      color = guide_legend(title.position = "top", ncol = 2,
+                           override.aes = list(alpha = 1, size = 4
+                           ))
+    )
+
+  filepath_image = format_path(format_pars(modify_list(
+    pars_template,
+    list(
+      type_output = "figs",
+      subfolder1 = "directionEWS",
+      filename =filename,
+      file_ext = ".png"
+    )
+  )))
+  save_plot(
+    style_plot(pl_directionEWS) +
+      theme(strip.text = element_text(colour = 'gray10'),
+            strip.background = element_rect(
+              fill = NA, linewidth=.75)) +
+      theme(
+            panel.border = element_rect(color = 'gray30', fill = NA, linewidth = .5),
+            # strip.placement = "outside",
+            strip.text.y.left = element_text(hjust = .5, vjust = .5,
+              angle = 0,
+              size = 10
+            ),
+            strip.text.x = element_text(
+               size = 10
+            )
+      ) +
+    theme(legend.position = 'bottom'),
+    filepath_image,
+    w = width,
+    h = height,
+    formats = ".png", resolution = 800)
+  print(filepath_image)
+
+  rm(EWS_warnings_)
+  rm(pl_directionEWS)
+
+}
+
+EWS_warnings_grouped=EWS_warnings%>%
+  dplyr::group_by(downsample_fs, sigma_obs_noise, transition_steps, baseline_steps)%>%# dplyr::group_keys()
+  dplyr::group_map(~ plot_direction(pars_general_template,
+                                    .x, .y))
+
+# Specific EWS and condition
+EWS_warnings_grouped=EWS_warnings%>%
+  dplyr::group_by(downsample_fs, sigma_obs_noise, transition_steps, baseline_steps)%>%# dplyr::group_keys()
+  filter(
+    sigma_obs_noise == .02,
+    downsample_fs == 10, metric == "Smax_X2" | metric == "skewness_var3" | metric == "spatial_variance"
+  )%>%
+  dplyr::group_map(~ plot_direction(pars_general_template,
+                                    .x, .y, width = 17, height = 28))
+
+
+
+
+plot_timing <- function(pars_template, EWS_warnings_, grouping_keys, width = 100, height = 40){
+
+  filename = grouping_keys %>% t() %>% as.data.frame()%>%
+    tibble::rownames_to_column() %>%
+    dplyr::mutate_all (~ trimws(.x))%>%
+    apply(1, paste0, collapse = "_") %>% paste0(collapse="_")
+
+  pl_timingEWS = EWS_warnings_ %>%
+    mutate(first_warning_bifpar_idx = first_warning_bifpar_idx - 100) %>%
+    ggplot(aes(x = sigma_crit, y = first_warning_bifpar_idx, col = trans_or_null
+    )) +
+    geom_jitter(alpha = .2, size = .5, width = .2, shape = 16) +
+    viridis::scale_color_viridis(name = "", option = 'A', discrete=T, begin = .2, end = .9) +
+    ggh4x::facet_nested(regime_switch ~ metric,
+                        strip = ggh4x::strip_nested(size = "variable", clip = "off"),
+                        scale = "free_y",
+                        switch = "y",
+                        labeller = labeller(.cols = label_parsed, .rows = label_wrap_gen(width = 12)
+                        )
+    )  +
+    labs(y = "Timepoints before transition", x = latex2exp::TeX("Critical cut-off $\\sigma_{crit}$"), title = filename) +
+    scale_y_continuous( position = 'right')+
+    scale_x_continuous(expand=c(0,0)) +
+    guides(
+      color = guide_legend(title.position = "top", ncol = 2,
+                           override.aes = list(alpha = 1, size = 4
+                           ))
+    )
+
+  filepath_image =  "test.png"
+  save_plot(
+    style_plot(pl_timingEWS) +
+      theme(strip.text = element_text(colour = 'gray10'),
+            strip.background = element_rect(
+              # color = 'gray30',
+              fill = NA, linewidth=.75)) +
+      theme(
+        panel.border = element_rect(color = 'gray30', fill = NA, linewidth = .5),
+        # strip.placement = "outside",
+        strip.text.y.left = element_text(hjust = .5, vjust = .5,
+                                         angle = 0,
+                                         size = 10
+        ),
+        strip.text.x = element_text(
+          size = 10
+        )
+      ) +
+      # theme(
+      # strip.text.y = element_text(angle = 0),
+      # strip.text.x = element_text(angle = 90),
+      # ) +
+      theme(legend.position = 'bottom'),
+    filepath_image,
+    w = width,
+    h = height,
+    formats = ".png",
+    # resolution = 800
+    )
+  print(filepath_image)
+
+  rm(EWS_warnings_)
+  rm(pl_timingEWS)
+
+}

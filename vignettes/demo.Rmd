@@ -28,9 +28,9 @@ library(ggplot2)
 library(foreach)
 ```
 
-### Generating timeseries
+## Generating timeseries
 
-To generate timeseries for the GLV, we need to specify the value of the control parameter $s$. Let's see what the GLV looks like for $s = .98$.
+To generate timeseries for the Generalised Lotka-Volterra (GLV) model, we need to specify the value of the control parameter $s$. Let's see what the GLV looks like for $s = .98$.
 
 ```{r}
 pars <- setup_pars(model_name = "detGLV")
@@ -88,7 +88,7 @@ pl_ts = GLV_dfs %>%
   
 print(style_plot(pl_ts) + theme(legend.position = 'none'))
 ```
-These dynamics can be better visualised in 3D phase space, where the underlying attractors becomes apparent. Click and move them around!
+These dynamics can be better visualised in 3D phase space, where the underlying attractors become apparent. Click to zoom in and move them around!
 
 ```{r 3D phase space}
 landscape_GLVs = plot_3D_landscape_trans(GLV_dfs %>% filter(time > nr_timesteps*.25),
@@ -103,10 +103,10 @@ print(landscape_GLVs)
 
 ## Generating bifurcations
 
-By changing $s$ gradually, we may produce *bifurcations*: qualitative changes in the dynamics due to small changes in the control parameter. Below we simulate a *subduction*: a sudden switch from periodic to chaotic behaviour.
+By changing $s$ gradually, we may produce *bifurcations*: qualitative changes in system dynamics due to small changes in the control parameter. Below we generate a *subduction*: a sudden switch from periodic to chaotic behaviour.
 
 ```{r}
-# Specify bifurcation parameter
+# Specify bifurcation parameter change
 bifpar_pars = list(
   bifpar_start = 1.01,
   bifpar_end = 1.02,
@@ -121,15 +121,109 @@ GLV = bifurcation_ts(model = pars$model, model_pars = pars$model_pars,
                  bifpar_pars = bifpar_pars,
                  nr_timesteps = nr_timesteps,
                  X_names = pars$X_names,
+                   fs = pars$fs,
                  seed_nr = round(s*100), silent = F
                  )
 
 # Plot 3D landscape
 sel_bifpar_idxs = round(c(.1, .15, .2, .25, .3, 1) * length(GLV$bifpar_list)) 
 landscape_GLVs = plot_3D_landscape_trans(GLV$df %>% 
-                                           filter(win_nr > nr_timesteps*.25),
+                                           filter(time > nr_timesteps*.25),
                                          bifpar_idxs = sel_bifpar_idxs,
                                          bifpar_values = purrr::map(GLV$bifpar_list[sel_bifpar_idxs], "s"), 
+                                         size_line = .05, size_marker = .5
+                                         # x1_range = c(0,.5), x2_range = c(0.25,0.75),
+                                         # x3_range = c(0,0.5)
+                                         )
+print(landscape_GLVs)
+```
+
+Small variations in the initial conditions can create differences in the timing of the bifurcation.
+
+```{r}
+GLVs = list()
+seeds = 1:6
+
+for (seed in seeds){
+
+  # Simulate timeseries
+  GLV = bifurcation_ts(model = pars$model, model_pars = pars$model_pars,
+                 bifpar_pars = bifpar_pars,
+                 nr_timesteps = nr_timesteps,
+                 X_names = pars$X_names,
+                 fs = pars$fs,
+                 seed_nr = seed, silent = F
+                 )
+  GLVs[[seed]] = GLV$df %>% dplyr::mutate(s = seed, bifpar_idx = seed)
+  
+}
+GLV_dfs = GLVs %>% do.call(rbind, .) %>% as.data.frame()
+
+
+# Plot landscape
+landscape_GLVs = plot_3D_landscape_trans(GLV_dfs %>% filter(time > nr_timesteps*.25),
+                                         bifpar_idxs = seq_along(seeds),
+                                         bifpar_values = seeds, 
+                                         size_line = .05, size_marker = .5
+                                         # x1_range = c(0,.5), x2_range = c(0.25,0.75),
+                                         # x3_range = c(0,0.5)
+                                         )
+print(landscape_GLVs)
+```
+
+
+
+Hopf bifurcation
+
+```{r}
+# Specify bifurcation parameter change
+bifpar_pars = list(
+  bifpar_start = .8,
+  bifpar_end = .84,
+  pre_steps = 0,
+  baseline_steps = 0,
+  transition_steps = 51,
+  post_steps = 0
+)
+
+GLVs = list()
+seeds = 1:3
+
+# cl <- parallel::makeCluster(6)
+# doParallel::registerDoParallel(cl)
+
+GLV_dfs = foreach::foreach(seed = seeds, .combine = 'rbind', .packages = c("dplyr",  "bifurcationEWS")){
+
+  # Simulate timeseries
+  GLV = bifurcation_ts(model = pars$model, model_pars = pars$model_pars,
+                 bifpar_pars = bifpar_pars,
+                 nr_timesteps = nr_timesteps,
+                 X_names = pars$X_names,
+                 fs = pars$fs,
+                 seed_nr = seed, silent = F
+                 )
+  return(GLV$df %>% dplyr::mutate(s = seed, bifpar_idx = seed))
+  
+}
+# GLV_dfs = GLVs %>% do.call(rbind, .) %>% as.data.frame()
+
+# Timeseries plot
+pl_ts = GLV_dfs %>% 
+  filter(time > nr_timesteps*.25) %>%
+  ggplot() + 
+  geom_line(aes(x = time_idx, y = X1, color = factor(s)), linewidth = .1) +
+  geom_point(aes(x = time_idx, y = X1, color = factor(s)), size = .1) +
+    labs(x = 'Time', y = expression(X[1]), title = "Timeseries") + 
+  facet_wrap(s ~ ., ncol = 2) +
+  viridis::scale_color_viridis(discrete=TRUE, name = "Bifurcation parameter") +
+  coord_cartesian(expand = F)
+  
+print(style_plot(pl_ts) + theme(legend.position = 'none'))
+
+# Plot landscape
+landscape_GLVs = plot_3D_landscape_trans(GLV_dfs %>% filter(time > nr_timesteps*.25),
+                                         bifpar_idxs = seq_along(seeds),
+                                         bifpar_values = seeds, 
                                          size_line = .05, size_marker = .5
                                          # x1_range = c(0,.5), x2_range = c(0.25,0.75),
                                          # x3_range = c(0,0.5)

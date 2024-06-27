@@ -1,13 +1,11 @@
 # Load packages
 # devtools::install_github("KCEvers/bifurcationEWS", force = TRUE,
 # upgrade = c("default", "ask", "always", "never")[4])
-# # # # #
-
 
 # Setup parallelization
 cl <- parallel::makeCluster(parallel::detectCores())
 doParallel::registerDoParallel(cl)
-# cl <- parallel::makeCluster(1)
+# cl <- parallel::makeCluster(6)
 # doParallel::registerDoParallel(cl)
 
 library(bifurcationEWS)
@@ -52,8 +50,6 @@ pars_general_template = setup_pars(model_name = "detGLV",
                                                    sigma_crit_step = .01,
 
                                                    thresh_max_sigma_crit = 150
-                                                   # sigmas_crit = seq(.25, 10, by = .25),
-
                                    ))
 
 regime_switch_names = c(
@@ -61,15 +57,15 @@ regime_switch_names = c(
   # "Hopf" # near check
   # "PD_to_Chaos" # doing
   # "PH_from_Chaos" # doing
-  "Interior-Crisis-Separation"# doing 10 1 .1
+  # "Interior-Crisis-Separation"# doing 10 1 .1
   # "Interior-Crisis-Merging" # TO DO
-  # "Boundary-Crisis" # check 10 1 .1
+  "Boundary-Crisis" # check 10 1 .1
   #
   # "complete_forwards"
   # "complete_backwards"
 )
 # regime_switch_name = "Interior-Crisis-Separation"
-# regime_switch_name = "Boundary-Crisis"
+regime_switch_name = "Boundary-Crisis"
 # regime_switch_name = "Interior-Crisis-Merging"
 # regime_switch_name =  "PD_to_Chaos"
 # regime_switch_name =  "PH_from_Chaos"
@@ -109,4 +105,7 @@ for (regime_switch_name in regime_switch_names){
   source('eval_performance_EWS_GLV.R')
 
 }
+
+# source('summarise_EWS_GLV.R')
+
 parallel::stopCluster(cl)

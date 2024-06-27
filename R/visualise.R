@@ -447,13 +447,13 @@ plot_bifdiag = function(regime_list,
     scale_y_continuous(breaks = c(0, .25, .5, .75, 1)
                        )
 
-  factor_fs = 1 #ifelse(length(sel_variables) == 1, 2, 4)
+  factor_fs = 3 # 1 #ifelse(length(sel_variables) == 1, 2, 4)
   fs = c(
     "strip.text.x" = 16*factor_fs,
     "strip.text.y" = 16*factor_fs,
     "axis.text" = 12*factor_fs,
     "axis.title" = 16*factor_fs,
-    "legend.text" = 12*factor_fs,
+    "legend.text" = 16*factor_fs,
     "legend.title" = 14*factor_fs
   )
 
@@ -472,8 +472,10 @@ plot_bifdiag = function(regime_list,
     save_plot(
       pl,
       filepath_image,
+      # w = 10*factor_resolution,
+      # h = 3+4.5*length(sel_variables)*factor_resolution,
       w = 10*factor_resolution,
-      h = 3+4.5*length(sel_variables)*factor_resolution,
+      h = 3.25*length(sel_variables)*factor_resolution,
       resolution = resolution,
       formats = ".pdf")
     print(filepath_image)

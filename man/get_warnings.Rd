@@ -8,8 +8,8 @@ get_warnings(
   split_df_EWS,
   baseline_idx,
   transition_idx,
-  sigma_crit_step = 0.25,
-  thresh_max_sigma_crit = 500,
+  sigma_crit_step = 0.01,
+  thresh_max_sigma_crit = 150,
   nr_consecutive_warnings = 1
 )
 }
