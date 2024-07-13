@@ -54,6 +54,7 @@ plot_3D_landscape <- function(df,
 #' @param xaxis_title Title of X-axis
 #' @param yaxis_title Title of Y-axis
 #' @param zaxis_title Title of Z-axis
+#' @param fontsize_axistitle Font size of axis title
 #' @param showticklabels Logical indicating whether to show axis tick labels
 #' @param showlegend Logical indicating whether to show the legend
 #'
@@ -70,6 +71,7 @@ plot_3D_landscape_trans <- function(df,
                                    xaxis_title = NULL,
                                    yaxis_title = NULL,
                                    zaxis_title = NULL,
+                                   fontsize_axistitle = 10,
                                    xvar = "X1", yvar = "X2", zvar = "X3",
                                    showticklabels = TRUE,
                                    showlegend = TRUE,
@@ -119,7 +121,7 @@ plot_3D_landscape_trans <- function(df,
   }
    grid_color = "grey100"
     scenes = list(xaxis = list(title=list(text=xaxis_title, standoff = 50,
-                                          font=list(size=5, family='Courier')),
+                                          font=list(size=fontsize_axistitle, family='Courier')),
                                nticks = 2,
                                zerolinecolor = grid_color,
                                grid_width = .01,
@@ -131,7 +133,7 @@ plot_3D_landscape_trans <- function(df,
                                range = x_range
                               ),
                   yaxis = list(title=list(text=yaxis_title, standoff = 50,
-                                          font=list(size=5, family='Courier')),
+                                          font=list(size=fontsize_axistitle, family='Courier')),
                                nticks = 2,
                                zerolinecolor = grid_color,
                                gridcolor = grid_color,
@@ -142,7 +144,7 @@ plot_3D_landscape_trans <- function(df,
                                range = y_range
                                ),
                   zaxis = list(title=list(text=zaxis_title, standoff = 50,
-                                          font=list(size=5, family='Courier')),
+                                          font=list(size=fontsize_axistitle, family='Courier')),
                                nticks = 2,
                                zerolinecolor = grid_color,
                                gridcolor =grid_color,
