@@ -1,23 +1,3 @@
-#
-# paths = list.files("/gpfs/work4/0/einf6180/proj-EWS-GLV/HPC/detGLV/warnings/", recursive = T, full.names=T)
-# paths = list.files(path = "/gpfs/work4/0/einf6180/proj-EWS-GLV/HPC/detGLV/warnings/", pattern = ".*nr.*", recursive = T, full.names=T)
-#
-#
-# lapply(1:length(paths), function(i){
-# if (i %% 1000 == 0){print(i / length(paths) * 100)}
-#   list_ = readRDS(paths[i])
-#   df = list_$warning_df
-#   if ("metric" %in% colnames(df)){
-# # Remove later**, correct mistake
-# df = df %>%
-#   filter(!grepl("spectral_ratio_LF0.05_HF0.5", metric, fixed = T)) %>%
-#   filter(!grepl("spectral_ratio_LF0.005_HF0.5", metric, fixed = T)) #%>%
-#   # filter(!grepl("spectral_exp", metric, fixed = T))
-# list_$warning_df = df
-# saveRDS(list_, paths[i])
-# }
-# })
-
 print("Start evaluating performance of EWS!")
 source('visualise_helpers.R')
 rerun = F
@@ -87,8 +67,6 @@ filepaths_warnings = foreach(for_par = forloop,
         file.remove(filepath_warnings)
       }
     }
-
-    # if (file.exists(filepath_GLV) & file.exists(filepath_EWS) & (!file.exists(filepath_warnings) | rerun)){
       if ( file.exists(filepath_EWS) & (!file.exists(filepath_warnings) | rerun)){
       print(filepath_warnings)
 
@@ -214,23 +192,6 @@ EWS_warnings_ROC = plyr::ldply(unlist(purrr::map(filepaths_ROC_AUC, "ROC")),
 EWS_warnings_AUC = plyr::ldply(unlist(purrr::map(filepaths_ROC_AUC, "AUC")),
                                function(x){readRDS(x)})
 
-# EWS_warnings = foreach(filepath_warnings = filepaths_warnings,
-#                        for_par = forloop,
-#                        .combine='rbind') %dopar% {
-#                          if(!is.null(filepath_warnings)){
-#                            return(
-#                              readRDS(filepath_warnings)$warning_df
-#                            )
-#                          }
-#                        }
-# saveRDS(EWS_warnings, filepath_all_warnings)
-# print(head(EWS_warnings) %>% as.data.frame())
-#
-# # Compute ROC and AUC
-# grouping_vars = setdiff(names(forloop[[1]]), c("data_idx","noise_iter", "trans_or_null"))
-# EWS_warnings_ROC = warnings_to_ROC(EWS_warnings, grouping_vars)
-# EWS_warnings_AUC = ROC_to_AUC(EWS_warnings_ROC, grouping_vars)
-
 # Save
 saveRDS(EWS_warnings_ROC, filepath_EWS_warnings_ROC)
 saveRDS(EWS_warnings_AUC, filepath_EWS_warnings_AUC)
@@ -246,16 +207,12 @@ EWS_warnings_AUC %>% dplyr::filter(AUC < .5) %>% as.data.frame() %>% head
 EWS_warnings_AUC %>% dplyr::filter(downsample_fs == 10, sigma_obs_noise == .0001, metric == "COV_var1", regime_switch == "PD_8to16") %>% as.data.frame()
 EWS_warnings_ROC %>% dplyr::filter(downsample_fs == 10, sigma_obs_noise == .0001, metric == "COV_var1", regime_switch == "PD_8to16") %>% as.data.frame()
 
-# %>% head
-
 ##### ROC
 # if (FALSE){
 
 plot_ROC <- function(x){
   x= x %>%
     select(-c("sum_tp", "sum_fp", "sum_tn", "sum_fn", "acc")) %>%
-    # mutate(regime_switch_label =
-    # recode_factor(regime_switch, !!!purrr::flatten(regimes_switch_labels), .default = NULL, .ordered=T)) %>%
     mutate(metric_label =
              recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
     rowwise() %>%
@@ -349,7 +306,6 @@ plot_AUC <- function(pars_template, EWS_warnings_AUC_sub, grouping_keys,
     dplyr::mutate(AUC_class = get_AUC_class(AUC)) %>% ungroup() %>%
     mutate(regime_switch_label =
              recode_factor(regime_switch, !!!purrr::flatten(regimes_switch_labels), .default = NULL, .ordered=T)) %>%
-    # mutate(regime_switch_class = dplyr::recode_factor(regime_switch, !!!regime_switch_to_class) %>% factor(levels = c("Fixed-Point", "Period-Doubling", "Period-Halving", "Chaotic")))  %>%
     mutate(metric_label =
              recode_factor(metric, !!!purrr::flatten(metric_labels), .default = NULL, .ordered=T)) %>%
     mutate(metric_class = dplyr::recode_factor(metric, !!!metric_to_class) %>% factor(levels = c("Generic", "Multivariate", "Spectral")))  %>%
@@ -417,8 +373,7 @@ plot_AUC <- function(pars_template, EWS_warnings_AUC_sub, grouping_keys,
 }
 
 EWS_warnings_AUC%>%
-  # dplyr::group_by(regime_switch, baseline_steps, transition_steps)%>%# dplyr::group_keys()
-  dplyr::group_by(regime_switch)%>%# dplyr::group_keys()
+  dplyr::group_by(regime_switch)%>%
   dplyr::group_map(~ plot_AUC(pars_template,
                               .x, .y), .keep = T)
 

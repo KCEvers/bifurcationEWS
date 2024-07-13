@@ -191,15 +191,12 @@ plot_3D_landscape_trans <- function(df,
 
     }
 
-
     # Merge plots
     fig <- plotly::subplot(plot_list,
                            nrows=nrows,
                            margin = 0,
                            shareX=TRUE, shareY=TRUE) %>%
       plotly::layout(
-     # automargin=F,
-     # autosize = F,
         margin = list(pad = 5, t = 5, b = 5, l = 5, r = 5),
         legend= list(itemsizing='constant'),
         showlegend = showlegend
@@ -229,8 +226,6 @@ plot_3D_landscape_trans <- function(df,
     # htmlwidgets::saveWidget(fig, "p1.html", selfcontained = T, libdir = "lib") #https://plotly-r.com/saving
     # In this case, if you wanted to share "p1.html" and/or "p2.html" with someone else, make sure to include the libdir folder, perhaps via a zip file:
     # zip("p1.zip", c("p1.html", "lib"))
-
-
     return(fig)
   }
 
@@ -246,9 +241,7 @@ plot_3D_landscape_trans <- function(df,
 #' @export
 style_plot <- function(pl,
                        col_pal = c(
-                         col_facet_labels = "#3C1A42FF"
-                         #scales::viridis_pal(option = "rocket", direction = -1)(20)[17]
-                                                                  ),
+                         col_facet_labels = "#3C1A42FF"),
                        fs = c()) {
   # Font parameters
   fs_default = c(
@@ -284,12 +277,9 @@ style_plot <- function(pl,
         size = as.numeric(fs["strip.text.x"]) + 2,
         margin = margin(0.1, 0.1, 0.1, 0.1, "cm")
       )
-      # panel.spacing.x = unit(0.2, "cm"),
-      # panel.spacing.y = unit(0.2, "cm") # Distance between facets
     ) +
     theme(strip.background = element_rect(fill = col_pal["col_facet_labels"], color = col_pal["col_facet_labels"])) + # Change facet rectangle colour
     theme(strip.text = element_text(colour = 'white')) +
-    # theme(legend.position = "none") + # Remove group legend
     theme(plot.title = element_text(hjust = 0.5),
           plot.subtitle = element_text(hjust = 0.5)) +
     theme(plot.margin = unit(c(10,10,10,10), "pt")) +
@@ -392,8 +382,8 @@ plot_bifdiag = function(regime_list,
       direction = 1,
       name = "",
       guide = guide_colorbar(
-        barheight = 5 + 5 * length(sel_variables), #14
-        barwidth = .75 * length(sel_variables), #14
+        barheight = 5 + 5 * length(sel_variables),
+        barwidth = .75 * length(sel_variables),
         reverse = TRUE,
         title.position = "top",
         title.hjust = 0.5,
@@ -442,7 +432,7 @@ plot_bifdiag = function(regime_list,
     scale_y_continuous(breaks = c(0, .25, .5, .75, 1)
                        )
 
-  factor_fs = 3 # 1 #ifelse(length(sel_variables) == 1, 2, 4)
+  factor_fs = 3
   fs = c(
     "strip.text.x" = 16*factor_fs,
     "strip.text.y" = 16*factor_fs,
@@ -467,8 +457,6 @@ plot_bifdiag = function(regime_list,
     save_plot(
       pl,
       filepath_image,
-      # w = 10*factor_resolution,
-      # h = 3+4.5*length(sel_variables)*factor_resolution,
       w = 10*factor_resolution,
       h = 3.25*length(sel_variables)*factor_resolution,
       resolution = resolution,
@@ -520,7 +508,6 @@ save_plot <-
           width = w,
           height = h,
           bg = "white",
-          # pointsize = 1 / 300,
           units = 'cm',
           res = resolution
         )
@@ -557,10 +544,6 @@ save_plot <-
       grDevices::dev.off()
     }
     if ("eps" %in% formats){
-      # grDevices::setEPS()
-      # grDevices::postscript(filepath_image %>% tools::file_path_sans_ext() %>% paste0(".eps"), fonts = "serif")
-      # grid::grid.draw(pl) # Make plot
-      # grDevices::dev.off()
       grDevices::cairo_ps(filepath_image %>% tools::file_path_sans_ext() %>% paste0(".eps"),
                           width = w,
                           height = h,

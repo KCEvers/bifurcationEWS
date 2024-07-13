@@ -51,61 +51,6 @@ forloop_ = c(
   })
 forloop = forloop_[!unlist(purrr::map(forloop_, is.null))]
 
-#
-# filepaths = foreach(
-#   for_par = forloop,
-#   .packages = c("bifurcationEWS", "dplyr", "ggplot2"),
-#   .export = c("pars_template")
-# ) %dopar% {
-#   .GlobalEnv$pars_template <- pars_template # Don't ask me why this is necessary...
-#
-#   pars <- modify_list(pars_template, for_par)
-#   pars$subfolder1 = for_par$regime_switch
-#
-#   # Get details of regime switch
-#   desired_switch = selected_regime_bounds %>% dplyr::filter(data_idx == pars$data_idx,
-#                                                             regime_switch == pars$regime_switch)
-#   if (nrow(desired_switch) > 0) {
-#     if (pars$trans_or_null == "transition") {
-#       bifpar_end = pars$bifpar_list[[desired_switch$regime2_start_idx]]$s
-#       pars$filename = sprintf("%s_%dtransSteps",
-#                               pars$trans_or_null,
-#                               pars$transition_steps)
-#       transition_steps = pars$transition_steps
-#     } else if (pars$trans_or_null == "null") {
-#       bifpar_end = NA
-#       pars$filename = for_par$trans_or_null
-#       transition_steps = pars$default_transition_steps
-#     }
-#
-#     filepath_GLV = format_path(format_pars(pars))
-#     filepath_regimes = format_path(format_pars(modify_list(pars, list(type_output = "regimes"))))
-#
-#     print(filepath_GLV)
-#     if (file.exists(filepath_GLV)){
-#           err1 = "try-error" %in% class(try(readRDS(filepath_GLV)))
-#     } else {
-#       err1 = FALSE
-#     }
-#     if (file.exists(filepath_regimes)){
-#       err2 = "try-error" %in% class(try(readRDS(filepath_regimes)))
-#     } else {
-#       err2 = FALSE
-#     }
-#     print(err1)
-#     print(err2)
-#     if (err1){
-#       file.remove(filepath_GLV)
-#     }
-#     if (err2){
-#       file.remove(filepath_regimes)
-#     }
-#     # return(file.exists(filepath_GLV))
-#   return(c(err1,err2))
-#   }
-# }
-#
-
 start_t = Sys.time()
 foreach(
   for_par = forloop,
@@ -185,27 +130,15 @@ foreach(
         keep_nr_timesteps = pars$keep_nr_timesteps
       )
 
-      #   print(regime_list$periods)
-        # print(regime_list$regimes)
-        # print(regime_list$regime_bounds)
-
       saveRDS(regime_list, filepath_regimes)
     }
 
-    # if (TRUE & pars$data_idx == 1 & file.exists(filepath_regimes)){
     if (F & file.exists(filepath_regimes)){
     regime_list = readRDS(filepath_regimes)
 
     # Plot regime results
     peaks_df = regime_list$peaks_df %>%
-      dplyr::filter(bifpar_idx > 1)# %>%
-    # group_by(bifpar_idx, variable) %>%
-    # arrange(.data$time_idx, .by_group=TRUE) %>%
-    # Only transient
-    # dplyr::filter(dplyr::row_number() <= round(n()*.2) ) %>% ungroup()
-    # Discard transient
-    # dplyr::filter(dplyr::row_number() >= round(n()*.8) ) %>% ungroup()
-
+      dplyr::filter(bifpar_idx > 1)
     point_size = 10 / length(unique(peaks_df$bifpar_idx))
 
     pl_peaks = peaks_df %>% dplyr::filter(variable=="X1") %>% ggplot() + geom_point(aes(x = bifpar_idx, y = X), size = point_size) +
@@ -218,8 +151,6 @@ foreach(
         subfolder1 = "regimes",
         subfolder2 = pars$subfolder1,
         filename = paste0("peaks-x1", "_", pars$filename),
-        # filename = paste0("only-transient_peaks-x1", "_", pars$filename),
-        # filename = paste0("discard-transient_peaks-x1", "_", pars$filename),
         file_ext = ".png"
       )
     )))
@@ -376,61 +307,6 @@ if (nrow(regime_bounds_successful_) > 0){
           .data$baseline_steps,
           .data$trans_or_null)
 
-# regime_bounds_successful = dplyr::bind_rows(
-#   # Null models should have correct first regime & regime switch as well as be of sufficient length
-#   regime_bounds_trans_df  %>%
-#     group_by(.data$regime_switch) %>%
-#     group_modify(~ apply_filter_regime_switches(.x,
-#                                         regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch],
-#                                         trans_or_null = "null") %>%
-#                    # Remove grouping variable from returned result as it will be appended anyway
-#                    select(-.data$regime_switch), .keep = TRUE) %>%
-#     # Add transition conditions
-#     mutate(count = rep(length(pars_template$transition_steps), n())) %>%
-#     tidyr::uncount(count) %>% dplyr::mutate(transition_steps = rep(pars_template$transition_steps, n() / length(pars_template$transition_steps))),
-#   regime_bounds_trans_df  %>%
-#     group_by(.data$regime_switch, .data$transition_steps) %>%
-#     group_modify(~ apply_filter_regime_switches(.x, regime_switch_list[unlist(purrr::map(regime_switch_list, "regime_switch")) == .y$regime_switch], trans_or_null = "transition") %>%
-#                    # Remove grouping variable from returned result as it will be appended anyway
-#                    select(-c(.data$regime_switch, .data$transition_steps)), .keep = TRUE)
-# ) %>% distinct() %>%
-#   # Add baseline condition
-#   mutate(count = rep(length(pars_template$baseline_steps), n())) %>%
-#   tidyr::uncount(count) %>%
-#   dplyr::mutate(baseline_steps = rep(pars_template$baseline_steps, n() / length(pars_template$baseline_steps))) %>%
-#   # Check for matching transition and null model per condition -> 2 timeseries per condition
-#   group_by(regime_switch, data_idx, transition_steps, baseline_steps) %>%
-#   # dplyr::summarise(n = n()) %>% as.data.frame()
-#   dplyr::filter(n() == 2) %>%
-#   ## Null models do not have an index where regime 2 started, so copy from corresponding transition condition
-#   # Copy start regime 2 from transition condition
-#   dplyr::mutate(transition_end_idx = regime2_start_idx[trans_or_null == "transition"] -1, seed_nr = cur_group_id()) %>%
-#   ungroup() %>%
-      # trans_or_null == "transition",
-#       pars_template$pre_steps + pars_template$default_baseline_steps,
-#       NA
-#     ),
-#     par_change_end_idx = ifelse(
-#       trans_or_null == "transition",
-#       pars_template$pre_steps + pars_template$default_baseline_steps + transition_steps,
-#       NA
-#     )
-#   ) %>%
-#   # Make sure there is enough baseline time for each model
-#   dplyr::filter_at(c("transition_start_idx", "transition_end_idx",
-#                      "baseline_start_idx", "baseline_end_idx"), ~ .x > 0) %>%
-#   # Only need X amount of models
-#   group_by(regime_switch, trans_or_null, transition_steps, baseline_steps) %>%
-#   dplyr::slice(1:pars_template$nr_required_models) %>% ungroup() %>%
-#   # Make sure there are enough transition steps
-#   # dplyr::filter(transition_end_idx <= (pars_template$pre_steps + pars_template$default_baseline_steps + transition_steps)) %>%
-#   arrange(data_idx,
-#           regime_switch,
-#           transition_steps,
-#           baseline_steps,
-#           trans_or_null)
-
-
 # Check
 regime_bounds_successful %>%
   # Should be n = 2, one transition and one null model
@@ -518,11 +394,8 @@ foreach(
     for (range_to_plot in c("full", "partial")){
       if (range_to_plot == "partial"){
         x_range_to_plot = c(min(all_peaks_df_X1 %>% pull(transition_end_idx), na.rm = T) - 12,
-                            max(all_peaks_df_X1 %>% pull(transition_end_idx), na.rm = T) + 6)
-        # all_peaks_df_X1_ = all_peaks_df_X1 %>% dplyr::filter(timestep_idx > (transition_end_idx - 10) & timestep_idx < (transition_end_idx + 10))
-      } else {
+                            max(all_peaks_df_X1 %>% pull(transition_end_idx), na.rm = T) + 6)      } else {
         x_range_to_plot = c(min(all_peaks_df_X1 %>% pull(timestep_idx)), max(all_peaks_df_X1 %>% pull(timestep_idx)))
-        # all_peaks_df_X1_ = all_peaks_df_X1
       }
         # Per regime switch, plot all simulations together
       pl_peaks = all_peaks_df_X1 %>%

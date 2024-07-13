@@ -18,12 +18,12 @@ pars_general_template = setup_pars(model_name = "detGLV",
                                                    min_length_regime_full = 10,
                                                    min_length_regime_trans = 10,
                                                    nr_required_models = 25,
-                                                   data_idxs = 1:(18*2),#1:(18),
+                                                   data_idxs = 1:(18*2),
                                                    pre_steps = 100,
-                                                   baseline_steps = 100,#c(25,100),#c(25,50,100),
+                                                   baseline_steps = 100,
                                                    default_transition_steps = 100,
                                                    default_baseline_steps = 100,
-                                                   transition_steps = 100,#c(25,100), #c(25,50,100),
+                                                   transition_steps = 100,
                                                    post_steps = 100,
                                                    nr_smooth_full = 0,
                                                    nr_smooth_trans = 0,
@@ -51,28 +51,19 @@ pars_general_template = setup_pars(model_name = "detGLV",
                                    ))
 
 regime_switch_names = c(
-  # "Saddle-Node" # near check
-  # "Hopf" # near check
-  # "PD_to_Chaos" # doing
-  # "PH_from_Chaos" # doing
-  # "Interior-Crisis-Separation"# doing 10 1 .1
-  # "Interior-Crisis-Merging" # TO DO
-  "Boundary-Crisis" # check 10 1 .1
-  #
+  "Saddle-Node",
+  "Hopf",
+  "PD_to_Chaos",
+  "PH_from_Chaos",
+  "Interior-Crisis-Separation",
+  "Interior-Crisis-Merging",
+  "Boundary-Crisis"
   # "complete_forwards"
   # "complete_backwards"
 )
-# regime_switch_name = "Interior-Crisis-Separation"
-regime_switch_name = "Boundary-Crisis"
-# regime_switch_name = "Interior-Crisis-Merging"
-# regime_switch_name =  "PD_to_Chaos"
-# regime_switch_name =  "PH_from_Chaos"
-# regime_switch_name =  "Hopf"
-# regime_switch_name =  "Saddle-Node"
 
 # Find regime switch specific adjustments of template
 pars_template_adjust = setup_bifpars()
-
 
 for (regime_switch_name in regime_switch_names){
 
@@ -83,13 +74,6 @@ for (regime_switch_name in regime_switch_names){
   # File parameters
   pars_template$type_output = 'data'
   pars_template$analysis_type = pars_template$s_string
-  # pars_template$bifpar_list = do.call(get_bifurcation_range, pars_template$bifpar_pars)
-  # start_s = pars_template$bifpar_list[[1]]$s
-  # second_s = pars_template$bifpar_list[[2]]$s
-  # length_s = length(pars_template$bifpar_list)
-  # pars_template$analysis_type = sprintf(
-  #   "s%.05f-s%.05f-by%.05f",
-  #   start_s, pars_template$bifpar_list[[length_s]]$s, diff(c(start_s, second_s)))
 
   print(c(pars_template$bifpar_pars$bifpar_start, pars_template$bifpar_pars$bifpar_end))
   print(pars_template$nr_timesteps_full)
@@ -97,13 +81,13 @@ for (regime_switch_name in regime_switch_names){
   print(pars_template$sigma_obs_noise)
 
   # Run scripts
-  # source('generate_full_GLV.R')
-  # source('generate_transitions_GLV.R')
-  # source('compute_EWS_GLV.R')
+  source('generate_full_GLV.R')
+  source('generate_transitions_GLV.R')
+  source('compute_EWS_GLV.R')
   source('eval_performance_EWS_GLV.R')
 
 }
 
-# source('summarise_EWS_GLV.R')
+source('summarise_EWS_GLV.R')
 
 parallel::stopCluster(cl)

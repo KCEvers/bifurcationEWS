@@ -1,69 +1,3 @@
-# Minimal outline building R package
-#
-# Create .R script
-# usethis::use_r("example")
-#
-# Clear workspace
-# devtools::load_all(".")
-#
-# devtools::build_vignettes()
-#
-# devtools::document()
-# ch = devtools::check()
-# ch = devtools::check(vignettes=FALSE)
-# devtools::install()
-# or:
-# devtools::install(build_vignettes = TRUE)
-
-# browseURL("doc/demo.html") # View vignette
-
-# Add dependencies
-# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr", "plotly", "tibble", "latex2exp", "foreach", "scico", "osfr")
-# for (p in pkgs){
-# usethis::use_package(p)
-# }
-# Allow for use of pipes :
-# usethis::use_pipe()
-
-# Add data
-# https://grasshoppermouse.github.io/posts/2017-10-18-put-your-data-in-an-r-package/
-# # # Set up the data-raw directory and data processing script
-# # # You can use any name you want for your data
-# data_file = "GLV_Hopf_trans"
-# usethis::use_data_raw(data_file)
-# # # This script in the R directory will contain the documentation.
-# # # You can use any name you want.
-# file.create(sprintf("R/%s.R", data_file))
-# # # Put your data files into the data-raw folder. Your new package directory should look something like this:
-# # # Write your data processing code in a data-raw/mydataset.R script. It would look something like this:
-# #   # data-raw/mydataset.R
-# #   # Data import and processing pipeline
-# #   library(readr)
-# # library(readxl)
-# # mydataset <- read_csv("data-raw/pendulum data.csv")
-# # demographics <- read_excel("data-raw/Demographics.xlsx")
-# # # Data cleaning code here...
-# # # (Do NOT put data analysis code here!)
-# # # This should be the last line.
-# # # Note that names are unquoted.
-# # # I like using overwrite = T so everytime I run the script the
-# # # updated objects are saved, but the default is overwrite = F
-# # usethis::use_data(GLV_Hopf_trans, overwrite = T)
-# sinew::makeOxygen("GLV_Hopf_trans", add_fields = "source")
-# sinew::makeOxygen("GLV_Hopf_trans")
-# # tools::resaveRdaFiles(sprintf("data/%s.rda", data_file),compress="xz")
-# # tools::checkRdaFiles("data/")# To check that the compression has been done successfully
-# # GIven a LazyDataCompression warning: Add
-# # LazyDataCompression:xz
-# # to the description file.
-
-# Citation file
-# knitr::write_bib(c(.packages(), "bifurcationEWS"), "packages.bib")
-
-# Readme file
-# usethis::use_readme_rmd()
-# devtools::build_readme() # when finished
-
 #' Reduce size of dataframe by downsampling
 #'
 #' @param df Dataframe
@@ -627,13 +561,6 @@ get_forloop <- function(...) {
 #' @return Updated dataframe
 #' @export
 add_par_as_cols = function(df, for_par) {
-  # df2 = cbind(
-  #   df,
-  #   # as.data.frame(t(for_par))[rep(1, nrow(df)), ] %>%
-  #   as.data.frame(for_par)[rep(1, nrow(df)), ] %>%
-  #     magrittr::set_rownames(NULL))
-  #
-  # df2 <- df2[, !duplicated(colnames(df2))]
 
   # Remove any entries that are already in df
   df2 = dplyr::bind_cols(df, for_par[setdiff(names(for_par), names(df))])
@@ -672,3 +599,70 @@ download_example_data <- function(){
     return()
   }
 }
+
+# Minimal outline building R package
+#
+# Create .R script
+# usethis::use_r("example")
+#
+# Clear workspace
+# devtools::load_all(".")
+#
+# devtools::build_vignettes()
+#
+# devtools::document()
+# ch = devtools::check()
+# ch = devtools::check(vignettes=FALSE)
+# devtools::install()
+# or:
+# devtools::install(build_vignettes = TRUE)
+
+# browseURL("doc/demo.html") # View vignette
+
+# Add dependencies
+# pkgs = c("deSolve", "moments", "utils", "tidyr", "ggplot2", "purrr", "casnet", "rlang", "pracma", "dplyr","rgl", "ggh4x", "stats", "stringr", "zoo", "cowplot", 'magrittr', 'scales', "viridis", "grDevices", "tools", "grid", "invctr", "Matrix", "gsignal", "plyr", "plotly", "tibble", "latex2exp", "foreach", "scico", "osfr")
+# for (p in pkgs){
+# usethis::use_package(p)
+# }
+# Allow for use of pipes :
+# usethis::use_pipe()
+
+# Add data
+# https://grasshoppermouse.github.io/posts/2017-10-18-put-your-data-in-an-r-package/
+# # # Set up the data-raw directory and data processing script
+# # # You can use any name you want for your data
+# data_file = "GLV_Hopf_trans"
+# usethis::use_data_raw(data_file)
+# # # This script in the R directory will contain the documentation.
+# # # You can use any name you want.
+# file.create(sprintf("R/%s.R", data_file))
+# # # Put your data files into the data-raw folder. Your new package directory should look something like this:
+# # # Write your data processing code in a data-raw/mydataset.R script. It would look something like this:
+# #   # data-raw/mydataset.R
+# #   # Data import and processing pipeline
+# #   library(readr)
+# # library(readxl)
+# # mydataset <- read_csv("data-raw/pendulum data.csv")
+# # demographics <- read_excel("data-raw/Demographics.xlsx")
+# # # Data cleaning code here...
+# # # (Do NOT put data analysis code here!)
+# # # This should be the last line.
+# # # Note that names are unquoted.
+# # # I like using overwrite = T so everytime I run the script the
+# # # updated objects are saved, but the default is overwrite = F
+# # usethis::use_data(GLV_Hopf_trans, overwrite = T)
+# sinew::makeOxygen("GLV_Hopf_trans", add_fields = "source")
+# sinew::makeOxygen("GLV_Hopf_trans")
+# # tools::resaveRdaFiles(sprintf("data/%s.rda", data_file),compress="xz")
+# # tools::checkRdaFiles("data/")# To check that the compression has been done successfully
+# # GIven a LazyDataCompression warning: Add
+# # LazyDataCompression:xz
+# # to the description file.
+
+# Citation file
+# knitr::write_bib(c(.packages(), "bifurcationEWS"), "packages.bib")
+
+# Readme file
+# usethis::use_readme_rmd()
+# devtools::build_readme() # when finished
+

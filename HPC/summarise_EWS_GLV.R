@@ -68,7 +68,6 @@ EWS_warnings_ROC %>% pull(regime_switch) %>% unique
 EWS_warnings_ROC %>% group_by(regime_switch) %>% dplyr::summarise(max(max_sigma_crit), min(max_sigma_crit), .groups = 'drop') %>% as.data.frame()
 test = EWS_warnings_ROC %>% group_by(regime_switch, downsample_fs, sigma_obs_noise, metric) %>% dplyr::mutate(n = n()) %>% ungroup()
 test %>% arrange(n, regime_switch, downsample_fs, sigma_obs_noise, metric) %>% as.data.frame() %>% head(20)
-# warning_dfs %>% filter(regime_switch == "PD_4to8", downsample_fs == 0.1, sigma_obs_noise == .0001, metric == 'spatial_variance') %>%filter(is.na(score))%>%group_by(trans_or_null, sigma_crit)%>%summarise(n=n()) %>% as.data.frame() %>%head(20)
 
 # Check how many did not "max out" sigma_crit -> fpr is still too high while tpr is also high
 EWS_warnings_ROC %>%
@@ -117,12 +116,10 @@ foreach(batch = 1:nr_batches) %do% {
 
   if (!file.exists(filepath_warnings_YoudensJ_batch[[batch]])){
     warnings_YoudensJ_batch = foreach(i = batch_idxs[[batch]],
-      # i = 1:length(filepaths_warnings),
                                                       filepath_warnings = filepaths_warnings[batch_idxs[[batch]]],
                                 .packages = "dplyr",
                                                       .combine = 'rbind') %dopar% {
                                                         if(i %% 100 == 0){print(sprintf("%s i = %d %.4f %%", Sys.time(), i, i / length(filepaths_warnings)))}
-                                                        # print(sprintf("%s i = %d %.4f %%", Sys.time(), i, i / length(filepaths_warnings)))
                                                         warning_df = readRDS(filepath_warnings)$warning_df %>% select(-c("trans_or_null", "nr_patches", "nr_warnings", "baseline_steps", "transition_steps", "warning_signal"))
       return(merge(criterion_df, warning_df) %>% select(-c("sum_tp", "sum_fp", "sum_tn", "sum_fn")))
                                                       }
@@ -137,19 +134,12 @@ warnings_YoudensJ = foreach(batch = 1:nr_batches, .combine = 'rbind') %do% {
   return(readRDS(filepath_warnings_YoudensJ_batch[[batch]]))
 }
 saveRDS(warnings_YoudensJ, filepath_warnings_YoudensJ)
-# # Delete batch files
-# if (file.exists(filepath_warnings_YoudensJ)){
-#   foreach(batch = 1:nr_batches) %do% {
-#     rm(filepath_warnings_YoudensJ_batch[[batch]])
-#   }
-# }
+
 warnings_YoudensJ = readRDS(filepath_warnings_YoudensJ)
 
 # Summarise
 summ_dir_timing = function(x){
   summ_df =   x %>%
-    # # Remove outliers to not mess up the scaling of the plot
-    # filter((score > quantile(score, .01, na.rm = T, names = F)) & (score < quantile(score, .99, na.rm= T, names = F))) %>%
     dplyr::summarise(nr_positive = sum(score > 0, na.rm = T),
                      nr_negative = sum(score < 0, na.rm = T),
                      nr_zero = sum(score == 0, na.rm = T),

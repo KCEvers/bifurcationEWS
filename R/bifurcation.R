@@ -72,7 +72,7 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
         print(X0)
       }
     }
-    tmps <- list() #as.list(rep("", length(bifpar_idxs))) #list()
+    tmps <- list()
 
     # Generate data for each bifurcation parameter
     for (bifpar_idx in bifpar_idxs){
@@ -87,12 +87,10 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       X0s[bifpar_idx,] <- c(bifpar_idx, X0)
 
       # Generate data
-      # start_t = Sys.time()
       out <- deSolve::ode(y = X0, times = times + min_t, func = model,
                           parms = model_pars,
                           method = deSolve_method) %>%
         cbind(bifpar_idx=bifpar_idx)
-      # print(sprintf("Time taken by deSolve::ode(): %s seconds", Sys.time() - start_t))
 
       # Overwrite initial state
       X0 <- out[nrow(out),names(X0)]
@@ -109,21 +107,17 @@ bifurcation_ts <- function(model, model_pars, bifpar_list = NULL, bifpar_pars = 
       }
 
       if (do_downsample){
-        # start_t = Sys.time()
          out = downsample(out, X_names,
                          win_size = win_size,
                          which_X = which_X)
-         # print(sprintf("Time taken to downsample: %s seconds", Sys.time() - start_t))
 
       }
 
       # Save intermediate result for efficiency
-      # start_t = Sys.time()
       tmp <- tempfile(fileext = ".RDS")
       saveRDS(out, tmp)
       tmps[bifpar_idx] <- tmp
       rm(out)
-      # print(sprintf("Time taken to save results: %s seconds", Sys.time() - start_t))
 
     }
 
@@ -476,15 +470,6 @@ smooth_column <- function(rough_df, col_to_smooth = "period", smooth_along_col =
     print("Warning: in smooth_column(), the length of the vector is not long enough compared to the number of smoothing steps (nr_smooth). Skipping smoothing...")
     return(rough_df)
   } else {
-  #  # If a consistent regime shows one exception, smooth over.
-  # find_nr_surrounding_regimes <- function(x, min_length_regime, nr_smooth){
-  #   # Split vector
-  #   m <- zoo::rollapply(x, min_length_regime*2 + nr_smooth, by = 1, FUN = c)
-  #   # Find number of unique periods surrounding nr_smooth, excluding nr_smooth. Look back min_length_regime + nr_smooth - 1 steps (ignoring nr_smooth steps) and forward min_length_regime steps
-  #   c(rep(NA, min_length_regime + ceiling(nr_smooth/2) - 1), split(m, row(m)) %>% purrr::map(
-  #     function(x){length(unique(x[-seq(min_length_regime + 1, min_length_regime + nr_smooth)]))}) %>%
-  #       unname %>% unlist, rep(NA, min_length_regime + (nr_smooth - ceiling(nr_smooth/2))) ) %>% return()
-  # }
 
     # Smoothing functions
     find_nr_surrounding_regimes <- function(x, nr_smooth){
@@ -658,10 +643,8 @@ periods_to_regimes <- function(peaks_df, periods,
            .data$minmax,
            .data$X) %>%
     dplyr::filter(.data$variable == !!variable_name) %>%
-    # group_by(.data$bifpar_idx, .data$variable, .data$minmax) %>%
     group_by(.data$bifpar_idx, .data$variable) %>%
     group_modify(~ get_bands(x = .x$X,
-                             # min_edge = min_edge, max_edge = max_edge,
                              min_x = min(.x$X),
                              max_x = max(.x$X),
                              # Step size dependent on how many data points there are
@@ -908,7 +891,6 @@ find_regimes <- function(GLV,
                      max_edge=max_edge,
                      factor_k = factor_k)
   regime_list = modify_list(
-    # GLV[setdiff(names(GLV), names(regime_list_))],
     GLV, regime_list_)
 
   return(regime_list)
@@ -934,7 +916,6 @@ max_dist <- function(vec, cluster_idx){
   max_dist_per_k = unlist(lapply(split(vec, cluster_idx), function(x){max(stats::dist(x))}))
 }
 
-  # return(mean(max_dist_per_k))
   return(c(
     mean_spread = mean(max_dist_per_k),
     median_spread = stats::median(max_dist_per_k),
@@ -1250,12 +1231,6 @@ make_filter_regime_switches <- function(min_length_regime, baseline_steps, trans
           filter(.data$chaotic_beh) %>%
           select(-c(.data$chaotic_beh))
       },
-      # function(x){x %>%
-      #     group_by(.data$data_idx) %>%
-      #     # filter(all((grepl( "Mixture",.data$regime1, fixed = T)|grepl( "Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime1, fixed = T)) & (grepl( "None",.data$regime2, fixed = T)|grepl( "Mixture",.data$regime2, fixed = T)|grepl("Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime2, fixed = T)))) %>%
-      #     filter(all((grepl( "Mixture",.data$regime1, fixed = T)|grepl( "Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime1, fixed = T)) & (grepl( "None",.data$regime2, fixed = T)|grepl( "Mixture",.data$regime2, fixed = T)|grepl("Chaotic or Transitioning (X1,X2,X3,X4)",.data$regime2, fixed = T)))) %>%
-      #     ungroup()
-      # },
       # Filter out transition models that have long stretches of periodic behaviour that isn't period-1
       function(x){x %>%
           group_by(.data$data_idx) %>%

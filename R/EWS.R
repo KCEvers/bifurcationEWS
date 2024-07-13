@@ -31,7 +31,6 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 
       return(uni_df)
     })
-    # apply(x, 2, uni_metric)
   })
   } else {
   uni_EWS = data.frame()
@@ -39,7 +38,6 @@ run_EWS <- function(x, uni_metrics, multi_metrics, EWS_args = list()){
 
   if (length(multi_metrics) > 0){
   multi_EWS = plyr::ldply(names(multi_metrics), function(j){
-    # do.call(multi_metrics[[j]], modify_list(list(x = x), EWS_args[j]))
 
     if (j %in% names(EWS_args)){
       EWS_arg = EWS_args[[j]]
@@ -177,15 +175,6 @@ get_warnings_per_sigma <- function(y, bifpar_idx, z_score, sigma_crit_step,
 
     warnings_one_sigma = get_warnings_one_sigma(bifpar_idx, z_score, sigma_crit, nr_consecutive_warnings)
 
-    # if (nrow(warnings_one_sigma) == 0){
-    #   # No warning
-    #   first_warning_bifpar_idx = NA
-    #   score = NA
-    # } else {
-      # First warning
-      # first_warning_bifpar_idx = warnings_one_sigma$bifpar_idx[1]
-      # score = warnings_one_sigma$z_score[1]
-    # }
     return(data.frame(sigma_crit = sigma_crit,
                       first_warning_bifpar_idx = warnings_one_sigma$bifpar_idx[1],
                       score = warnings_one_sigma$z_score[1],
@@ -212,7 +201,6 @@ get_warnings_raw <- function(split_df_EWS, baseline_idx, transition_idx, sigma_c
 
   # Get warnings for ONE critical sigma
   warnings_raw_value = EWS_z_scores %>%
-    # filter(.data$bifpar_idx %in% transition_idx) %>%
     group_by(.data$metric) %>%
     group_modify(~ get_warnings_one_sigma(bifpar_idx = .x$bifpar_idx, z_score = .x$z_score,
                                           sigma_crit= sigma_crit,
@@ -264,7 +252,6 @@ get_warnings_one_sigma <- function(bifpar_idx, z_score, sigma_crit, nr_consecuti
   nr_patches = ifelse(length(conseq_seq) == 0, numeric(0), length(conseq_seq))
 
   return(data.frame(bifpar_idx = bifpar_idx[idxs_warnings], z_score = z_score[idxs_warnings]) %>% dplyr::mutate(nr_patches = nr_patches))
-  # return(list(idxs_warnings = idxs_warnings, nr_patches = nr_patches))
 }
 
 #' Get z-scores of EWS
@@ -402,9 +389,6 @@ warnings_to_ROC <- function(EWS_warnings, sigma_crit_step, thresh_max_sigma_crit
 #' @export
 #' @importFrom dplyr summarise group_by_at .data
 ROC_to_AUC <- function(EWS_warnings_ROC, grouping_vars = c("metric")){
-
-  # default_grouping_vars <- c("metric")
-  # grouping_vars = c(default_grouping_vars, grouping_vars)
 
   # Add number of true positives, false negatives, true negatives, and false positives
   EWS_warnings_AUC = EWS_warnings_ROC %>%
@@ -611,9 +595,6 @@ get_Smax = function(x, fs, nr_timesteps){
   if (any(apply(x, 2, stats::sd) == 0)){
     Smax_df = matrix(0, ncol = ncol(x), nrow = 1) %>% magrittr::set_colnames(colnames(x)) %>% as.data.frame()
 
-    # spectral_exp = 0
-    # spec_ratio_LF_HF = 0
-    # spec_ratio_LF_HF_perc = 0
   } else {
     lx <- fs * nr_timesteps
     pw <- gsignal::pwelch(x, window = lx, fs = fs,

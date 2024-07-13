@@ -157,8 +157,6 @@ foreach(
       split_df_EWS_old = split_df_EWS_old %>%
         filter(bifpar_idx %in% (split(split_df_EWS_old$bifpar_idx, split_df_EWS_old$metric) %>% purrr::reduce(intersect)))
       bifpar_idx_todo = setdiff(bifpar_idx_, unique(split_df_EWS_old$bifpar_idx))
-      # print(length(bifpar_idx_todo_))
-      # print(length(bifpar_idx_todo))
 
       # Find which metrics aren't in the dataframe
       check_run = c("all_metrics", "all_bifpar_idx")[1]
@@ -286,20 +284,7 @@ foreach(
 
         pl_regimes = regime_list$peaks_df %>%
           dplyr::filter(bifpar_idx > 1) %>%
-          # merge(regime_bounds, all = TRUE) %>%
           ggplot() +
-          # geom_rect(
-          #   data = regime_list$regimes,
-          #   aes(
-          #     xmin = start_bifpar_idx - .5,
-          #     xmax = end_bifpar_idx + .5,
-          #     ymin = -Inf,
-          #     ymax = Inf,
-          #     fill = regime
-          #   ),
-          #   linewidth = .5,
-          #   alpha = .4
-        # ) +
         geom_vline(
           data = regime_bounds_long,
           aes(xintercept = idx,
